@@ -41,7 +41,6 @@ func InitDB() {
 		&models.RekapSaldo{},
 		&models.Pengumuman{},
 		&models.LogAktivitas{},
-		&models.Notifikasi{},
 	)
 	if err != nil {
 		log.Fatal("Gagal migrate database:", err)

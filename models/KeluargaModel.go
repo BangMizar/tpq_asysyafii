@@ -12,7 +12,6 @@ type Keluarga struct {
 	Provinsi   string `json:"provinsi" gorm:"type:varchar(100)"`
 	KodePos    string `json:"kode_pos" gorm:"type:varchar(10)"`
 
-	User            User              `json:"user" gorm:"foreignKey:IDUser;references:IDUser"`
 	AnggotaKeluarga []AnggotaKeluarga `json:"anggota_keluarga" gorm:"foreignKey:IDKeluarga;references:IDKeluarga"`
 }
 

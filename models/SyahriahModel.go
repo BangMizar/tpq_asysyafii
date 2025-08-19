@@ -18,7 +18,6 @@ type Syahriah struct {
 	DicatatOleh string        `json:"dicatat_oleh" gorm:"type:char(36);not null"`
 	WaktuCatat time.Time      `json:"waktu_catat" gorm:"autoCreateTime"`
 
-	User   User `json:"user" gorm:"foreignKey:IDUser;references:IDUser"`
 	Admin  User `json:"admin" gorm:"foreignKey:DicatatOleh;references:IDUser"`
 }
 

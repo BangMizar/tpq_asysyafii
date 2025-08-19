@@ -31,8 +31,6 @@ type AnggotaKeluarga struct {
 	StatusKeluarga  StatusKeluarga    `json:"status_keluarga" gorm:"type:enum('Kepala Keluarga','Istri','Anak','Lainnya')"`
 	StatusPerkawinan StatusPerkawinan `json:"status_perkawinan" gorm:"type:enum('Belum Kawin','Kawin','Cerai Hidup','Cerai Mati')"`
 	Kewarganegaraan string            `json:"kewarganegaraan" gorm:"type:varchar(50);default:'WNI'"`
-
-	Keluarga Keluarga `json:"keluarga" gorm:"foreignKey:IDKeluarga;references:IDKeluarga"`
 }
 
 func (AnggotaKeluarga) TableName() string {

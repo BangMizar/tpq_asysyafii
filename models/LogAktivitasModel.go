@@ -11,7 +11,6 @@ type LogAktivitas struct {
 	Keterangan string   `json:"keterangan" gorm:"type:text"`
 	WaktuAksi time.Time `json:"waktu_aksi" gorm:"autoCreateTime"`
 
-	User User `json:"user" gorm:"foreignKey:IDUser;references:IDUser"`
 }
 
 func (LogAktivitas) TableName() string {
