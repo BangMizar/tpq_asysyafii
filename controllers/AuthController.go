@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
+	"tpq_asysyafii/config" 
 	"tpq_asysyafii/models"
 	"tpq_asysyafii/utils"
 )
@@ -49,7 +50,7 @@ func RegisterUser(c *gin.Context) {
 		DiperbaruiPada: time.Now(),
 	}
 
-	if err := models.DB.Create(&user).Error; err != nil {
+	if err := config.DB.Create(&user).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "gagal menyimpan user"})
 		return
 	}
@@ -73,9 +74,9 @@ func LoginUser(c *gin.Context) {
 	var err error
 
 	if input.NoTelp != "" {
-		err = models.DB.Where("no_telp = ?", input.NoTelp).First(&user).Error
+		err = config.DB.Where("no_telp = ?", input.NoTelp).First(&user).Error
 	} else if input.NamaLengkap != "" {
-		err = models.DB.Where("nama_lengkap = ?", input.NamaLengkap).First(&user).Error
+		err = config.DB.Where("nama_lengkap = ?", input.NamaLengkap).First(&user).Error
 	} else {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "masukkan no_telp atau nama_lengkap"})
 		return
@@ -112,7 +113,7 @@ func LoginUser(c *gin.Context) {
 
 func GetUsers(c *gin.Context) {
 	var users []models.User
-	if err := models.DB.Find(&users).Error; err != nil {
+	if err := config.DB.Find(&users).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "gagal mengambil data"})
 		return
 	}
@@ -122,7 +123,7 @@ func GetUsers(c *gin.Context) {
 func GetUserByID(c *gin.Context) {
 	id := c.Param("id")
 	var user models.User
-	if err := models.DB.First(&user, "id_user = ?", id).Error; err != nil {
+	if err := config.DB.First(&user, "id_user = ?", id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user tidak ditemukan"})
 		return
 	}
@@ -133,7 +134,7 @@ func UpdateUser(c *gin.Context) {
 	id := c.Param("id")
 	var user models.User
 
-	if err := models.DB.First(&user, "id_user = ?", id).Error; err != nil {
+	if err := config.DB.First(&user, "id_user = ?", id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user tidak ditemukan"})
 		return
 	}
@@ -174,7 +175,7 @@ func UpdateUser(c *gin.Context) {
 
 	user.DiperbaruiPada = time.Now()
 
-	if err := models.DB.Save(&user).Error; err != nil {
+	if err := config.DB.Save(&user).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "gagal update user"})
 		return
 	}
@@ -184,7 +185,7 @@ func UpdateUser(c *gin.Context) {
 
 func DeleteUser(c *gin.Context) {
 	id := c.Param("id")
-	if err := models.DB.Delete(&models.User{}, "id_user = ?", id).Error; err != nil {
+	if err := config.DB.Delete(&models.User{}, "id_user = ?", id).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "gagal hapus user"})
 		return
 	}

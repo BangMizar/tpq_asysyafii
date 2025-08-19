@@ -23,3 +23,7 @@ type User struct {
 	DibuatPada   time.Time `json:"dibuat_pada" gorm:"autoCreateTime"`
 	DiperbaruiPada time.Time `json:"diperbarui_pada" gorm:"autoUpdateTime"`
 }
+
+func (User) TableName() string {
+	return "users"
+}

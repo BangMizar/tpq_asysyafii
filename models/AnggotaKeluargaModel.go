@@ -34,3 +34,7 @@ type AnggotaKeluarga struct {
 
 	Keluarga Keluarga `json:"keluarga" gorm:"foreignKey:IDKeluarga;references:IDKeluarga"`
 }
+
+func (AnggotaKeluarga) TableName() string {
+	return "anggotakeluarga"
+}

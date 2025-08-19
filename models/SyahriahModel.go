@@ -21,3 +21,7 @@ type Syahriah struct {
 	User   User `json:"user" gorm:"foreignKey:IDUser;references:IDUser"`
 	Admin  User `json:"admin" gorm:"foreignKey:DicatatOleh;references:IDUser"`
 }
+
+func (Syahriah) TableName() string {
+	return "syahriah"
+}

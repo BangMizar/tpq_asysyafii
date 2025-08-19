@@ -15,3 +15,7 @@ type Keluarga struct {
 	User            User              `json:"user" gorm:"foreignKey:IDUser;references:IDUser"`
 	AnggotaKeluarga []AnggotaKeluarga `json:"anggota_keluarga" gorm:"foreignKey:IDKeluarga;references:IDKeluarga"`
 }
+
+func (Keluarga) TableName() string {
+	return "keluarga"
+}

@@ -11,3 +11,7 @@ type Donasi struct {
 
 	Admin User `json:"admin" gorm:"foreignKey:DicatatOleh;references:IDUser"`
 }
+
+func (Donasi) TableName() string {
+	return "donasi"
+}

@@ -13,3 +13,7 @@ type LogAktivitas struct {
 
 	User User `json:"user" gorm:"foreignKey:IDUser;references:IDUser"`
 }
+
+func (LogAktivitas) TableName() string {
+	return "logaktivitas"
+}

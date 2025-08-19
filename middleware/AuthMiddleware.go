@@ -1,33 +1,70 @@
-package middleware
+package middlewares
 
 import (
 	"net/http"
 	"strings"
+	"tpq_asysyafii/utils"
 
 	"github.com/gin-gonic/gin"
-	"tpq_asysyafii/utils"
 )
 
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "token tidak ada"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header kosong"})
 			c.Abort()
 			return
 		}
 
-		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-		claims, err := utils.ValidateToken(tokenString)
+		parts := strings.Split(authHeader, " ")
+		if len(parts) != 2 || parts[0] != "Bearer" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Format token salah (Bearer <token>)"})
+			c.Abort()
+			return
+		}
+
+		claims, err := utils.VerifyToken(parts[1])
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "token tidak valid"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token tidak valid"})
 			c.Abort()
 			return
 		}
 
-		c.Set("user_id", claims.IDUser)
-		c.Set("role", claims.Role)
+		// Simpan ke context
+		if userID, ok := claims["user_id"].(string); ok {
+			c.Set("user_id", userID)
+		}
+		if role, ok := claims["role"].(string); ok {
+			c.Set("role", role)
+		}
 
+		c.Next()
+	}
+}
+
+// Middleware hanya untuk admin
+func AdminMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		role, exists := c.Get("role")
+		if !exists || role != "admin" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Hanya admin yang bisa mengakses"})
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
+}
+
+// Middleware hanya untuk superadmin
+func SuperAdminMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		role, exists := c.Get("role")
+		if !exists || role != "super_admin" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Hanya super admin yang bisa mengakses"})
+			c.Abort()
+			return
+		}
 		c.Next()
 	}
 }

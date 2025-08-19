@@ -19,3 +19,7 @@ type RekapSaldo struct {
 	SaldoAkhir       float64   `json:"saldo_akhir" gorm:"type:decimal(14,2);default:0"`
 	TerakhirUpdate   time.Time `json:"terakhir_update" gorm:"autoUpdateTime"`
 }
+
+func (RekapSaldo) TableName() string {
+	return "rekapsaldo"
+}

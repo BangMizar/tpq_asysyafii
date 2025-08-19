@@ -26,3 +26,7 @@ type Pengumuman struct {
 
 	Author User `json:"author" gorm:"foreignKey:DibuatOleh;references:IDUser"`
 }
+
+func (Pengumuman) TableName() string {
+	return "pengumuman"
+}
