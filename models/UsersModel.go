@@ -15,7 +15,7 @@ const (
 type User struct {
 	IDUser       string    `json:"id_user" gorm:"type:char(36);primaryKey"`
 	NamaLengkap  string    `json:"nama_lengkap" gorm:"type:varchar(100);not null"`
-	Email        string    `json:"email" gorm:"type:varchar(100);unique"`
+	Email         *string   `json:"email" gorm:"type:varchar(100);unique"`
 	NoTelp       string    `json:"no_telp" gorm:"type:varchar(20)"`
 	Password     string    `json:"-" gorm:"type:varchar(255);not null"`
 	Role         UserRole  `json:"role" gorm:"type:enum('super_admin','admin','wali');default:'wali'"`

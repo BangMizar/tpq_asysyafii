@@ -14,7 +14,7 @@ import (
 func RegisterUser(c *gin.Context) {
 	var input struct {
 		NamaLengkap string `json:"nama_lengkap" binding:"required"`
-		Email       string `json:"email" binding:"required,email"`
+		Email       *string `json:"email"`
 		NoTelp      string `json:"no_telp"`
 		Password    string `json:"password" binding:"required"`
 		Role        string `json:"role"`
@@ -59,8 +59,9 @@ func RegisterUser(c *gin.Context) {
 
 func LoginUser(c *gin.Context) {
 	var input struct {
-		Email    string `json:"email" binding:"required,email"`
-		Password string `json:"password" binding:"required"`
+		NoTelp      string `json:"no_telp"`
+		NamaLengkap string `json:"nama_lengkap"`
+		Password    string `json:"password" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -69,8 +70,19 @@ func LoginUser(c *gin.Context) {
 	}
 
 	var user models.User
-	if err := models.DB.Where("email = ?", input.Email).First(&user).Error; err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "email tidak ditemukan"})
+	var err error
+
+	if input.NoTelp != "" {
+		err = models.DB.Where("no_telp = ?", input.NoTelp).First(&user).Error
+	} else if input.NamaLengkap != "" {
+		err = models.DB.Where("nama_lengkap = ?", input.NamaLengkap).First(&user).Error
+	} else {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "masukkan no_telp atau nama_lengkap"})
+		return
+	}
+
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user tidak ditemukan"})
 		return
 	}
 
@@ -91,10 +103,12 @@ func LoginUser(c *gin.Context) {
 		"user": gin.H{
 			"id_user":      user.IDUser,
 			"nama_lengkap": user.NamaLengkap,
+			"no_telp":      user.NoTelp,
 			"role":         user.Role,
 		},
 	})
 }
+
 
 func GetUsers(c *gin.Context) {
 	var users []models.User
@@ -126,7 +140,7 @@ func UpdateUser(c *gin.Context) {
 
 	var input struct {
 		NamaLengkap string `json:"nama_lengkap"`
-		Email       string `json:"email"`
+		Email       *string `json:"email"`
 		NoTelp      string `json:"no_telp"`
 		Password    string `json:"password"`
 		Role        string `json:"role"`
@@ -141,7 +155,7 @@ func UpdateUser(c *gin.Context) {
 	if input.NamaLengkap != "" {
 		user.NamaLengkap = input.NamaLengkap
 	}
-	if input.Email != "" {
+	if input.Email != nil {
 		user.Email = input.Email
 	}
 	if input.NoTelp != "" {
