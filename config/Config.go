@@ -31,7 +31,6 @@ func InitDB() {
 	DB = db
 	fmt.Println("Database terkoneksi.")
 
-	// AutoMigrate sesuai skema TPQ
 	err = db.AutoMigrate(
 		&models.User{},
 		&models.Keluarga{},

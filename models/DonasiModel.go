@@ -5,6 +5,7 @@ import "time"
 type Donasi struct {
 	IDDonasi    string    `json:"id_donasi" gorm:"type:char(36);primaryKey"`
 	NamaDonatur string    `json:"nama_donatur" gorm:"type:varchar(100);default:'Anonim'"`
+	NoTelp         string    `json:"no_telp,omitempty" gorm:"type:varchar(20)"`
 	Nominal     float64   `json:"nominal" gorm:"type:decimal(12,2);not null;check:nominal > 0"`
 	DicatatOleh string    `json:"dicatat_oleh" gorm:"type:char(36);not null"`
 	WaktuCatat  time.Time `json:"waktu_catat" gorm:"autoCreateTime"`
