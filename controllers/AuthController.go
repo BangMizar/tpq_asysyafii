@@ -113,9 +113,10 @@ func RegisterUser(c *gin.Context) {
 
 func LoginUser(c *gin.Context) {
 	var input struct {
-		NoTelp      string `json:"no_telp"`
-		NamaLengkap string `json:"nama_lengkap"`
-		Password    string `json:"password" binding:"required"`
+		Email       *string `json:"email"`
+		NamaLengkap string  `json:"nama_lengkap"`
+		NoTelp      string  `json:"no_telp"`
+		Password    string  `json:"password" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -126,17 +127,29 @@ func LoginUser(c *gin.Context) {
 	var user models.User
 	var err error
 
-	if input.NoTelp != "" {
-		err = config.DB.Where("no_telp = ?", input.NoTelp).First(&user).Error
+	// Cari user berdasarkan email, nama lengkap, atau no telp
+	query := config.DB
+	if input.Email != nil && *input.Email != "" {
+		query = query.Where("email = ?", *input.Email)
 	} else if input.NamaLengkap != "" {
-		err = config.DB.Where("nama_lengkap = ?", input.NamaLengkap).First(&user).Error
+		query = query.Where("nama_lengkap = ?", input.NamaLengkap)
+	} else if input.NoTelp != "" {
+		query = query.Where("no_telp = ?", input.NoTelp)
 	} else {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "masukkan no_telp atau nama_lengkap"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "masukkan email, nama_lengkap, atau no_telp"})
 		return
 	}
 
+	err = query.First(&user).Error
+
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "user tidak ditemukan"})
+		return
+	}
+
+	// Periksa status aktif user
+	if !user.StatusAktif {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "akun tidak aktif"})
 		return
 	}
 
@@ -157,6 +170,7 @@ func LoginUser(c *gin.Context) {
 		"user": gin.H{
 			"id_user":      user.IDUser,
 			"nama_lengkap": user.NamaLengkap,
+			"email":        user.Email,
 			"no_telp":      user.NoTelp,
 			"role":         user.Role,
 		},
