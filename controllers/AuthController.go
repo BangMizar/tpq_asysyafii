@@ -3,14 +3,60 @@ package controllers
 import (
 	"net/http"
 	"time"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"tpq_asysyafii/config" 
 	"tpq_asysyafii/models"
 	"tpq_asysyafii/utils"
 )
+
+func generateCustomID(role models.UserRole) (string, error) {
+	var prefix string
+	switch role {
+	case models.RoleAdmin:
+		prefix = "A"
+	case models.RoleSuperAdmin:
+		prefix = "SA"
+	case models.RoleWali:
+		prefix = "W"
+	default:
+		return "", fmt.Errorf("role tidak valid")
+	}
+
+	// Cari ID terakhir untuk role tersebut
+	var lastUser models.User
+	err := config.DB.Where("id_user LIKE ?", prefix + "%").Order("id_user DESC").First(&lastUser).Error
+	
+	var nextNumber int
+	if err != nil {
+		// Jika tidak ada data sebelumnya, mulai dari 1
+		nextNumber = 1
+	} else {
+		// Ekstrak angka dari ID terakhir dan increment
+		var lastNumber int
+		if role == models.RoleSuperAdmin {
+			fmt.Sscanf(lastUser.IDUser, "SA%d", &lastNumber)
+		} else {
+			fmt.Sscanf(lastUser.IDUser, prefix + "%d", &lastNumber)
+		}
+		nextNumber = lastNumber + 1
+	}
+
+	// Format ID berdasarkan role
+	var customID string
+	switch role {
+	case models.RoleSuperAdmin:
+		customID = fmt.Sprintf("SA%02d", nextNumber)
+	case models.RoleAdmin:
+		customID = fmt.Sprintf("A%03d", nextNumber)
+	case models.RoleWali:
+		customID = fmt.Sprintf("W%03d", nextNumber)
+	}
+
+	return customID, nil
+}
 
 func RegisterUser(c *gin.Context) {
 	var input struct {
@@ -38,8 +84,15 @@ func RegisterUser(c *gin.Context) {
 		role = models.UserRole(input.Role)
 	}
 
+	// Generate custom ID
+	customID, err := generateCustomID(role)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "gagal generate ID user"})
+		return
+	}
+
 	user := models.User{
-		IDUser:        uuid.New().String(),
+		IDUser:        customID,
 		NamaLengkap:   input.NamaLengkap,
 		Email:         input.Email,
 		NoTelp:        input.NoTelp,
@@ -110,7 +163,6 @@ func LoginUser(c *gin.Context) {
 	})
 }
 
-
 func GetUsers(c *gin.Context) {
 	var users []models.User
 	if err := config.DB.Find(&users).Error; err != nil {
@@ -153,6 +205,18 @@ func UpdateUser(c *gin.Context) {
 		return
 	}
 
+	// Jika role diubah, generate ID baru
+	if input.Role != "" && input.Role != string(user.Role) {
+		newRole := models.UserRole(input.Role)
+		newID, err := generateCustomID(newRole)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "gagal generate ID user baru"})
+			return
+		}
+		user.IDUser = newID
+		user.Role = newRole
+	}
+
 	if input.NamaLengkap != "" {
 		user.NamaLengkap = input.NamaLengkap
 	}
@@ -165,9 +229,6 @@ func UpdateUser(c *gin.Context) {
 	if input.Password != "" {
 		hashedPass, _ := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
 		user.Password = string(hashedPass)
-	}
-	if input.Role != "" {
-		user.Role = models.UserRole(input.Role)
 	}
 	if input.StatusAktif != nil {
 		user.StatusAktif = *input.StatusAktif
