@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"tpq_asysyafii/models"
+	"tpq_asysyafii/services"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -14,11 +15,15 @@ import (
 )
 
 type DonasiController struct {
-	db *gorm.DB
+	db        *gorm.DB
+	logService *services.LogService
 }
 
 func NewDonasiController(db *gorm.DB) *DonasiController {
-	return &DonasiController{db: db}
+	return &DonasiController{
+		db:        db,
+		logService: services.NewLogService(db),
+	}
 }
 
 // Request structs
@@ -100,6 +105,10 @@ func (ctrl *DonasiController) CreateDonasi(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat donasi: " + err.Error()})
 		return
 	}
+
+	// ✅ AUTO LOG: Catat aktivitas
+	keterangan := "Membuat donasi: " + req.NamaDonatur + " - Rp " + strconv.FormatFloat(req.Nominal, 'f', 0, 64)
+	ctrl.logService.LogAktivitas(userID, services.AksiCreate, services.TargetDonasi, donasi.IDDonasi, keterangan)
 
 	// Preload admin data untuk response
 	ctrl.db.Preload("Admin").First(&donasi, "id_donasi = ?", donasi.IDDonasi)
@@ -214,6 +223,13 @@ func (ctrl *DonasiController) UpdateDonasi(c *gin.Context) {
 		return
 	}
 
+	// Get user ID
+	userID, exists := ctrl.getUserID(c)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized: user ID tidak ditemukan"})
+		return
+	}
+
 	var req UpdateDonasiRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -232,6 +248,9 @@ func (ctrl *DonasiController) UpdateDonasi(c *gin.Context) {
 		return
 	}
 
+	// Simpan data lama untuk log
+	dataLama := existingDonasi
+
 	// Update fields
 	if req.NamaDonatur != "" {
 		existingDonasi.NamaDonatur = req.NamaDonatur
@@ -248,6 +267,12 @@ func (ctrl *DonasiController) UpdateDonasi(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengupdate donasi: " + err.Error()})
 		return
 	}
+
+	// ✅ AUTO LOG: Catat aktivitas update
+	keterangan := "Update donasi: " + dataLama.NamaDonatur + 
+		" | Nominal: Rp " + strconv.FormatFloat(dataLama.Nominal, 'f', 0, 64) + 
+		" → Rp " + strconv.FormatFloat(existingDonasi.Nominal, 'f', 0, 64)
+	ctrl.logService.LogAktivitas(userID, services.AksiUpdate, services.TargetDonasi, id, keterangan)
 
 	// Preload admin data untuk response
 	ctrl.db.Preload("Admin").First(&existingDonasi, "id_donasi = ?", existingDonasi.IDDonasi)
@@ -272,6 +297,13 @@ func (ctrl *DonasiController) DeleteDonasi(c *gin.Context) {
 		return
 	}
 
+	// Get user ID
+	userID, exists := ctrl.getUserID(c)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized: user ID tidak ditemukan"})
+		return
+	}
+
 	// Cek apakah donasi exists
 	var donasi models.Donasi
 	err := ctrl.db.Where("id_donasi = ?", id).First(&donasi).Error
@@ -283,6 +315,10 @@ func (ctrl *DonasiController) DeleteDonasi(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data donasi: " + err.Error()})
 		return
 	}
+
+	// ✅ AUTO LOG: Catat sebelum hapus
+	keterangan := "Menghapus donasi: " + donasi.NamaDonatur + " - Rp " + strconv.FormatFloat(donasi.Nominal, 'f', 0, 64)
+	ctrl.logService.LogAktivitas(userID, services.AksiDelete, services.TargetDonasi, id, keterangan)
 
 	// Hapus donasi
 	if err := ctrl.db.Where("id_donasi = ?", id).Delete(&models.Donasi{}).Error; err != nil {
