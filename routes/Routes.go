@@ -32,10 +32,15 @@ func SetupRoutes(r *gin.Engine) {
 			// protected.GET("/profile", controllers.GetProfile)
 			// protected.PUT("/profile", controllers.UpdateProfile)
 
-			// Wali: riwayat syahriah & profil keluarga
-			// protected.GET("/syahriah/riwayat", controllers.GetRiwayatSyahriah)
-			// protected.GET("/keluarga/:id", controllers.GetKeluargaByUser)
-			// protected.PUT("/keluarga/:id", controllers.UpdateKeluarga)
+			keluargaController := controllers.NewKeluargaController(config.DB)
+			protected.POST("/keluarga", keluargaController.CreateKeluarga)
+			protected.GET("/keluarga", keluargaController.GetAllKeluarga)
+			protected.GET("/keluarga/my", keluargaController.GetMyKeluarga)
+			protected.GET("/keluarga/search", keluargaController.SearchKeluarga)
+			protected.GET("/keluarga/:id", keluargaController.GetKeluargaByID)
+			protected.GET("/keluarga/wali/:id_wali", keluargaController.GetKeluargaByWali)
+			protected.PUT("/keluarga/:id", keluargaController.UpdateKeluarga)
+			protected.DELETE("/keluarga/:id", keluargaController.DeleteKeluarga)
 		}
 
 		// Admin routes (admin & super_admin)
