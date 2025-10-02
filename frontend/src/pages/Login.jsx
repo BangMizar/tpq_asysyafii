@@ -1,30 +1,58 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 const Login = () => {
   const [formData, setFormData] = useState({
-    email: '',
+    identifier: '',
     password: ''
   })
+  const [showPassword, setShowPassword] = useState(false)
+  const [rememberMe, setRememberMe] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const navigate = useNavigate()
   const { login } = useAuth()
 
-  // Config untuk API - menggunakan import.meta.env untuk Vite
+  // Config untuk API
   const API_CONFIG = {
     baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080',
-    apiKey: import.meta.env.VITE_API_KEY || 'default_api_key_here'
   }
+
+  // Load saved credentials on component mount
+  useEffect(() => {
+    const savedIdentifier = localStorage.getItem('rememberedIdentifier')
+    const savedRememberMe = localStorage.getItem('rememberMe') === 'true'
+    
+    if (savedIdentifier && savedRememberMe) {
+      setFormData(prev => ({
+        ...prev,
+        identifier: savedIdentifier
+      }))
+      setRememberMe(true)
+    }
+  }, [])
 
   const handleChange = (e) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
     })
-    // Clear error when user starts typing
     if (error) setError('')
+  }
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword)
+  }
+
+  const handleRememberMeChange = (e) => {
+    setRememberMe(e.target.checked)
+    
+    // If unchecked, remove saved credentials
+    if (!e.target.checked) {
+      localStorage.removeItem('rememberedIdentifier')
+      localStorage.removeItem('rememberMe')
+    }
   }
 
   const handleSubmit = async (e) => {
@@ -33,29 +61,58 @@ const Login = () => {
     setError('')
 
     try {
-      console.log('API Config:', API_CONFIG) // Debug log
+      console.log('Mengirim request login...')
+
+      const identifier = formData.identifier.trim()
+      
+      // Prepare request body based on identifier type
+      let requestBody = {
+        password: formData.password
+      }
+
+      // Check if identifier is email
+      if (identifier.includes('@')) {
+        requestBody.email = identifier
+        requestBody.nama_lengkap = ""
+        requestBody.no_telp = ""
+      } 
+      // Check if identifier is phone number (contains only numbers and +)
+      else if (/^[\d+]+$/.test(identifier)) {
+        requestBody.email = null
+        requestBody.nama_lengkap = ""
+        requestBody.no_telp = identifier
+      } 
+      // Otherwise treat as nama_lengkap
+      else {
+        requestBody.email = null
+        requestBody.nama_lengkap = identifier
+        requestBody.no_telp = ""
+      }
 
       const response = await fetch(`${API_CONFIG.baseURL}/api/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-Key': API_CONFIG.apiKey
         },
-        body: JSON.stringify({
-          email: formData.email || null,
-          nama_lengkap: formData.email,
-          password: formData.password
-        })
+        body: JSON.stringify(requestBody)
       })
+
+      // Check if response is OK
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Terjadi kesalahan server' }))
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      }
 
       const data = await response.json()
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Login gagal')
-      }
-
       // Login successful
       console.log('Login berhasil:', data)
+      
+      // Save credentials if remember me is checked
+      if (rememberMe) {
+        localStorage.setItem('rememberedIdentifier', identifier)
+        localStorage.setItem('rememberMe', 'true')
+      }
       
       // Save to context
       login(data.user, data.token)
@@ -76,8 +133,8 @@ const Login = () => {
       }
       
     } catch (err) {
-      setError(err.message || 'Terjadi kesalahan saat login')
-      console.error('Login error:', err)
+      console.error('Login error details:', err)
+      setError(err.message || 'Terjadi kesalahan saat login. Periksa koneksi Anda.')
     } finally {
       setLoading(false)
     }
@@ -117,37 +174,59 @@ const Login = () => {
 
           <div className="space-y-4">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-green-700 mb-1">
-                Email atau Username
+              <label htmlFor="identifier" className="block text-sm font-medium text-green-700 mb-1">
+                Email, Username, atau No. Telepon
               </label>
               <input
-                id="email"
-                name="email"
+                id="identifier"
+                name="identifier"
                 type="text"
                 required
                 className="appearance-none relative block w-full px-3 py-3 border border-green-300 placeholder-green-400 text-green-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                placeholder="Masukkan email atau username"
-                value={formData.email}
+                placeholder="Masukkan email, nama lengkap, atau no. telepon"
+                value={formData.identifier}
                 onChange={handleChange}
                 disabled={loading}
               />
+              <p className="mt-1 text-xs text-green-600">
+                Anda bisa login menggunakan email, nama lengkap, atau nomor telepon
+              </p>
             </div>
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-green-700 mb-1">
                 Password
               </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                className="appearance-none relative block w-full px-3 py-3 border border-green-300 placeholder-green-400 text-green-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                placeholder="Masukkan password"
-                value={formData.password}
-                onChange={handleChange}
-                disabled={loading}
-              />
+              <div className="relative">
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  required
+                  className="appearance-none relative block w-full px-3 py-3 pr-10 border border-green-300 placeholder-green-400 text-green-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  placeholder="Masukkan password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-green-600 hover:text-green-800"
+                  onClick={togglePasswordVisibility}
+                  disabled={loading}
+                >
+                  {showPassword ? (
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                    </svg>
+                  ) : (
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -157,6 +236,8 @@ const Login = () => {
                 id="remember-me"
                 name="remember-me"
                 type="checkbox"
+                checked={rememberMe}
+                onChange={handleRememberMeChange}
                 className="h-4 w-4 text-green-600 focus:ring-green-500 border-green-300 rounded"
                 disabled={loading}
               />
