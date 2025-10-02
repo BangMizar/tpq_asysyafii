@@ -35,7 +35,7 @@ func main() {
 	}))
 
 	// Register routes
-	routes.SetupRoutes(r,config.DB)
+	routes.SetupRoutes(r)
 
 	// Port setup
 	port := os.Getenv("PORT")

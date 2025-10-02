@@ -43,19 +43,12 @@ func AuthMiddleware() gin.HandlerFunc {
 	}
 }
 
-// Middleware untuk admin dan super_admin
+// Middleware hanya untuk admin
 func AdminMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		role, exists := c.Get("role")
-		if !exists {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Role tidak ditemukan"})
-			c.Abort()
-			return
-		}
-
-		roleStr := role.(string)
-		if roleStr != "admin" && roleStr != "super_admin" {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Hanya admin dan super admin yang bisa mengakses"})
+		if !exists || role != "admin" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Hanya admin yang bisa mengakses"})
 			c.Abort()
 			return
 		}
@@ -63,18 +56,11 @@ func AdminMiddleware() gin.HandlerFunc {
 	}
 }
 
-// Middleware hanya untuk super_admin
+// Middleware hanya untuk superadmin
 func SuperAdminMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		role, exists := c.Get("role")
-		if !exists {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Role tidak ditemukan"})
-			c.Abort()
-			return
-		}
-
-		roleStr := role.(string)
-		if roleStr != "super_admin" {
+		if !exists || role != "super_admin" {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Hanya super admin yang bisa mengakses"})
 			c.Abort()
 			return

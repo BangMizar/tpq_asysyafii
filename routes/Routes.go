@@ -6,10 +6,9 @@ import (
 	"tpq_asysyafii/middleware"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
-func SetupRoutes(r *gin.Engine, db *gorm.DB) {
+func SetupRoutes(r *gin.Engine) {
 	api := r.Group("/api")
 	{
 		// Auth
@@ -57,7 +56,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB) {
 			admin.DELETE("/donasi/:id", donasiController.DeleteDonasi)
 
 			// Log routes (read only)
-			logController := controllers.NewLogAktivitasController(db)
+			logController := controllers.NewLogAktivitasController(config.GetDB())
 			admin.GET("/logs", logController.GetAllLogAktivitas)
 			admin.GET("/logs/summary", logController.GetLogSummary)
 			admin.GET("/logs/:id", logController.GetLogAktivitasByID)

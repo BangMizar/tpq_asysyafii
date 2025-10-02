@@ -10,29 +10,7 @@ import (
 	"tpq_asysyafii/config" 
 	"tpq_asysyafii/models"
 	"tpq_asysyafii/utils"
-	"tpq_asysyafii/services"
 )
-
-var logService = services.NewLogService(config.DB)
-
-// Helper function untuk get user ID dari context
-func getUserIDFromContext(c *gin.Context) (string, bool) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		return "", false
-	}
-	return userID.(string), true
-}
-
-// Helper function untuk check admin role
-func isAdmin(c *gin.Context) bool {
-	userRole, exists := c.Get("role")
-	if !exists {
-		return false
-	}
-	role := userRole.(string)
-	return role == string(models.RoleAdmin) || role == string(models.RoleSuperAdmin)
-}
 
 func generateCustomID(role models.UserRole) (string, error) {
 	var prefix string
@@ -82,11 +60,11 @@ func generateCustomID(role models.UserRole) (string, error) {
 
 func RegisterUser(c *gin.Context) {
 	var input struct {
-		NamaLengkap string  `json:"nama_lengkap" binding:"required"`
+		NamaLengkap string `json:"nama_lengkap" binding:"required"`
 		Email       *string `json:"email"`
-		NoTelp      string  `json:"no_telp"`
-		Password    string  `json:"password" binding:"required"`
-		Role        string  `json:"role"`
+		NoTelp      string `json:"no_telp"`
+		Password    string `json:"password" binding:"required"`
+		Role        string `json:"role"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -114,14 +92,14 @@ func RegisterUser(c *gin.Context) {
 	}
 
 	user := models.User{
-		IDUser:         customID,
-		NamaLengkap:    input.NamaLengkap,
-		Email:          input.Email,
-		NoTelp:         input.NoTelp,
-		Password:       string(hashedPass),
-		Role:           role,
-		StatusAktif:    true,
-		DibuatPada:     time.Now(),
+		IDUser:        customID,
+		NamaLengkap:   input.NamaLengkap,
+		Email:         input.Email,
+		NoTelp:        input.NoTelp,
+		Password:      string(hashedPass),
+		Role:          role,
+		StatusAktif:   true,
+		DibuatPada:    time.Now(),
 		DiperbaruiPada: time.Now(),
 	}
 
@@ -130,23 +108,7 @@ func RegisterUser(c *gin.Context) {
 		return
 	}
 
-	// ✅ AUTO LOG: Jika register dilakukan oleh admin, catat aktivitas
-	if adminID, exists := getUserIDFromContext(c); exists && isAdmin(c) {
-		keterangan := "Membuat user baru: " + user.NamaLengkap + " dengan role: " + string(user.Role)
-		logService.LogAktivitas(adminID, services.AksiCreate, services.TargetUser, user.IDUser, keterangan)
-	}
-
-	c.JSON(http.StatusCreated, gin.H{
-		"message": "registrasi berhasil", 
-		"user": gin.H{
-			"id_user":      user.IDUser,
-			"nama_lengkap": user.NamaLengkap,
-			"email":        user.Email,
-			"no_telp":      user.NoTelp,
-			"role":         user.Role,
-			"status_aktif": user.StatusAktif,
-		},
-	})
+	c.JSON(http.StatusCreated, gin.H{"message": "registrasi berhasil", "user": user})
 }
 
 func LoginUser(c *gin.Context) {
@@ -202,10 +164,6 @@ func LoginUser(c *gin.Context) {
 		return
 	}
 
-	// ✅ AUTO LOG: Catat aktivitas login
-	keterangan := "Login ke sistem"
-	logService.LogAktivitas(user.IDUser, services.AksiLogin, "SYSTEM", "", keterangan)
-
 	c.JSON(http.StatusOK, gin.H{
 		"message": "login berhasil",
 		"token":   token,
@@ -225,23 +183,7 @@ func GetUsers(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "gagal mengambil data"})
 		return
 	}
-
-	// Sembunyikan password dari response
-	var safeUsers []gin.H
-	for _, user := range users {
-		safeUsers = append(safeUsers, gin.H{
-			"id_user":       user.IDUser,
-			"nama_lengkap":  user.NamaLengkap,
-			"email":         user.Email,
-			"no_telp":       user.NoTelp,
-			"role":          user.Role,
-			"status_aktif":  user.StatusAktif,
-			"dibuat_pada":   user.DibuatPada,
-			"diperbarui_pada": user.DiperbaruiPada,
-		})
-	}
-
-	c.JSON(http.StatusOK, safeUsers)
+	c.JSON(http.StatusOK, users)
 }
 
 func GetUserByID(c *gin.Context) {
@@ -251,20 +193,7 @@ func GetUserByID(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user tidak ditemukan"})
 		return
 	}
-
-	// Sembunyikan password dari response
-	safeUser := gin.H{
-		"id_user":       user.IDUser,
-		"nama_lengkap":  user.NamaLengkap,
-		"email":         user.Email,
-		"no_telp":       user.NoTelp,
-		"role":          user.Role,
-		"status_aktif":  user.StatusAktif,
-		"dibuat_pada":   user.DibuatPada,
-		"diperbarui_pada": user.DiperbaruiPada,
-	}
-
-	c.JSON(http.StatusOK, safeUser)
+	c.JSON(http.StatusOK, user)
 }
 
 func UpdateUser(c *gin.Context) {
@@ -277,26 +206,17 @@ func UpdateUser(c *gin.Context) {
 	}
 
 	var input struct {
-		NamaLengkap string  `json:"nama_lengkap"`
+		NamaLengkap string `json:"nama_lengkap"`
 		Email       *string `json:"email"`
-		NoTelp      string  `json:"no_telp"`
-		Password    string  `json:"password"`
-		Role        string  `json:"role"`
-		StatusAktif *bool   `json:"status_aktif"`
+		NoTelp      string `json:"no_telp"`
+		Password    string `json:"password"`
+		Role        string `json:"role"`
+		StatusAktif *bool  `json:"status_aktif"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
-	}
-
-	// Simpan data lama untuk log
-	dataLama := gin.H{
-		"nama_lengkap": user.NamaLengkap,
-		"email":        user.Email,
-		"no_telp":      user.NoTelp,
-		"role":         user.Role,
-		"status_aktif": user.StatusAktif,
 	}
 
 	// Jika role diubah, generate ID baru
@@ -335,52 +255,14 @@ func UpdateUser(c *gin.Context) {
 		return
 	}
 
-	// ✅ AUTO LOG: Catat aktivitas update user
-	if adminID, exists := getUserIDFromContext(c); exists {
-		keterangan := fmt.Sprintf("Update user: %s -> %s (Role: %s -> %s)", 
-			dataLama["nama_lengkap"], user.NamaLengkap, 
-			dataLama["role"], user.Role)
-		logService.LogAktivitas(adminID, services.AksiUpdate, services.TargetUser, user.IDUser, keterangan)
-	}
-
-	// Sembunyikan password dari response
-	safeUser := gin.H{
-		"id_user":       user.IDUser,
-		"nama_lengkap":  user.NamaLengkap,
-		"email":         user.Email,
-		"no_telp":       user.NoTelp,
-		"role":          user.Role,
-		"status_aktif":  user.StatusAktif,
-		"diperbarui_pada": user.DiperbaruiPada,
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "user berhasil diperbarui", 
-		"user": safeUser,
-	})
+	c.JSON(http.StatusOK, gin.H{"message": "user berhasil diperbarui", "user": user})
 }
 
 func DeleteUser(c *gin.Context) {
 	id := c.Param("id")
-	
-	// Cari user terlebih dahulu untuk log
-	var user models.User
-	if err := config.DB.First(&user, "id_user = ?", id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "user tidak ditemukan"})
-		return
-	}
-
-	// ✅ AUTO LOG: Catat sebelum hapus
-	if adminID, exists := getUserIDFromContext(c); exists {
-		keterangan := "Menghapus user: " + user.NamaLengkap + " (" + string(user.Role) + ")"
-		logService.LogAktivitas(adminID, services.AksiDelete, services.TargetUser, id, keterangan)
-	}
-
-	// Hapus user
 	if err := config.DB.Delete(&models.User{}, "id_user = ?", id).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "gagal hapus user"})
 		return
 	}
-
 	c.JSON(http.StatusOK, gin.H{"message": "user berhasil dihapus"})
 }
