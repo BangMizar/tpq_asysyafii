@@ -1,7 +1,7 @@
 // pages/SuperAdminDashboard.js
 import React from 'react';
 import DashboardLayout from '../components/layout/DashboardLayout';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../context/AuthContext';
 
 const SuperAdminDashboard = () => {
   const { user } = useAuth();

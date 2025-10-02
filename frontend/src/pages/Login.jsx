@@ -19,48 +19,59 @@ const Login = () => {
     if (error) setError('')
   }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+  setError('');
 
-    try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8080'}/api/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': process.env.REACT_APP_API_KEY || ''
-        },
-        body: JSON.stringify({
-          email: formData.email || null,
-          nama_lengkap: formData.email, // Using email field for username too
-          password: formData.password
-        })
+  try {
+    const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8080'}/api/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': process.env.REACT_APP_API_KEY || ''
+      },
+      body: JSON.stringify({
+        email: formData.email || null,
+        nama_lengkap: formData.email,
+        password: formData.password
       })
+    });
 
-      const data = await response.json()
+    const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Login gagal')
-      }
-
-      // Login successful
-      console.log('Login berhasil:', data)
-      
-      // Save token to localStorage or context
-      localStorage.setItem('token', data.token)
-      localStorage.setItem('user', JSON.stringify(data.user))
-      
-      // Redirect based on user role or to dashboard
-      navigate('/dashboard')
-      
-    } catch (err) {
-      setError(err.message)
-      console.error('Login error:', err)
-    } finally {
-      setLoading(false)
+    if (!response.ok) {
+      throw new Error(data.error || 'Login gagal');
     }
+
+    // Login successful
+    console.log('Login berhasil:', data);
+    
+    // Save to context
+    login(data.user, data.token);
+    
+    // Redirect based on role
+    switch (data.user.role) {
+      case 'super_admin':
+        navigate('/super-admin');
+        break;
+      case 'admin':
+        navigate('/admin');
+        break;
+      case 'wali':
+        navigate('/wali');
+        break;
+      default:
+        navigate('/dashboard');
+    }
+    
+  } catch (err) {
+    setError(err.message);
+    console.error('Login error:', err);
+  } finally {
+    setLoading(false);
   }
+};
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">

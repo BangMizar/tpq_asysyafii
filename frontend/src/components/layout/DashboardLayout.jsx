@@ -1,6 +1,6 @@
 // components/Layout/DashboardLayout.js
 import React from 'react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 const DashboardLayout = ({ children, title }) => {
