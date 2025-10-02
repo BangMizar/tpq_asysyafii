@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
 
 const Hero = () => {
   const [isVisible, setIsVisible] = useState(false)
@@ -28,10 +27,10 @@ const Hero = () => {
   ]
 
   return (
-    <section id="beranda" className="relative min-h-screen bg-gradient-to-br from-green-50 via-white to-green-100 overflow-hidden pt-20">
+    <section id="beranda" className="relative min-h-screen bg-gradient-to-br from-green-50 via-white to-green-100 overflow-hidden pt-5">
       
       {/* Background Animated Elements */}
-      <div className="absolute inset-0">
+      <div className="absolute inset-0">  
         {/* Floating Circles */}
         <div className="absolute top-1/4 left-1/4 w-6 h-6 bg-green-200 rounded-full animate-float"></div>
         <div className="absolute top-3/4 right-1/3 w-8 h-8 bg-green-300 rounded-full animate-float" style={{ animationDelay: '1s' }}></div>
@@ -103,29 +102,36 @@ const Hero = () => {
               mengajarkan Al-Quran dengan metode yang benar sesuai manhaj Ahlus Sunnah wal Jama'ah.
             </p>
 
-            {/* CTA Buttons dengan Hover Animations */}
+            {/* CTA Buttons - Hubungi dan Alamat */}
             <div className={`flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-6 transform transition-all duration-1000 delay-1100 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
-              <button className="group relative bg-gradient-to-r from-green-500 to-green-600 text-white px-8 py-4 rounded-2xl hover:rounded-3xl transform hover:-translate-y-1 hover:scale-105 hover:shadow-2xl transition-all duration-300 font-semibold shadow-lg overflow-hidden">
+              <a 
+                href="https://wa.me/6281234567890" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="group relative bg-gradient-to-r from-green-500 to-green-600 text-white px-8 py-4 rounded-2xl hover:rounded-3xl transform hover:-translate-y-1 hover:scale-105 hover:shadow-2xl transition-all duration-300 font-semibold shadow-lg overflow-hidden text-center"
+              >
                 <span className="relative z-10 flex items-center justify-center space-x-2">
-                  <span>📝 Daftar Sekarang</span>
+                  <span>📞 Hubungi Kami</span>
                   <span className="transform group-hover:translate-x-1 transition-transform duration-300">→</span>
                 </span>
                 <div className="absolute inset-0 bg-gradient-to-r from-green-600 to-green-700 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left"></div>
-              </button>
+              </a>
 
-              <Link 
-                to="/login"
+              <a 
+                href="https://maps.google.com/?q=TPQ+Asy-Syafi'i+Campakoah" 
+                target="_blank" 
+                rel="noopener noreferrer"
                 className="group relative border-2 border-green-600 text-green-600 px-8 py-4 rounded-2xl hover:rounded-3xl transform hover:-translate-y-1 hover:scale-105 transition-all duration-300 font-semibold text-center hover:bg-green-600 hover:text-white overflow-hidden"
               >
                 <span className="relative z-10 flex items-center justify-center space-x-2">
-                  <span>👨‍👩‍👧‍👦 Area Orang Tua</span>
+                  <span>📍 Lihat Alamat</span>
                 </span>
                 <div className="absolute inset-0 bg-green-600 transform scale-y-0 group-hover:scale-y-100 transition-transform duration-300 origin-bottom"></div>
-              </Link>
+              </a>
             </div>
 
             {/* Stats dengan Counter Animation */}
-            <div className={`grid grid-cols-3 gap-6 pt-8 transform transition-all duration-1000 delay-1300 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
+            {/* <div className={`grid grid-cols-3 gap-6 pt-8 transform transition-all duration-1000 delay-1300 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
               {[
                 { number: '150+', label: 'Santri Aktif', color: 'text-green-600' },
                 { number: '10+', label: 'Pengajar', color: 'text-green-600' },
@@ -138,7 +144,7 @@ const Hero = () => {
                   <div className="text-sm text-green-700 font-medium">{stat.label}</div>
                 </div>
               ))}
-            </div>
+            </div> */}
           </div>
 
           {/* Hero Illustration dengan Animasi */}
