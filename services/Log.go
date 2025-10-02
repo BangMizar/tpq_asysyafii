@@ -44,4 +44,4 @@ const (
 	TargetDonasi   = "DONASI"
 	TargetUser     = "USER"
 	TargetSyahriah = "SYAHRIAH"
-)
+)	
