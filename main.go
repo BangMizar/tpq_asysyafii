@@ -28,9 +28,10 @@ func main() {
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     allowedOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-API-Key"}, // Tambahkan X-API-Key di sini
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
+		MaxAge:           12 * 60 * 60, // 12 hours
 	}))
 
 	// Register routes
@@ -44,6 +45,7 @@ func main() {
 
 	log.Printf("Server running on port %s", port)
 	log.Printf("Allowed origins: %v", allowedOrigins)
+	log.Printf("Allowed headers: Origin, Content-Type, Authorization, X-API-Key")
 	r.Run(":" + port)
 }
 
@@ -51,6 +53,7 @@ func getOriginsFromEnv() []string {
 	defaultOrigins := []string{
 		"http://localhost:5173",
 		"http://localhost:5174",
+		"http://localhost:3000",
 	}
 
 	envOrigins := os.Getenv("ALLOWED_ORIGINS")

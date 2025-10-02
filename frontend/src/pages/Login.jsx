@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -9,6 +10,13 @@ const Login = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const navigate = useNavigate()
+  const { login } = useAuth()
+
+  // Config untuk API - menggunakan import.meta.env untuk Vite
+  const API_CONFIG = {
+    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080',
+    apiKey: import.meta.env.VITE_API_KEY || 'default_api_key_here'
+  }
 
   const handleChange = (e) => {
     setFormData({
@@ -19,59 +27,61 @@ const Login = () => {
     if (error) setError('')
   }
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setLoading(true);
-  setError('');
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
 
-  try {
-    const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8080'}/api/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': process.env.REACT_APP_API_KEY || ''
-      },
-      body: JSON.stringify({
-        email: formData.email || null,
-        nama_lengkap: formData.email,
-        password: formData.password
+    try {
+      console.log('API Config:', API_CONFIG) // Debug log
+
+      const response = await fetch(`${API_CONFIG.baseURL}/api/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': API_CONFIG.apiKey
+        },
+        body: JSON.stringify({
+          email: formData.email || null,
+          nama_lengkap: formData.email,
+          password: formData.password
+        })
       })
-    });
 
-    const data = await response.json();
+      const data = await response.json()
 
-    if (!response.ok) {
-      throw new Error(data.error || 'Login gagal');
+      if (!response.ok) {
+        throw new Error(data.error || 'Login gagal')
+      }
+
+      // Login successful
+      console.log('Login berhasil:', data)
+      
+      // Save to context
+      login(data.user, data.token)
+      
+      // Redirect based on role
+      switch (data.user.role) {
+        case 'super_admin':
+          navigate('/super-admin')
+          break
+        case 'admin':
+          navigate('/admin')
+          break
+        case 'wali':
+          navigate('/wali')
+          break
+        default:
+          navigate('/dashboard')
+      }
+      
+    } catch (err) {
+      setError(err.message || 'Terjadi kesalahan saat login')
+      console.error('Login error:', err)
+    } finally {
+      setLoading(false)
     }
-
-    // Login successful
-    console.log('Login berhasil:', data);
-    
-    // Save to context
-    login(data.user, data.token);
-    
-    // Redirect based on role
-    switch (data.user.role) {
-      case 'super_admin':
-        navigate('/super-admin');
-        break;
-      case 'admin':
-        navigate('/admin');
-        break;
-      case 'wali':
-        navigate('/wali');
-        break;
-      default:
-        navigate('/dashboard');
-    }
-    
-  } catch (err) {
-    setError(err.message);
-    console.error('Login error:', err);
-  } finally {
-    setLoading(false);
   }
-};
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
