@@ -45,3 +45,7 @@ func InitDB() {
 		log.Fatal("Gagal migrate database:", err)
 	}
 }
+
+func GetDB() *gorm.DB {
+	return DB
+}
