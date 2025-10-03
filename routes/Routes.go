@@ -48,6 +48,11 @@ func SetupRoutes(r *gin.Engine) {
 			protected.GET("/syahriah/summary", syahriahController.GetSyahriahSummary)
 			protected.GET("/syahriah/:id", syahriahController.GetSyahriahByID)
 			protected.PUT("/syahriah/:id/bayar", syahriahController.BayarSyahriah)
+
+			pengumumanController := controllers.NewPengumumanController(config.DB)
+			protected.GET("/pengumuman", pengumumanController.GetAllPengumuman)
+			protected.GET("/pengumuman/aktif", pengumumanController.GetPengumumanAktif)
+			protected.GET("/pengumuman/:id", pengumumanController.GetPengumumanByID)
 		}
 
 		// Admin routes (admin & super_admin)
@@ -71,6 +76,12 @@ func SetupRoutes(r *gin.Engine) {
 			admin.POST("/syahriah", syahriahController.CreateSyahriah)
         	admin.PUT("/syahriah/:id", syahriahController.UpdateSyahriah)
         	admin.DELETE("/syahriah/:id", syahriahController.DeleteSyahriah)
+
+			pengumumanController := controllers.NewPengumumanController(config.DB)
+			admin.POST("/pengumuman", pengumumanController.CreatePengumuman)
+			admin.PUT("/pengumuman/:id", pengumumanController.UpdatePengumuman)
+			admin.DELETE("/pengumuman/:id", pengumumanController.DeletePengumuman)
+			admin.GET("/pengumuman/summary", pengumumanController.GetPengumumanSummary)
 
 			// Log routes (read only)
 			logController := controllers.NewLogAktivitasController(config.GetDB())
