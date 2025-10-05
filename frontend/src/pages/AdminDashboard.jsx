@@ -1,14 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import DashboardLayout from '../components/layout/DashboardLayout';
+import AuthDashboardLayout from '../components/layout/AuthDashboardLayout';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 
 const AdminDashboard = () => {
   const { user } = useAuth();
   const [stats, setStats] = useState({
-    santriAktif: 0,
-    waliTerdaftar: 0,
-    kehadiranHariIni: 0,
     pembayaranTertunda: 0
   });
 
@@ -18,18 +15,12 @@ const AdminDashboard = () => {
       try {
         // Example API calls - adjust based on your backend
         const responses = await Promise.all([
-          fetch('/api/santri/aktif'),
-          fetch('/api/wali/terdaftar'),
-          fetch('/api/kehadiran/hari-ini'),
           fetch('/api/pembayaran/tertunda')
         ]);
 
         const data = await Promise.all(responses.map(res => res.json()));
         
         setStats({
-          santriAktif: data[0].total || 0,
-          waliTerdaftar: data[1].total || 0,
-          kehadiranHariIni: data[2].persentase || '0%',
           pembayaranTertunda: data[3].total || 0
         });
       } catch (error) {
@@ -42,27 +33,6 @@ const AdminDashboard = () => {
 
   const statCards = [
     { 
-      name: 'Santri Aktif', 
-      value: stats.santriAktif, 
-      color: 'bg-green-500',
-      icon: '👦',
-      link: '/admin/santri'
-    },
-    { 
-      name: 'Wali Terdaftar', 
-      value: stats.waliTerdaftar, 
-      color: 'bg-blue-500',
-      icon: '👨‍👩‍👧‍👦',
-      link: '/admin/wali'
-    },
-    { 
-      name: 'Kehadiran Hari Ini', 
-      value: stats.kehadiranHariIni, 
-      color: 'bg-purple-500',
-      icon: '📊',
-      link: '/admin/kehadiran'
-    },
-    { 
       name: 'Pembayaran Tertunda', 
       value: stats.pembayaranTertunda, 
       color: 'bg-orange-500',
@@ -72,20 +42,6 @@ const AdminDashboard = () => {
   ];
 
   const quickActions = [
-    {
-      name: 'Kelola Santri',
-      description: 'Tambah, edit, dan kelola data santri',
-      icon: '👦',
-      color: 'bg-green-600 hover:bg-green-700',
-      link: '/admin/santri'
-    },
-    {
-      name: 'Input Kehadiran',
-      description: 'Catat kehadiran santri harian',
-      icon: '📝',
-      color: 'bg-blue-600 hover:bg-blue-700',
-      link: '/admin/kehadiran'
-    },
     {
       name: 'Data Syahriah',
       description: 'Kelola pembayaran syahriah santri',
@@ -117,7 +73,7 @@ const AdminDashboard = () => {
   ];
 
   return (
-    <DashboardLayout title="Dashboard Admin">
+    <AuthDashboardLayout title="Dashboard Admin">
       {/* Welcome Section */}
       <div className="mb-8 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl p-6 text-white">
         <h3 className="text-2xl font-bold mb-2">
@@ -255,7 +211,7 @@ const AdminDashboard = () => {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </AuthDashboardLayout>
   );
 };
 

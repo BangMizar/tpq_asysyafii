@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import DashboardLayout from '../components/layout/DashboardLayout';
+import AuthDashboardLayout from '../components/layout/AuthDashboardLayout';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 
@@ -8,7 +8,6 @@ const SuperAdminDashboard = () => {
   const [systemStats, setSystemStats] = useState({
     totalUsers: 0,
     totalAdmins: 0,
-    totalSantri: 0,
     totalDonasi: 0
   });
 
@@ -19,7 +18,6 @@ const SuperAdminDashboard = () => {
         const responses = await Promise.all([
           fetch('/api/users/total'),
           fetch('/api/admins/total'),
-          fetch('/api/santri/total'),
           fetch('/api/donasi/total')
         ]);
 
@@ -28,8 +26,7 @@ const SuperAdminDashboard = () => {
         setSystemStats({
           totalUsers: data[0].total || 0,
           totalAdmins: data[1].total || 0,
-          totalSantri: data[2].total || 0,
-          totalDonasi: data[3].total || 0
+          totalDonasi: data[2].total || 0
         });
       } catch (error) {
         console.error('Error fetching system stats:', error);
@@ -53,13 +50,6 @@ const SuperAdminDashboard = () => {
       color: 'bg-green-500',
       icon: '👨‍💼',
       link: '/super-admin/admins'
-    },
-    { 
-      name: 'Total Santri', 
-      value: systemStats.totalSantri, 
-      color: 'bg-purple-500',
-      icon: '👦',
-      link: '/super-admin/santri'
     },
     { 
       name: 'Total Donasi', 
@@ -168,7 +158,7 @@ const SuperAdminDashboard = () => {
   ];
 
   return (
-    <DashboardLayout title="Dashboard Super Admin">
+    <AuthDashboardLayout title="Dashboard Super Admin">
       {/* Welcome Section */}
       <div className="mb-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl p-6 text-white">
         <h3 className="text-2xl font-bold mb-2">
@@ -324,7 +314,7 @@ const SuperAdminDashboard = () => {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </AuthDashboardLayout>
   );
 };
 
