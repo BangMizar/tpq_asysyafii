@@ -1,96 +1,258 @@
-
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import { useAuth } from '../context/AuthContext';
+import { Link } from 'react-router-dom';
 
 const AdminDashboard = () => {
   const { user } = useAuth();
+  const [stats, setStats] = useState({
+    santriAktif: 0,
+    waliTerdaftar: 0,
+    kehadiranHariIni: 0,
+    pembayaranTertunda: 0
+  });
 
-  const stats = [
-    { name: 'Santri Aktif', value: '150', color: 'bg-green-500' },
-    { name: 'Wali Terdaftar', value: '120', color: 'bg-blue-500' },
-    { name: 'Kehadiran Hari Ini', value: '85%', color: 'bg-purple-500' },
-    { name: 'Pembayaran Tertunda', value: '12', color: 'bg-orange-500' },
+  // Fetch real stats from API
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        // Example API calls - adjust based on your backend
+        const responses = await Promise.all([
+          fetch('/api/santri/aktif'),
+          fetch('/api/wali/terdaftar'),
+          fetch('/api/kehadiran/hari-ini'),
+          fetch('/api/pembayaran/tertunda')
+        ]);
+
+        const data = await Promise.all(responses.map(res => res.json()));
+        
+        setStats({
+          santriAktif: data[0].total || 0,
+          waliTerdaftar: data[1].total || 0,
+          kehadiranHariIni: data[2].persentase || '0%',
+          pembayaranTertunda: data[3].total || 0
+        });
+      } catch (error) {
+        console.error('Error fetching stats:', error);
+      }
+    };
+
+    fetchStats();
+  }, []);
+
+  const statCards = [
+    { 
+      name: 'Santri Aktif', 
+      value: stats.santriAktif, 
+      color: 'bg-green-500',
+      icon: '👦',
+      link: '/admin/santri'
+    },
+    { 
+      name: 'Wali Terdaftar', 
+      value: stats.waliTerdaftar, 
+      color: 'bg-blue-500',
+      icon: '👨‍👩‍👧‍👦',
+      link: '/admin/wali'
+    },
+    { 
+      name: 'Kehadiran Hari Ini', 
+      value: stats.kehadiranHariIni, 
+      color: 'bg-purple-500',
+      icon: '📊',
+      link: '/admin/kehadiran'
+    },
+    { 
+      name: 'Pembayaran Tertunda', 
+      value: stats.pembayaranTertunda, 
+      color: 'bg-orange-500',
+      icon: '⏰',
+      link: '/admin/pembayaran'
+    },
+  ];
+
+  const quickActions = [
+    {
+      name: 'Kelola Santri',
+      description: 'Tambah, edit, dan kelola data santri',
+      icon: '👦',
+      color: 'bg-green-600 hover:bg-green-700',
+      link: '/admin/santri'
+    },
+    {
+      name: 'Input Kehadiran',
+      description: 'Catat kehadiran santri harian',
+      icon: '📝',
+      color: 'bg-blue-600 hover:bg-blue-700',
+      link: '/admin/kehadiran'
+    },
+    {
+      name: 'Data Syahriah',
+      description: 'Kelola pembayaran syahriah santri',
+      icon: '💰',
+      color: 'bg-purple-600 hover:bg-purple-700',
+      link: '/admin/syahriah'
+    },
+    {
+      name: 'Data Donasi',
+      description: 'Kelola donasi dan transaksi',
+      icon: '🎁',
+      color: 'bg-yellow-600 hover:bg-yellow-700',
+      link: '/admin/donasi'
+    },
+    {
+      name: 'Rekap Keuangan',
+      description: 'Laporan keuangan lengkap',
+      icon: '📊',
+      color: 'bg-indigo-600 hover:bg-indigo-700',
+      link: '/admin/keuangan'
+    },
+    {
+      name: 'Laporan Bulanan',
+      description: 'Generate laporan periodik',
+      icon: '📈',
+      color: 'bg-orange-600 hover:bg-orange-700',
+      link: '/admin/laporan'
+    }
   ];
 
   return (
     <DashboardLayout title="Dashboard Admin">
       {/* Welcome Section */}
-      <div className="mb-8">
-        <h3 className="text-lg font-semibold text-gray-700">
+      <div className="mb-8 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl p-6 text-white">
+        <h3 className="text-2xl font-bold mb-2">
           Selamat datang, {user?.nama_lengkap}!
         </h3>
-        <p className="text-gray-600">Anda login sebagai Administrator</p>
+        <p className="text-green-100">Anda login sebagai Administrator TPQ</p>
+        <div className="flex items-center mt-4 space-x-2 text-sm">
+          <span className="bg-green-400 bg-opacity-20 px-3 py-1 rounded-full">📊 Dashboard</span>
+          <span className="bg-green-400 bg-opacity-20 px-3 py-1 rounded-full">👨‍💼 Admin</span>
+        </div>
       </div>
 
       {/* Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {stats.map((stat, index) => (
-          <div key={index} className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-            <div className="flex items-center">
-              <div className={`${stat.color} w-12 h-12 rounded-lg flex items-center justify-center`}>
-                <span className="text-white font-bold text-lg">📈</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">{stat.name}</p>
-                <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+        {statCards.map((stat, index) => (
+          <Link 
+            key={index} 
+            to={stat.link}
+            className="block transform hover:scale-105 transition-transform duration-300"
+          >
+            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center">
+                <div className={`${stat.color} w-12 h-12 rounded-xl flex items-center justify-center`}>
+                  <span className="text-white text-xl">{stat.icon}</span>
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">{stat.name}</p>
+                  <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                </div>
               </div>
             </div>
-          </div>
+          </Link>
         ))}
       </div>
 
       {/* Quick Actions */}
-      <div className="bg-gray-50 rounded-lg p-6 mb-8">
-        <h4 className="text-lg font-semibold text-gray-800 mb-4">Aksi Cepat</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <button className="bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-lg text-sm font-medium transition duration-300">
-            Kelola Santri
-          </button>
-          <button className="bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg text-sm font-medium transition duration-300">
-            Input Kehadiran
-          </button>
-          <button className="bg-purple-600 hover:bg-purple-700 text-white py-3 px-4 rounded-lg text-sm font-medium transition duration-300">
-            Lihat Pembayaran
-          </button>
-          <button className="bg-orange-600 hover:bg-orange-700 text-white py-3 px-4 rounded-lg text-sm font-medium transition duration-300">
-            Laporan Bulanan
-          </button>
+      <div className="bg-white rounded-xl p-6 mb-8 border border-gray-200 shadow-sm">
+        <h4 className="text-xl font-bold text-gray-800 mb-6">Aksi Cepat</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {quickActions.map((action, index) => (
+            <Link
+              key={index}
+              to={action.link}
+              className={`${action.color} text-white p-4 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg`}
+            >
+              <div className="flex items-center space-x-3">
+                <span className="text-2xl">{action.icon}</span>
+                <div>
+                  <div className="font-semibold text-lg">{action.name}</div>
+                  <div className="text-sm opacity-90">{action.description}</div>
+                </div>
+              </div>
+            </Link>
+          ))}
         </div>
       </div>
 
-      {/* Recent Students */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <h4 className="text-lg font-semibold text-gray-800 mb-4">Santri Baru</h4>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead>
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nama</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kelas</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal Daftar</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              <tr>
-                <td className="px-4 py-3 text-sm text-gray-900">Ahmad Fauzi</td>
-                <td className="px-4 py-3 text-sm text-gray-600">TPQ 1</td>
-                <td className="px-4 py-3 text-sm text-gray-600">15 Nov 2024</td>
-                <td className="px-4 py-3">
-                  <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">Aktif</span>
-                </td>
-              </tr>
-              <tr>
-                <td className="px-4 py-3 text-sm text-gray-900">Siti Rahma</td>
-                <td className="px-4 py-3 text-sm text-gray-600">TPQ 2</td>
-                <td className="px-4 py-3 text-sm text-gray-600">14 Nov 2024</td>
-                <td className="px-4 py-3">
-                  <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">Aktif</span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+      {/* Recent Activities */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent Students */}
+        <div className="bg-white border border-gray-200 rounded-xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="text-lg font-semibold text-gray-800">Santri Baru</h4>
+            <Link 
+              to="/admin/santri"
+              className="text-green-600 hover:text-green-700 text-sm font-medium"
+            >
+              Lihat Semua →
+            </Link>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead>
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nama</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kelas</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                <tr className="hover:bg-gray-50">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900">Ahmad Fauzi</td>
+                  <td className="px-4 py-3 text-sm text-gray-600">TPQ 1</td>
+                  <td className="px-4 py-3 text-sm text-gray-600">15 Nov 2024</td>
+                  <td className="px-4 py-3">
+                    <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-medium">Aktif</span>
+                  </td>
+                </tr>
+                <tr className="hover:bg-gray-50">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900">Siti Rahma</td>
+                  <td className="px-4 py-3 text-sm text-gray-600">TPQ 2</td>
+                  <td className="px-4 py-3 text-sm text-gray-600">14 Nov 2024</td>
+                  <td className="px-4 py-3">
+                    <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-medium">Aktif</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Recent Payments */}
+        <div className="bg-white border border-gray-200 rounded-xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="text-lg font-semibold text-gray-800">Pembayaran Terbaru</h4>
+            <Link 
+              to="/admin/syahriah"
+              className="text-green-600 hover:text-green-700 text-sm font-medium"
+            >
+              Lihat Semua →
+            </Link>
+          </div>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+              <div>
+                <div className="font-medium text-gray-900">Ahmad Fauzi</div>
+                <div className="text-sm text-gray-600">Syahriah November</div>
+              </div>
+              <div className="text-right">
+                <div className="font-bold text-green-600">Rp 150.000</div>
+                <div className="text-xs text-gray-500">15 Nov 2024</div>
+              </div>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+              <div>
+                <div className="font-medium text-gray-900">Siti Rahma</div>
+                <div className="text-sm text-gray-600">Donasi Pembangunan</div>
+              </div>
+              <div className="text-right">
+                <div className="font-bold text-blue-600">Rp 500.000</div>
+                <div className="text-xs text-gray-500">14 Nov 2024</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </DashboardLayout>

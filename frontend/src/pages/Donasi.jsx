@@ -13,9 +13,38 @@ const DonasiPage = () => {
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080'
 
+  // Fungsi untuk mendapatkan tanggal awal dan akhir bulan ini
+  const getCurrentMonthDates = () => {
+    const now = new Date()
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    
+    // Format ke YYYY-MM-DD untuk input date
+    const formatDate = (date) => {
+      return date.toISOString().split('T')[0]
+    }
+    
+    return {
+      start: formatDate(startOfMonth),
+      end: formatDate(endOfMonth)
+    }
+  }
+
+  // Set default filter ke bulan ini saat pertama kali load
+  useEffect(() => {
+    const currentMonth = getCurrentMonthDates()
+    setStartDate(currentMonth.start)
+    setEndDate(currentMonth.end)
+  }, [])
+
   // Fetch data donasi dari API public
   useEffect(() => {
     const fetchDonasiData = async () => {
+      // Jangan fetch data jika filter belum diset (default bulan ini)
+      if (!startDate || !endDate) {
+        return
+      }
+
       try {
         setLoading(true)
         setError('')
@@ -129,10 +158,19 @@ const DonasiPage = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  // Reset filter
+  // Reset filter ke bulan ini
   const handleResetFilter = () => {
-    setStartDate('')
-    setEndDate('')
+    const currentMonth = getCurrentMonthDates()
+    setStartDate(currentMonth.start)
+    setEndDate(currentMonth.end)
+    setCurrentPage(1)
+  }
+
+  // Set filter ke bulan ini
+  const handleSetCurrentMonth = () => {
+    const currentMonth = getCurrentMonthDates()
+    setStartDate(currentMonth.start)
+    setEndDate(currentMonth.end)
     setCurrentPage(1)
   }
 
@@ -208,7 +246,7 @@ const DonasiPage = () => {
               <div className="hidden lg:block w-px h-6 bg-gray-200"></div>
               <div>
                 <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">Catatan Donasi</h1>
-                <p className="text-gray-600 text-sm">Transparansi penuh setiap kebaikan yang diberikan</p>
+                {/* <p className="text-gray-600 text-sm">Transparansi penuh setiap kebaikan yang diberikan</p> */}
               </div>
             </div>
             
@@ -259,6 +297,17 @@ const DonasiPage = () => {
             <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm p-4 sm:p-6 mb-6 border border-gray-100">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-2">
                 <h2 className="text-base sm:text-lg font-semibold text-gray-900">Filter Data Donasi</h2>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSetCurrentMonth}
+                    className="px-3 py-2 text-xs bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all duration-300 font-medium shadow-sm flex items-center space-x-1"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span>Bulan Ini</span>
+                  </button>
+                </div>
               </div>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
