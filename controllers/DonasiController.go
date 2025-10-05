@@ -422,3 +422,143 @@ func (ctrl *DonasiController) GetDonasiByDateRange(c *gin.Context) {
 		},
 	})
 }
+
+// GetDonasiPublic mendapatkan data donasi untuk dilihat publik (tanpa auth)
+func (ctrl *DonasiController) GetDonasiPublic(c *gin.Context) {
+    // Parse query parameters
+    page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+    limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+    startDate := c.Query("start_date")
+    endDate := c.Query("end_date")
+
+    if page < 1 {
+        page = 1
+    }
+    if limit < 1 || limit > 50 {
+        limit = 10
+    }
+
+    var donasi []models.Donasi
+    var total int64
+
+    // Build query untuk public - hanya field yang diperlukan
+    query := ctrl.db.Select("id_donasi, nama_donatur, no_telp, nominal, waktu_catat")
+
+    // Apply date filters jika ada
+    if startDate != "" {
+        // Validasi format tanggal
+        _, err := time.Parse("2006-01-02", startDate)
+        if err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Format start_date tidak valid. Gunakan format YYYY-MM-DD"})
+            return
+        }
+        query = query.Where("DATE(waktu_catat) >= ?", startDate)
+    }
+
+    if endDate != "" {
+        // Validasi format tanggal
+        _, err := time.Parse("2006-01-02", endDate)
+        if err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Format end_date tidak valid. Gunakan format YYYY-MM-DD"})
+            return
+        }
+        query = query.Where("DATE(waktu_catat) <= ?", endDate)
+    }
+
+    // Hitung total records
+    if err := query.Model(&models.Donasi{}).Count(&total).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung total data: " + err.Error()})
+        return
+    }
+
+    // Apply pagination
+    offset := (page - 1) * limit
+    err := query.Order("waktu_catat DESC").
+        Offset(offset).
+        Limit(limit).
+        Find(&donasi).Error
+
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data donasi: " + err.Error()})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "data": donasi,
+        "meta": gin.H{
+            "page":       page,
+            "limit":      limit,
+            "total":      total,
+            "total_page": (int(total) + limit - 1) / limit,
+        },
+    })
+}
+
+// GetDonasiSummaryPublic mendapatkan summary donasi untuk public (tanpa auth)
+func (ctrl *DonasiController) GetDonasiSummaryPublic(c *gin.Context) {
+    // Parse date filters
+    startDate := c.Query("start_date")
+    endDate := c.Query("end_date")
+
+    // Build query
+    query := ctrl.db.Model(&models.Donasi{})
+
+    // Apply date filters jika ada
+    if startDate != "" {
+        // Validasi format tanggal
+        _, err := time.Parse("2006-01-02", startDate)
+        if err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Format start_date tidak valid. Gunakan format YYYY-MM-DD"})
+            return
+        }
+        query = query.Where("DATE(waktu_catat) >= ?", startDate)
+    }
+
+    if endDate != "" {
+        // Validasi format tanggal
+        _, err := time.Parse("2006-01-02", endDate)
+        if err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Format end_date tidak valid. Gunakan format YYYY-MM-DD"})
+            return
+        }
+        query = query.Where("DATE(waktu_catat) <= ?", endDate)
+    }
+
+    // Hitung total nominal
+    var totalNominal float64
+    if err := query.Select("COALESCE(SUM(nominal), 0)").Scan(&totalNominal).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung total nominal: " + err.Error()})
+        return
+    }
+
+    // Hitung total donatur
+    var totalDonatur int64
+    if err := query.Count(&totalDonatur).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung total donatur: " + err.Error()})
+        return
+    }
+
+    // Hitung rata-rata
+    var rataRata float64
+    if totalDonatur > 0 {
+        rataRata = totalNominal / float64(totalDonatur)
+    }
+
+    // Data terbaru (5 donasi terbaru untuk preview)
+    var donasiTerbaru []models.Donasi
+    ctrl.db.Select("nama_donatur, nominal, waktu_catat").
+        Order("waktu_catat DESC").
+        Limit(5).
+        Find(&donasiTerbaru)
+
+    summary := gin.H{
+        "total_nominal": totalNominal,
+        "total_donatur": totalDonatur,
+        "rata_rata":     rataRata,
+        "donasi_terbaru": donasiTerbaru,
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "data": summary,
+    })
+}

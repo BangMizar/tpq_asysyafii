@@ -9,6 +9,7 @@ import Homepage from './pages/Homepage';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import WaliDashboard from './pages/WaliDashboard';
+import DonasiPage from './pages/Donasi'
 
 const AppContent = () => {
   const { user } = useAuth();
@@ -33,6 +34,7 @@ const AppContent = () => {
       <Route path="/" element={<Homepage />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/donasi" element={<DonasiPage />} />
       
       {/* Super Admin Routes */}
       <Route 

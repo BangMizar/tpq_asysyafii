@@ -14,9 +14,9 @@ func SetupRoutes(r *gin.Engine) {
 		// Auth
 		api.POST("/register", controllers.RegisterUser)
 		api.POST("/login", controllers.LoginUser)
-
-		// Public donasi list (anonim) - jika diperlukan
-		// api.GET("/donasi-public", controllers.GetDonasiPublik)
+		donasiController := controllers.NewDonasiController(config.GetDB())
+		api.GET("/donasi-public", donasiController.GetDonasiPublic)
+    	api.GET("/donasi-public/summary", donasiController.GetDonasiSummaryPublic)
 
 		// Protected routes (wali, admin, superadmin)
 		protected := api.Group("/")
@@ -83,14 +83,12 @@ func SetupRoutes(r *gin.Engine) {
 			admin.DELETE("/pengumuman/:id", pengumumanController.DeletePengumuman)
 			admin.GET("/pengumuman/summary", pengumumanController.GetPengumumanSummary)
 
-			// Log routes (read only)
 			logController := controllers.NewLogAktivitasController(config.GetDB())
 			admin.GET("/logs", logController.GetAllLogAktivitas)
 			admin.GET("/logs/summary", logController.GetLogSummary)
 			admin.GET("/logs/:id", logController.GetLogAktivitasByID)
 		}
 
-		// Super Admin only routes
 		superAdmin := api.Group("/super-admin")
 		superAdmin.Use(middlewares.AuthMiddleware(), middlewares.SuperAdminMiddleware())
 		{

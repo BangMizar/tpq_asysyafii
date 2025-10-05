@@ -81,7 +81,7 @@ const Header = () => {
               </div>
             </div>
             <div className="transform -skew-y-2 group-hover:skew-y-0 transition-transform duration-500">
-              <h1 className="text-lg lg:text-3xl font-black text-green-900 bg-gradient-to-r from-green-800 to-green-600 bg-clip-text text-transparent">
+              <h1 className="text-lg lg:text-3xl font-black text-green-900 bg-gradient-to-r from-green-800 to-green-600 bg-clip-text">
                 TPQ Asy-Syafi'i
               </h1>
               <p className="text-xs lg:text-sm text-green-700 font-semibold mt-1 lg:mt-2 bg-gradient-to-r from-green-100 to-green-200 px-2 lg:px-4 py-1 lg:py-2 rounded-full shadow-inner border border-green-200">
@@ -97,21 +97,40 @@ const Header = () => {
               { name: 'Program', href: '#program' },
               { name: 'Fasilitas', href: '#fasilitas' },
               { name: 'Testimoni', href: '#testimoni' },
-              { name: 'Kontak', href: '#kontak' }
+              { name: 'Kontak', href: '#kontak' },
+              { name: 'Catatan Donasi', href: '/donasi' } // Menu baru
             ].map((item, index) => (
-              <a 
-                key={item.name}
-                href={item.href}
-                className="relative px-6 py-3 text-green-800 hover:text-green-600 font-semibold rounded-2xl transition-all duration-300 group/nav"
-              >
-                {item.name}
-                <span className="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-0.5 bg-gradient-to-r from-green-400 to-green-600 rounded-full group-hover/nav:w-3/4 transition-all duration-300"></span>
-              </a>
+              item.href.startsWith('#') ? (
+                <a 
+                  key={item.name}
+                  href={item.href}
+                  className="relative px-6 py-3 text-green-800 hover:text-green-600 font-semibold rounded-2xl transition-all duration-300 group/nav"
+                >
+                  {item.name}
+                  <span className="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-0.5 bg-gradient-to-r from-green-400 to-green-600 rounded-full group-hover/nav:w-3/4 transition-all duration-300"></span>
+                </a>
+              ) : (
+                <Link 
+                  key={item.name}
+                  to={item.href}
+                  className="relative px-6 py-3 text-green-800 hover:text-green-600 font-semibold rounded-2xl transition-all duration-300 group/nav"
+                >
+                  {item.name}
+                  <span className="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-0.5 bg-gradient-to-r from-green-400 to-green-600 rounded-full group-hover/nav:w-3/4 transition-all duration-300"></span>
+                </Link>
+              )
             ))}
           </nav>
 
           {/* CTA Buttons */}
           <div className="hidden lg:flex items-center space-x-4">
+            {/* <Link 
+              to="/donasi" 
+              className="px-6 py-3 text-amber-700 hover:text-amber-900 font-semibold transition duration-300 border-2 border-amber-300 rounded-2xl hover:rounded-3xl hover:border-amber-400 hover:bg-amber-50 shadow-md hover:shadow-lg flex items-center space-x-2"
+            >
+              <span>💝</span>
+              <span>Donasi</span>
+            </Link> */}
             <Link 
               to="/login" 
               className="px-7 py-3 text-green-700 hover:text-green-900 font-semibold transition duration-300 border-2 border-green-300 rounded-2xl hover:rounded-3xl hover:border-green-400 hover:bg-green-50 shadow-md hover:shadow-lg"
@@ -156,20 +175,41 @@ const Header = () => {
                 { name: 'Program', href: '#program', icon: '📚' },
                 { name: 'Fasilitas', href: '#fasilitas', icon: '⭐' },
                 { name: 'Testimoni', href: '#testimoni', icon: '💬' },
-                { name: 'Kontak', href: '#kontak', icon: '📞' }
+                { name: 'Kontak', href: '#kontak', icon: '📞' },
+                { name: 'Catatan Donasi', href: '/donasi', icon: '💝' } // Menu baru
               ].map((item) => (
-                <a 
-                  key={item.name}
-                  href={item.href}
-                  className="flex items-center space-x-4 px-5 py-4 text-green-800 hover:text-green-600 font-semibold rounded-2xl hover:bg-green-50 transition duration-300 border-2 border-transparent hover:border-green-200 group"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  <span className="text-2xl transform group-hover:scale-110 transition-transform duration-300">{item.icon}</span>
-                  <span className="text-lg">{item.name}</span>
-                </a>
+                item.href.startsWith('#') ? (
+                  <a 
+                    key={item.name}
+                    href={item.href}
+                    className="flex items-center space-x-4 px-5 py-4 text-green-800 hover:text-green-600 font-semibold rounded-2xl hover:bg-green-50 transition duration-300 border-2 border-transparent hover:border-green-200 group"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <span className="text-2xl transform group-hover:scale-110 transition-transform duration-300">{item.icon}</span>
+                    <span className="text-lg">{item.name}</span>
+                  </a>
+                ) : (
+                  <Link 
+                    key={item.name}
+                    to={item.href}
+                    className="flex items-center space-x-4 px-5 py-4 text-green-800 hover:text-green-600 font-semibold rounded-2xl hover:bg-green-50 transition duration-300 border-2 border-transparent hover:border-green-200 group"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <span className="text-2xl transform group-hover:scale-110 transition-transform duration-300">{item.icon}</span>
+                    <span className="text-lg">{item.name}</span>
+                  </Link>
+                )
               ))}
               
               <div className="pt-6 border-t border-green-200 space-y-3 mt-4">
+                <Link 
+                  to="/donasi" 
+                  className="flex items-center justify-center space-x-3 px-5 py-4 text-amber-700 hover:text-amber-900 font-semibold text-center border-2 border-amber-300 rounded-2xl hover:rounded-3xl hover:border-amber-400 hover:bg-amber-50 transition duration-300"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <span>💝</span>
+                  <span>Lihat Donasi</span>
+                </Link>
                 <Link 
                   to="/login" 
                   className="flex items-center justify-center space-x-3 px-5 py-4 text-green-700 hover:text-green-900 font-semibold text-center border-2 border-green-300 rounded-2xl hover:rounded-3xl hover:border-green-400 hover:bg-green-50 transition duration-300"
