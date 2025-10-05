@@ -192,7 +192,7 @@ const Hero = () => {
         </div>
 
         {/* Scroll Indicator */}
-        <div className={`absolute bottom-8 left-1/2 transform -translate-x-1/2 flex flex-col items-center space-y-2 transform transition-all duration-1000 delay-2000 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
+        <div className={`absolute bottom-8 left-1/2 transform -translate-x-1/2 flex flex-col items-center space-y-2 transition-all duration-1000 delay-2000 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
           <span className="text-green-600 text-sm font-medium">Scroll untuk menjelajahi</span>
           <div className="w-6 h-10 border-2 border-green-400 rounded-full flex justify-center">
             <div className="w-1 h-3 bg-green-400 rounded-full mt-2 animate-scroll-bounce"></div>

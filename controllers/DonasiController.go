@@ -23,7 +23,7 @@ func NewDonasiController(db *gorm.DB) *DonasiController {
 
 // Request structs
 type CreateDonasiRequest struct {
-	NamaDonatur string  `json:"nama_donatur" binding:"required"`
+	NamaDonatur string  `json:"nama_donatur"` // Remove required binding
 	NoTelp      string  `json:"no_telp"`
 	Nominal     float64 `json:"nominal" binding:"required,gt=0"`
 }
@@ -38,6 +38,21 @@ type DonasiSummary struct {
 	TotalNominal float64 `json:"total_nominal"`
 	TotalDonatur int64   `json:"total_donatur"`
 	RataRata     float64 `json:"rata_rata"`
+}
+
+// Response struct untuk public
+type DonasiPublicResponse struct {
+	IDDonasi    string  `json:"id_donasi"`
+	NamaDonatur string  `json:"nama_donatur"`
+	NoTelp      string  `json:"no_telp"`
+	Nominal     float64 `json:"nominal"`
+	WaktuCatat  string  `json:"waktu_catat"`
+}
+
+type DonasiTerbaruPublicResponse struct {
+	NamaDonatur string  `json:"nama_donatur"`
+	Nominal     float64 `json:"nominal"`
+	WaktuCatat  string  `json:"waktu_catat"`
 }
 
 // Helper function untuk check role
@@ -57,6 +72,44 @@ func (ctrl *DonasiController) getUserID(c *gin.Context) (string, bool) {
 		return "", false
 	}
 	return userID.(string), true
+}
+
+// Helper function untuk format response public
+func (ctrl *DonasiController) formatDonasiPublic(donasi models.Donasi) DonasiPublicResponse {
+	// Format nama donatur
+	namaDonatur := donasi.NamaDonatur
+	if namaDonatur == "" {
+		namaDonatur = "Hamba Allah"
+	}
+
+	// Format nomor telepon
+	noTelp := donasi.NoTelp
+	if noTelp == "" {
+		noTelp = "dirahasiakan"
+	}
+
+	return DonasiPublicResponse{
+		IDDonasi:    donasi.IDDonasi,
+		NamaDonatur: namaDonatur,
+		NoTelp:      noTelp,
+		Nominal:     donasi.Nominal,
+		WaktuCatat:  donasi.WaktuCatat.Format(time.RFC3339),
+	}
+}
+
+// Helper function untuk format donasi terbaru public
+func (ctrl *DonasiController) formatDonasiTerbaruPublic(donasi models.Donasi) DonasiTerbaruPublicResponse {
+	// Format nama donatur
+	namaDonatur := donasi.NamaDonatur
+	if namaDonatur == "" {
+		namaDonatur = "Hamba Allah"
+	}
+
+	return DonasiTerbaruPublicResponse{
+		NamaDonatur: namaDonatur,
+		Nominal:     donasi.Nominal,
+		WaktuCatat:  donasi.WaktuCatat.Format(time.RFC3339),
+	}
 }
 
 // CreateDonasi membuat data donasi baru
@@ -80,9 +133,15 @@ func (ctrl *DonasiController) CreateDonasi(c *gin.Context) {
 		return
 	}
 
+	// Validasi nominal
+	if req.Nominal <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Nominal harus lebih besar dari 0"})
+		return
+	}
+
 	// Set nama donatur default jika kosong
 	if req.NamaDonatur == "" {
-		req.NamaDonatur = "Anonim"
+		req.NamaDonatur = "Hamba Allah"
 	}
 
 	// Buat data donasi
@@ -192,9 +251,9 @@ func (ctrl *DonasiController) GetAllDonasi(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"data": donasi,
 		"meta": gin.H{
-			"page":      page,
-			"limit":     limit,
-			"total":     total,
+			"page":       page,
+			"limit":      limit,
+			"total":      total,
 			"total_page": (int(total) + limit - 1) / limit,
 		},
 	})
@@ -235,10 +294,15 @@ func (ctrl *DonasiController) UpdateDonasi(c *gin.Context) {
 	// Update fields
 	if req.NamaDonatur != "" {
 		existingDonasi.NamaDonatur = req.NamaDonatur
+	} else {
+		// Jika nama donatur di-set menjadi empty string, set sebagai "Anonim"
+		existingDonasi.NamaDonatur = "Anonim"
 	}
+	
 	if req.NoTelp != "" {
 		existingDonasi.NoTelp = req.NoTelp
 	}
+	
 	if req.Nominal > 0 {
 		existingDonasi.Nominal = req.Nominal
 	}
@@ -425,140 +489,152 @@ func (ctrl *DonasiController) GetDonasiByDateRange(c *gin.Context) {
 
 // GetDonasiPublic mendapatkan data donasi untuk dilihat publik (tanpa auth)
 func (ctrl *DonasiController) GetDonasiPublic(c *gin.Context) {
-    // Parse query parameters
-    page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-    limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-    startDate := c.Query("start_date")
-    endDate := c.Query("end_date")
+	// Parse query parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
 
-    if page < 1 {
-        page = 1
-    }
-    if limit < 1 || limit > 50 {
-        limit = 10
-    }
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 10
+	}
 
-    var donasi []models.Donasi
-    var total int64
+	var donasi []models.Donasi
+	var total int64
 
-    // Build query untuk public - hanya field yang diperlukan
-    query := ctrl.db.Select("id_donasi, nama_donatur, no_telp, nominal, waktu_catat")
+	// Build query untuk public - hanya field yang diperlukan
+	query := ctrl.db.Select("id_donasi, nama_donatur, no_telp, nominal, waktu_catat")
 
-    // Apply date filters jika ada
-    if startDate != "" {
-        // Validasi format tanggal
-        _, err := time.Parse("2006-01-02", startDate)
-        if err != nil {
-            c.JSON(http.StatusBadRequest, gin.H{"error": "Format start_date tidak valid. Gunakan format YYYY-MM-DD"})
-            return
-        }
-        query = query.Where("DATE(waktu_catat) >= ?", startDate)
-    }
+	// Apply date filters jika ada
+	if startDate != "" {
+		// Validasi format tanggal
+		_, err := time.Parse("2006-01-02", startDate)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Format start_date tidak valid. Gunakan format YYYY-MM-DD"})
+			return
+		}
+		query = query.Where("DATE(waktu_catat) >= ?", startDate)
+	}
 
-    if endDate != "" {
-        // Validasi format tanggal
-        _, err := time.Parse("2006-01-02", endDate)
-        if err != nil {
-            c.JSON(http.StatusBadRequest, gin.H{"error": "Format end_date tidak valid. Gunakan format YYYY-MM-DD"})
-            return
-        }
-        query = query.Where("DATE(waktu_catat) <= ?", endDate)
-    }
+	if endDate != "" {
+		// Validasi format tanggal
+		_, err := time.Parse("2006-01-02", endDate)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Format end_date tidak valid. Gunakan format YYYY-MM-DD"})
+			return
+		}
+		query = query.Where("DATE(waktu_catat) <= ?", endDate)
+	}
 
-    // Hitung total records
-    if err := query.Model(&models.Donasi{}).Count(&total).Error; err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung total data: " + err.Error()})
-        return
-    }
+	// Hitung total records
+	if err := query.Model(&models.Donasi{}).Count(&total).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung total data: " + err.Error()})
+		return
+	}
 
-    // Apply pagination
-    offset := (page - 1) * limit
-    err := query.Order("waktu_catat DESC").
-        Offset(offset).
-        Limit(limit).
-        Find(&donasi).Error
+	// Apply pagination
+	offset := (page - 1) * limit
+	err := query.Order("waktu_catat DESC").
+		Offset(offset).
+		Limit(limit).
+		Find(&donasi).Error
 
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data donasi: " + err.Error()})
-        return
-    }
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data donasi: " + err.Error()})
+		return
+	}
 
-    c.JSON(http.StatusOK, gin.H{
-        "data": donasi,
-        "meta": gin.H{
-            "page":       page,
-            "limit":      limit,
-            "total":      total,
-            "total_page": (int(total) + limit - 1) / limit,
-        },
-    })
+	// Format response untuk public
+	donasiPublic := make([]DonasiPublicResponse, len(donasi))
+	for i, d := range donasi {
+		donasiPublic[i] = ctrl.formatDonasiPublic(d)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": donasiPublic,
+		"meta": gin.H{
+			"page":       page,
+			"limit":      limit,
+			"total":      total,
+			"total_page": (int(total) + limit - 1) / limit,
+		},
+	})
 }
 
 // GetDonasiSummaryPublic mendapatkan summary donasi untuk public (tanpa auth)
 func (ctrl *DonasiController) GetDonasiSummaryPublic(c *gin.Context) {
-    // Parse date filters
-    startDate := c.Query("start_date")
-    endDate := c.Query("end_date")
+	// Parse date filters
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
 
-    // Build query
-    query := ctrl.db.Model(&models.Donasi{})
+	// Build query
+	query := ctrl.db.Model(&models.Donasi{})
 
-    // Apply date filters jika ada
-    if startDate != "" {
-        // Validasi format tanggal
-        _, err := time.Parse("2006-01-02", startDate)
-        if err != nil {
-            c.JSON(http.StatusBadRequest, gin.H{"error": "Format start_date tidak valid. Gunakan format YYYY-MM-DD"})
-            return
-        }
-        query = query.Where("DATE(waktu_catat) >= ?", startDate)
-    }
+	// Apply date filters jika ada
+	if startDate != "" {
+		// Validasi format tanggal
+		_, err := time.Parse("2006-01-02", startDate)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Format start_date tidak valid. Gunakan format YYYY-MM-DD"})
+			return
+		}
+		query = query.Where("DATE(waktu_catat) >= ?", startDate)
+	}
 
-    if endDate != "" {
-        // Validasi format tanggal
-        _, err := time.Parse("2006-01-02", endDate)
-        if err != nil {
-            c.JSON(http.StatusBadRequest, gin.H{"error": "Format end_date tidak valid. Gunakan format YYYY-MM-DD"})
-            return
-        }
-        query = query.Where("DATE(waktu_catat) <= ?", endDate)
-    }
+	if endDate != "" {
+		// Validasi format tanggal
+		_, err := time.Parse("2006-01-02", endDate)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Format end_date tidak valid. Gunakan format YYYY-MM-DD"})
+			return
+		}
+		query = query.Where("DATE(waktu_catat) <= ?", endDate)
+	}
 
-    // Hitung total nominal
-    var totalNominal float64
-    if err := query.Select("COALESCE(SUM(nominal), 0)").Scan(&totalNominal).Error; err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung total nominal: " + err.Error()})
-        return
-    }
+	// Hitung total nominal
+	var totalNominal float64
+	if err := query.Select("COALESCE(SUM(nominal), 0)").Scan(&totalNominal).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung total nominal: " + err.Error()})
+		return
+	}
 
-    // Hitung total donatur
-    var totalDonatur int64
-    if err := query.Count(&totalDonatur).Error; err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung total donatur: " + err.Error()})
-        return
-    }
+	// Hitung total donatur
+	var totalDonatur int64
+	if err := query.Count(&totalDonatur).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung total donatur: " + err.Error()})
+		return
+	}
 
-    // Hitung rata-rata
-    var rataRata float64
-    if totalDonatur > 0 {
-        rataRata = totalNominal / float64(totalDonatur)
-    }
+	// Hitung rata-rata
+	var rataRata float64
+	if totalDonatur > 0 {
+		rataRata = totalNominal / float64(totalDonatur)
+	}
 
-    // Data terbaru (5 donasi terbaru untuk preview)
-    var donasiTerbaru []models.Donasi
-    ctrl.db.Select("nama_donatur, nominal, waktu_catat").
-        Order("waktu_catat DESC").
-        Limit(5).
-        Find(&donasiTerbaru)
+	// Data terbaru (5 donasi terbaru untuk preview)
+	var donasiTerbaru []models.Donasi
+	ctrl.db.Select("nama_donatur, nominal, waktu_catat").
+		Order("waktu_catat DESC").
+		Limit(5).
+		Find(&donasiTerbaru)
 
-    summary := gin.H{
-        "total_nominal": totalNominal,
-        "total_donatur": totalDonatur,
-        "rata_rata":     rataRata,
-        "donasi_terbaru": donasiTerbaru,
-    }
+	// Format donasi terbaru untuk public
+	donasiTerbaruPublic := make([]DonasiTerbaruPublicResponse, len(donasiTerbaru))
+	for i, d := range donasiTerbaru {
+		donasiTerbaruPublic[i] = ctrl.formatDonasiTerbaruPublic(d)
+	}
 
-    c.JSON(http.StatusOK, gin.H{
-        "data": summary,
-    })
+	summary := gin.H{
+		"total_nominal": totalNominal,
+		"total_donatur": totalDonatur,
+		"rata_rata":     rataRata,
+		"donasi_terbaru": donasiTerbaruPublic,
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": summary,
+	})
 }

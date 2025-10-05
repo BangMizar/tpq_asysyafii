@@ -202,14 +202,14 @@ const Header = () => {
               ))}
               
               <div className="pt-6 border-t border-green-200 space-y-3 mt-4">
-                <Link 
+                {/* <Link 
                   to="/donasi" 
                   className="flex items-center justify-center space-x-3 px-5 py-4 text-amber-700 hover:text-amber-900 font-semibold text-center border-2 border-amber-300 rounded-2xl hover:rounded-3xl hover:border-amber-400 hover:bg-amber-50 transition duration-300"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   <span>💝</span>
                   <span>Lihat Donasi</span>
-                </Link>
+                </Link> */}
                 <Link 
                   to="/login" 
                   className="flex items-center justify-center space-x-3 px-5 py-4 text-green-700 hover:text-green-900 font-semibold text-center border-2 border-green-300 rounded-2xl hover:rounded-3xl hover:border-green-400 hover:bg-green-50 transition duration-300"
