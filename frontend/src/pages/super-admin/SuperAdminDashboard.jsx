@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import AuthDashboardLayout from '../components/layout/AuthDashboardLayout';
-import { useAuth } from '../context/AuthContext';
+import AuthDashboardLayout from '../../components/layout/AuthDashboardLayout';
+import { useAuth } from '../../context/AuthContext';
 import { Link } from 'react-router-dom';
 
 const SuperAdminDashboard = () => {

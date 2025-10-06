@@ -21,18 +21,111 @@ const Sidebar = () => {
     return location.pathname === path || location.pathname.startsWith(path + '/');
   };
 
+  // SVG Icons
+  const DashboardIcon = () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10" />
+    </svg>
+  );
+
+  const UsersIcon = () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+    </svg>
+  );
+
+  const ContentIcon = () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9m0 0v12m0-12a2 2 0 012-2h2a2 2 0 012 2m-6 9v2m0-4v2" />
+    </svg>
+  );
+
+  const DataIcon = () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+  );
+
+  const SystemIcon = () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  );
+
+  const StudentIcon = () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+    </svg>
+  );
+
+  const PaymentIcon = () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+    </svg>
+  );
+
+  const DonationIcon = () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
+    </svg>
+  );
+
+  const FinanceIcon = () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+    </svg>
+  );
+
+  const ReportIcon = () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+  );
+
+  const SwitchIcon = () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+    </svg>
+  );
+
+  const LogoutIcon = () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+    </svg>
+  );
+
+  const UserIcon = () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+    </svg>
+  );
+
+  const ChevronDownIcon = () => (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+    </svg>
+  );
+
+  const CollapseIcon = () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+    </svg>
+  );
+
   // Menu untuk Super Admin
   const superAdminMenu = [
     {
       title: 'Dashboard',
       path: '/super-admin',
-      icon: '📊',
+      icon: <DashboardIcon />,
       submenu: []
     },
     {
       title: 'Manajemen User',
       path: '/super-admin/users',
-      icon: '👥',
+      icon: <UsersIcon />,
       submenu: [
         { title: 'Data User', path: '/super-admin/users' },
         { title: 'Data Admin', path: '/super-admin/admins' },
@@ -42,7 +135,7 @@ const Sidebar = () => {
     {
       title: 'Konten & Informasi',
       path: '/super-admin/konten',
-      icon: '📰',
+      icon: <ContentIcon />,
       submenu: [
         { title: 'Data Pengumuman', path: '/super-admin/pengumuman' },
         { title: 'Data Berita', path: '/super-admin/berita' },
@@ -52,7 +145,7 @@ const Sidebar = () => {
     {
       title: 'Data Master',
       path: '/super-admin/data',
-      icon: '🗃️',
+      icon: <DataIcon />,
       submenu: [
         { title: 'Data Santri', path: '/super-admin/santri' },
         { title: 'Data Syahriah', path: '/super-admin/syahriah' },
@@ -63,7 +156,7 @@ const Sidebar = () => {
     {
       title: 'System',
       path: '/super-admin/system',
-      icon: '⚙️',
+      icon: <SystemIcon />,
       submenu: [
         { title: 'System Logs', path: '/super-admin/logs' },
         { title: 'Backup Data', path: '/super-admin/backup' },
@@ -77,13 +170,13 @@ const Sidebar = () => {
     {
       title: 'Dashboard',
       path: '/admin',
-      icon: '📊',
+      icon: <DashboardIcon />,
       submenu: []
     },
     {
       title: 'Data Wali',
       path: '/admin/user',
-      icon: '👦',
+      icon: <StudentIcon />,
       submenu: [
         { title: 'Data Santri', path: '/admin/santri' },
         { title: 'Tambah Santri', path: '/admin/santri/tambah' },
@@ -93,7 +186,7 @@ const Sidebar = () => {
     {
       title: 'Data Syahriah',
       path: '/admin/syahriah',
-      icon: '💰',
+      icon: <PaymentIcon />,
       submenu: [
         { title: 'Data Pembayaran', path: '/admin/syahriah' },
         { title: 'Input Pembayaran', path: '/admin/syahriah/input' },
@@ -103,7 +196,7 @@ const Sidebar = () => {
     {
       title: 'Data Donasi',
       path: '/admin/donasi',
-      icon: '🎁',
+      icon: <DonationIcon />,
       submenu: [
         { title: 'Data Donasi', path: '/admin/donasi' },
         { title: 'Input Donasi', path: '/admin/donasi/input' },
@@ -113,7 +206,7 @@ const Sidebar = () => {
     {
       title: 'Keuangan',
       path: '/admin/keuangan',
-      icon: '📊',
+      icon: <FinanceIcon />,
       submenu: [
         { title: 'Rekap Keuangan', path: '/admin/keuangan' },
         { title: 'Laporan Bulanan', path: '/admin/keuangan/laporan' },
@@ -123,7 +216,7 @@ const Sidebar = () => {
     {
       title: 'Laporan',
       path: '/admin/laporan',
-      icon: '📈',
+      icon: <ReportIcon />,
       submenu: [
         { title: 'Laporan Bulanan', path: '/admin/laporan/bulanan' },
         { title: 'Laporan Tahunan', path: '/admin/laporan/tahunan' }
@@ -145,24 +238,17 @@ const Sidebar = () => {
           className={`flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 group ${
             isActive(item.path)
               ? 'bg-green-100 text-green-700 border-r-2 border-green-600'
-              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+              : 'text-gray-600 hover:bg-green-50 hover:text-green-900'
           } ${level > 0 ? 'pl-8' : ''}`}
         >
-          <span className="text-lg flex-shrink-0">{item.icon}</span>
+          <span className={`flex-shrink-0 ${isActive(item.path) ? 'text-green-600' : 'text-gray-400 group-hover:text-green-600'}`}>
+            {item.icon}
+          </span>
           {!isCollapsed && (
             <>
               <span className="flex-1">{item.title}</span>
               {hasSubmenu && (
-                <svg
-                  className={`w-4 h-4 transition-transform duration-200 ${
-                    isSubmenuOpen ? 'transform rotate-180' : ''
-                  }`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
+                <ChevronDownIcon />
               )}
             </>
           )}
@@ -181,20 +267,20 @@ const Sidebar = () => {
 
   return (
     <div
-      className={`bg-white border-r border-gray-200 flex flex-col transition-all duration-300 ${
+      className={`bg-white border-r border-green-200 flex flex-col transition-all duration-300 ${
         isCollapsed ? 'w-20' : 'w-64'
       }`}
     >
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200">
+      <div className="flex items-center justify-between p-4 border-b border-green-200">
         {!isCollapsed && (
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">TPQ</span>
             </div>
             <div>
-              <h1 className="font-bold text-gray-800">System TPQ</h1>
-              <p className="text-xs text-gray-500 capitalize">
+              <h1 className="font-bold text-green-800">System TPQ</h1>
+              <p className="text-xs text-green-600 capitalize">
                 {isSuperAdmin ? 'Super Admin' : 'Admin'}
               </p>
             </div>
@@ -209,33 +295,24 @@ const Sidebar = () => {
 
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="p-1 rounded-lg hover:bg-gray-100 transition-colors duration-200"
+          className="p-1 rounded-lg hover:bg-green-100 transition-colors duration-200 text-green-600"
         >
-          <svg
-            className={`w-5 h-5 text-gray-500 transition-transform duration-300 ${
-              isCollapsed ? 'transform rotate-180' : ''
-            }`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-          </svg>
+          <CollapseIcon />
         </button>
       </div>
 
       {/* User Info */}
       {!isCollapsed && (
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4 border-b border-green-200">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
-              {user?.nama_lengkap?.charAt(0) || 'U'}
+            <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center text-white font-semibold">
+              <UserIcon />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">
+              <p className="text-sm font-medium text-green-900 truncate">
                 {user?.nama_lengkap || 'User'}
               </p>
-              <p className="text-xs text-gray-500 truncate capitalize">
+              <p className="text-xs text-green-600 truncate capitalize">
                 {user?.role?.replace('_', ' ') || 'User'}
               </p>
             </div>
@@ -244,9 +321,9 @@ const Sidebar = () => {
       )}
 
       {isCollapsed && (
-        <div className="p-4 border-b border-gray-200 flex justify-center">
-          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-            {user?.nama_lengkap?.charAt(0) || 'U'}
+        <div className="p-4 border-b border-green-200 flex justify-center">
+          <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+            <UserIcon />
           </div>
         </div>
       )}
@@ -261,14 +338,16 @@ const Sidebar = () => {
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-gray-200">
+      <div className="p-4 border-t border-green-200">
         {/* Switch Dashboard Button for Super Admin */}
         {isSuperAdmin && !isCollapsed && (
           <Link
             to={location.pathname.includes('/super-admin') ? '/admin' : '/super-admin'}
-            className="flex items-center space-x-3 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded-lg transition-all duration-200 mb-2"
+            className="flex items-center space-x-3 px-4 py-3 text-sm font-medium text-green-600 hover:bg-green-100 hover:text-green-900 rounded-lg transition-all duration-200 mb-2"
           >
-            <span className="text-lg">🔄</span>
+            <span className="text-green-500">
+              <SwitchIcon />
+            </span>
             <span>
               Switch to {location.pathname.includes('/super-admin') ? 'Admin' : 'Super Admin'}
             </span>
@@ -278,10 +357,10 @@ const Sidebar = () => {
         {isSuperAdmin && isCollapsed && (
           <Link
             to={location.pathname.includes('/super-admin') ? '/admin' : '/super-admin'}
-            className="flex items-center justify-center p-3 text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded-lg transition-all duration-200 mb-2"
+            className="flex items-center justify-center p-3 text-green-600 hover:bg-green-100 hover:text-green-900 rounded-lg transition-all duration-200 mb-2"
             title="Switch Dashboard"
           >
-            <span className="text-lg">🔄</span>
+            <SwitchIcon />
           </Link>
         )}
 
@@ -292,7 +371,9 @@ const Sidebar = () => {
             isCollapsed ? 'justify-center' : ''
           }`}
         >
-          <span className="text-lg">🚪</span>
+          <span className="text-red-500">
+            <LogoutIcon />
+          </span>
           {!isCollapsed && <span>Keluar</span>}
         </button>
       </div>
