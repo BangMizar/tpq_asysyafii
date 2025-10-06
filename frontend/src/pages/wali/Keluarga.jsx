@@ -14,8 +14,36 @@ const Keluarga = () => {
   const [formData, setFormData] = useState({});
   const [anggotaForm, setAnggotaForm] = useState({});
   const [actionLoading, setActionLoading] = useState(false);
+  
+  // State untuk modal notifikasi
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [notificationData, setNotificationData] = useState({
+    type: 'success', // 'success' | 'error'
+    title: '',
+    message: '',
+    onConfirm: null
+  });
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
+  // Fungsi untuk menampilkan modal notifikasi
+  const showNotification = (type, title, message, onConfirm = null) => {
+    setNotificationData({
+      type,
+      title,
+      message,
+      onConfirm
+    });
+    setShowNotificationModal(true);
+  };
+
+  // Fungsi untuk menutup modal notifikasi
+  const closeNotification = () => {
+    setShowNotificationModal(false);
+    if (notificationData.onConfirm) {
+      notificationData.onConfirm();
+    }
+  };
 
   // Fetch data keluarga
   const fetchKeluargaData = async () => {
@@ -94,11 +122,11 @@ const Keluarga = () => {
       const data = await response.json();
       setKeluargaData(data.data);
       setShowEditModal(false);
-      alert('Data keluarga berhasil diperbarui!');
+      showNotification('success', 'Berhasil!', 'Data keluarga berhasil diperbarui!');
 
     } catch (err) {
       console.error('Error updating keluarga:', err);
-      alert('Gagal memperbarui data keluarga: ' + err.message);
+      showNotification('error', 'Gagal!', `Gagal memperbarui data keluarga: ${err.message}`);
     } finally {
       setActionLoading(false);
     }
@@ -142,11 +170,11 @@ const Keluarga = () => {
 
       await fetchKeluargaData();
       setShowAddAnggotaModal(false);
-      alert('Anggota keluarga berhasil ditambahkan!');
+      showNotification('success', 'Berhasil!', 'Anggota keluarga berhasil ditambahkan!');
 
     } catch (err) {
       console.error('Error creating anggota:', err);
-      alert('Gagal menambahkan anggota keluarga: ' + err.message);
+      showNotification('error', 'Gagal!', `Gagal menambahkan anggota keluarga: ${err.message}`);
     } finally {
       setActionLoading(false);
     }
@@ -189,11 +217,11 @@ const Keluarga = () => {
       await fetchKeluargaData();
       setShowEditAnggotaModal(false);
       setSelectedAnggota(null);
-      alert('Data anggota berhasil diperbarui!');
+      showNotification('success', 'Berhasil!', 'Data anggota berhasil diperbarui!');
 
     } catch (err) {
       console.error('Error updating anggota:', err);
-      alert('Gagal memperbarui data anggota: ' + err.message);
+      showNotification('error', 'Gagal!', `Gagal memperbarui data anggota: ${err.message}`);
     } finally {
       setActionLoading(false);
     }
@@ -201,34 +229,35 @@ const Keluarga = () => {
 
   // Handle Delete Anggota Keluarga
   const handleDeleteAnggota = async (anggota) => {
-    if (!confirm(`Apakah Anda yakin ingin menghapus ${anggota.nama_lengkap} dari anggota keluarga?`)) {
-      return;
-    }
+    showNotification('error', 'Konfirmasi Hapus', 
+      `Apakah Anda yakin ingin menghapus ${anggota.nama_lengkap} dari anggota keluarga?`,
+      async () => {
+        try {
+          setActionLoading(true);
 
-    try {
-      setActionLoading(true);
+          const response = await fetch(`${API_URL}/api/anggota-keluarga/${anggota.id_anggota_keluarga}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              'Content-Type': 'application/json'
+            }
+          });
 
-      const response = await fetch(`${API_URL}/api/anggota-keluarga/${anggota.id_anggota_keluarga}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          await fetchKeluargaData();
+          showNotification('success', 'Berhasil!', 'Anggota keluarga berhasil dihapus!');
+
+        } catch (err) {
+          console.error('Error deleting anggota:', err);
+          showNotification('error', 'Gagal!', `Gagal menghapus anggota keluarga: ${err.message}`);
+        } finally {
+          setActionLoading(false);
         }
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
       }
-
-      await fetchKeluargaData();
-      alert('Anggota keluarga berhasil dihapus!');
-
-    } catch (err) {
-      console.error('Error deleting anggota:', err);
-      alert('Gagal menghapus anggota keluarga: ' + err.message);
-    } finally {
-      setActionLoading(false);
-    }
+    );
   };
 
   const formatDate = (dateString) => {
@@ -827,6 +856,53 @@ const Keluarga = () => {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Notifikasi */}
+      {showNotificationModal && (
+        <div className="fixed inset-0 backdrop-blur drop-shadow-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl max-w-sm w-full">
+            <div className="p-6">
+              <div className="text-center">
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
+                  notificationData.type === 'success' 
+                    ? 'bg-green-100 text-green-600' 
+                    : 'bg-red-100 text-red-600'
+                }`}>
+                  {notificationData.type === 'success' ? (
+                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                  )}
+                </div>
+                <h3 className={`text-lg font-semibold mb-2 ${
+                  notificationData.type === 'success' ? 'text-green-900' : 'text-red-900'
+                }`}>
+                  {notificationData.title}
+                </h3>
+                <p className="text-gray-600 mb-6">
+                  {notificationData.message}
+                </p>
+                <div className="flex space-x-3">
+                  <button
+                    onClick={closeNotification}
+                    className={`flex-1 py-2 rounded-lg font-medium transition-colors duration-200 ${
+                      notificationData.type === 'success'
+                        ? 'bg-green-600 text-white hover:bg-green-700'
+                        : 'bg-red-600 text-white hover:bg-red-700'
+                    }`}
+                  >
+                    OK
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
