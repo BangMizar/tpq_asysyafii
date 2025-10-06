@@ -1,10 +1,11 @@
 // components/layout/Sidebar.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 const Sidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [openSubmenus, setOpenSubmenus] = useState({});
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -12,16 +13,43 @@ const Sidebar = () => {
   const isSuperAdmin = user?.role === 'super_admin';
   const isAdmin = user?.role === 'admin';
 
+  useEffect(() => {
+    // Set submenu terbuka berdasarkan path yang aktif
+    const newOpenSubmenus = {};
+    menuItems.forEach(item => {
+      if (item.submenu && item.submenu.length > 0) {
+        // Cek apakah salah satu submenu aktif
+        const isSubmenuActive = item.submenu.some(subItem => 
+          isActive(subItem.path)
+        );
+        if (isSubmenuActive) {
+          newOpenSubmenus[item.path] = true;
+        }
+      }
+    });
+    setOpenSubmenus(newOpenSubmenus);
+  }, [location.pathname]);
+
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
   const isActive = (path) => {
+    if (path === '/super-admin' || path === '/admin') {
+      return location.pathname === path;
+    }
     return location.pathname === path || location.pathname.startsWith(path + '/');
   };
 
-  // SVG Icons
+  const toggleSubmenu = (path) => {
+    setOpenSubmenus(prev => ({
+      ...prev,
+      [path]: !prev[path]
+    }));
+  };
+
+  // SVG Icons (tetap sama seperti sebelumnya)
   const DashboardIcon = () => (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
@@ -102,8 +130,13 @@ const Sidebar = () => {
     </svg>
   );
 
-  const ChevronDownIcon = () => (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  const ChevronDownIcon = ({ isOpen }) => (
+    <svg 
+      className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'transform rotate-180' : ''}`} 
+      fill="none" 
+      stroke="currentColor" 
+      viewBox="0 0 24 24"
+    >
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
     </svg>
   );
@@ -126,11 +159,7 @@ const Sidebar = () => {
       title: 'Manajemen User',
       path: '/super-admin/users',
       icon: <UsersIcon />,
-      submenu: [
-        { title: 'Data User', path: '/super-admin/users' },
-        { title: 'Data Admin', path: '/super-admin/admins' },
-        { title: 'Tambah User', path: '/super-admin/users/tambah' }
-      ]
+      submenu: []
     },
     {
       title: 'Konten & Informasi',
@@ -157,11 +186,7 @@ const Sidebar = () => {
       title: 'System',
       path: '/super-admin/system',
       icon: <SystemIcon />,
-      submenu: [
-        { title: 'System Logs', path: '/super-admin/logs' },
-        { title: 'Backup Data', path: '/super-admin/backup' },
-        { title: 'Pengaturan', path: '/super-admin/settings' }
-      ]
+      submenu: []
     }
   ];
 
@@ -177,87 +202,91 @@ const Sidebar = () => {
       title: 'Data Wali',
       path: '/admin/user',
       icon: <StudentIcon />,
-      submenu: [
-        { title: 'Data Santri', path: '/admin/santri' },
-        { title: 'Tambah Santri', path: '/admin/santri/tambah' },
-        { title: 'Kelas & Grup', path: '/admin/kelas' }
-      ]
+      submenu: []
     },
     {
       title: 'Data Syahriah',
       path: '/admin/syahriah',
       icon: <PaymentIcon />,
-      submenu: [
-        { title: 'Data Pembayaran', path: '/admin/syahriah' },
-        { title: 'Input Pembayaran', path: '/admin/syahriah/input' },
-        { title: 'Tunggakan', path: '/admin/syahriah/tunggakan' }
-      ]
+      submenu: []
     },
     {
       title: 'Data Donasi',
       path: '/admin/donasi',
       icon: <DonationIcon />,
-      submenu: [
-        { title: 'Data Donasi', path: '/admin/donasi' },
-        { title: 'Input Donasi', path: '/admin/donasi/input' },
-        { title: 'Laporan Donasi', path: '/admin/donasi/laporan' }
-      ]
+      submenu: []
     },
     {
       title: 'Keuangan',
       path: '/admin/keuangan',
       icon: <FinanceIcon />,
-      submenu: [
-        { title: 'Rekap Keuangan', path: '/admin/keuangan' },
-        { title: 'Laporan Bulanan', path: '/admin/keuangan/laporan' },
-        { title: 'Arus Kas', path: '/admin/keuangan/arus-kas' }
-      ]
+      submenu: []
     },
     {
       title: 'Laporan',
       path: '/admin/laporan',
       icon: <ReportIcon />,
-      submenu: [
-        { title: 'Laporan Bulanan', path: '/admin/laporan/bulanan' },
-        { title: 'Laporan Tahunan', path: '/admin/laporan/tahunan' }
-      ]
+      submenu: []
     }
   ];
 
   const menuItems = isSuperAdmin ? superAdminMenu : adminMenu;
 
   const MenuItem = ({ item, level = 0 }) => {
-    const [isSubmenuOpen, setIsSubmenuOpen] = useState(false);
     const hasSubmenu = item.submenu && item.submenu.length > 0;
+    const isSubmenuOpen = openSubmenus[item.path];
+    const isItemActive = isActive(item.path) || (hasSubmenu && item.submenu.some(subItem => isActive(subItem.path)));
 
     return (
       <div>
-        <Link
-          to={hasSubmenu ? '#' : item.path}
-          onClick={() => hasSubmenu && setIsSubmenuOpen(!isSubmenuOpen)}
-          className={`flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 group ${
-            isActive(item.path)
+        <div
+          onClick={() => hasSubmenu && toggleSubmenu(item.path)}
+          className={`flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 group cursor-pointer ${
+            isItemActive
               ? 'bg-green-100 text-green-700 border-r-2 border-green-600'
               : 'text-gray-600 hover:bg-green-50 hover:text-green-900'
           } ${level > 0 ? 'pl-8' : ''}`}
         >
-          <span className={`flex-shrink-0 ${isActive(item.path) ? 'text-green-600' : 'text-gray-400 group-hover:text-green-600'}`}>
+          <span className={`flex-shrink-0 ${isItemActive ? 'text-green-600' : 'text-gray-400 group-hover:text-green-600'}`}>
             {item.icon}
           </span>
           {!isCollapsed && (
             <>
-              <span className="flex-1">{item.title}</span>
-              {hasSubmenu && (
-                <ChevronDownIcon />
+              {hasSubmenu ? (
+                <>
+                  <span className="flex-1">{item.title}</span>
+                  <ChevronDownIcon isOpen={isSubmenuOpen} />
+                </>
+              ) : (
+                <Link 
+                  to={item.path}
+                  className="flex-1"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {item.title}
+                </Link>
               )}
             </>
           )}
-        </Link>
+        </div>
         
         {hasSubmenu && isSubmenuOpen && !isCollapsed && (
           <div className="mt-1 space-y-1">
             {item.submenu.map((subItem, index) => (
-              <MenuItem key={index} item={subItem} level={level + 1} />
+              <Link
+                key={index}
+                to={subItem.path}
+                className={`flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 group pl-12 ${
+                  isActive(subItem.path)
+                    ? 'bg-green-50 text-green-700 border-r-2 border-green-600'
+                    : 'text-gray-600 hover:bg-green-50 hover:text-green-900'
+                }`}
+              >
+                <span className={`flex-shrink-0 ${isActive(subItem.path) ? 'text-green-600' : 'text-gray-400 group-hover:text-green-600'}`}>
+                  •
+                </span>
+                <span>{subItem.title}</span>
+              </Link>
             ))}
           </div>
         )}

@@ -9,14 +9,14 @@ import Homepage from './pages/Homepage';
 import SuperAdminDashboard from './pages/super-admin/SuperAdminDashboard';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import WaliDashboard from './pages/wali/WaliDashboard';
-import SemuaTagihanWali from './pages/wali/DetailTagihan';
 import DonasiPage from './pages/Donasi';
 
-// Import Wali Layout dan Pages
 import WaliLayout from './components/layout/WaliLayout';
 import KeuanganTPQ from './pages/wali/KeuanganTPQ';
 import Keluarga from './pages/wali/Keluarga';
 import Profil from './pages/wali/Profil';
+
+import UserManagement from './pages/super-admin/UserManagement';
 
 const AppContent = () => {
   const { user } = useAuth();
@@ -51,7 +51,9 @@ const AppContent = () => {
             <SuperAdminDashboard />
           </ProtectedRoute>
         } 
-      />
+      >
+      <Route path="users" element={<UserManagement />} />
+    </Route>
       
       {/* Admin Routes */}
       <Route 
@@ -76,7 +78,6 @@ const AppContent = () => {
         <Route path="keuangan" element={<KeuanganTPQ />} />
         <Route path="keluarga" element={<Keluarga />} />
         <Route path="profil" element={<Profil />} />
-        <Route path="detail" element={<SemuaTagihanWali />} />
       </Route>
       
       {/* Default redirect based on role */}
