@@ -176,10 +176,9 @@ const Sidebar = () => {
       path: '/super-admin/data',
       icon: <DataIcon />,
       submenu: [
-        { title: 'Data Santri', path: '/super-admin/santri' },
-        { title: 'Data Syahriah', path: '/super-admin/syahriah' },
-        { title: 'Data Donasi', path: '/super-admin/donasi' },
-        { title: 'Rekap Keuangan', path: '/super-admin/keuangan' }
+        { title: 'Data Syahriah', path: '/admin/syahriah' },
+        { title: 'Data Donasi', path: '/admin/donasi' },
+        { title: 'Rekap Keuangan', path: '/admin/keuangan' }
       ]
     },
     {
@@ -199,12 +198,6 @@ const Sidebar = () => {
       submenu: []
     },
     {
-      title: 'Data Wali',
-      path: '/admin/user',
-      icon: <StudentIcon />,
-      submenu: []
-    },
-    {
       title: 'Data Syahriah',
       path: '/admin/syahriah',
       icon: <PaymentIcon />,
@@ -220,12 +213,6 @@ const Sidebar = () => {
       title: 'Keuangan',
       path: '/admin/keuangan',
       icon: <FinanceIcon />,
-      submenu: []
-    },
-    {
-      title: 'Laporan',
-      path: '/admin/laporan',
-      icon: <ReportIcon />,
       submenu: []
     }
   ];

@@ -17,6 +17,15 @@ import Keluarga from './pages/wali/Keluarga';
 import Profil from './pages/wali/Profil';
 
 import UserManagement from './pages/super-admin/UserManagement';
+import DataMaster from './pages/super-admin/DataMaster';
+import BeritaManagement from './pages/super-admin/Berita';
+import InformasiTPQ from './pages/super-admin/InformasiTPQ';
+import PengumumanManagement from './pages/super-admin/Pengumuman';
+import SystemManagement from './pages/super-admin/System';
+
+import DataDonasi from './pages/admin/DataDonasi';
+import DataKeuangan from './pages/admin/DataKeuangan';
+import DataSyahriah from './pages/admin/DataSyahriah';
 
 const AppContent = () => {
   const { user } = useAuth();
@@ -51,9 +60,61 @@ const AppContent = () => {
             <SuperAdminDashboard />
           </ProtectedRoute>
         } 
-      >
-      <Route path="users" element={<UserManagement />} />
-    </Route>
+      />
+      
+      <Route 
+        path="/super-admin/users" 
+        element={
+          <ProtectedRoute allowedRoles={['super_admin']}>
+            <UserManagement />
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/super-admin/data-master" 
+        element={
+          <ProtectedRoute allowedRoles={['super_admin']}>
+            <DataMaster />
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/super-admin/berita" 
+        element={
+          <ProtectedRoute allowedRoles={['super_admin']}>
+            <BeritaManagement />
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/super-admin/informasi-tpq" 
+        element={
+          <ProtectedRoute allowedRoles={['super_admin']}>
+            <InformasiTPQ />
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/super-admin/pengumuman" 
+        element={
+          <ProtectedRoute allowedRoles={['super_admin']}>
+            <PengumumanManagement />
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/super-admin/system" 
+        element={
+          <ProtectedRoute allowedRoles={['super_admin']}>
+            <SystemManagement />
+          </ProtectedRoute>
+        } 
+      />
       
       {/* Admin Routes */}
       <Route 
@@ -61,6 +122,33 @@ const AppContent = () => {
         element={
           <ProtectedRoute allowedRoles={['admin', 'super_admin']}>
             <AdminDashboard />
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/admin/donasi" 
+        element={
+          <ProtectedRoute allowedRoles={['admin', 'super_admin']}>
+            <DataDonasi />
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/admin/keuangan" 
+        element={
+          <ProtectedRoute allowedRoles={['admin', 'super_admin']}>
+            <DataKeuangan />
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/admin/syahriah" 
+        element={
+          <ProtectedRoute allowedRoles={['admin', 'super_admin']}>
+            <DataSyahriah />
           </ProtectedRoute>
         } 
       />

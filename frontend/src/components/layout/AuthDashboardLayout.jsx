@@ -1,4 +1,3 @@
-// components/layout/DashboardLayout.jsx
 import React from 'react';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';

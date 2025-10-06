@@ -11,31 +11,6 @@ const SuperAdminDashboard = () => {
     totalDonasi: 0
   });
 
-  // Fetch system stats from API
-  useEffect(() => {
-    const fetchSystemStats = async () => {
-      try {
-        const responses = await Promise.all([
-          fetch('/api/users/total'),
-          fetch('/api/admins/total'),
-          fetch('/api/donasi/total')
-        ]);
-
-        const data = await Promise.all(responses.map(res => res.json()));
-        
-        setSystemStats({
-          totalUsers: data[0].total || 0,
-          totalAdmins: data[1].total || 0,
-          totalDonasi: data[2].total || 0
-        });
-      } catch (error) {
-        console.error('Error fetching system stats:', error);
-      }
-    };
-
-    fetchSystemStats();
-  }, []);
-
   const systemStatCards = [
     { 
       name: 'Total Pengguna', 
