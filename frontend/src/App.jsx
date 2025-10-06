@@ -8,8 +8,14 @@ import Register from './pages/Registrasi';
 import Homepage from './pages/Homepage';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import AdminDashboard from './pages/AdminDashboard';
-import WaliDashboard from './pages/WaliDashboard';
-import DonasiPage from './pages/Donasi'
+import WaliDashboard from './pages/wali/WaliDashboard';
+import DonasiPage from './pages/Donasi';
+
+// Import Wali Layout dan Pages
+import WaliLayout from './components/layout/WaliLayout';
+import KeuanganTPQ from './pages/wali/KeuanganTPQ';
+import Keluarga from './pages/wali/Keluarga';
+import Profil from './pages/wali/Profil';
 
 const AppContent = () => {
   const { user } = useAuth();
@@ -38,7 +44,7 @@ const AppContent = () => {
       
       {/* Super Admin Routes */}
       <Route 
-        path="/super-admin" 
+        path="/super-admin/*" 
         element={
           <ProtectedRoute allowedRoles={['super_admin']}>
             <SuperAdminDashboard />
@@ -48,7 +54,7 @@ const AppContent = () => {
       
       {/* Admin Routes */}
       <Route 
-        path="/admin" 
+        path="/admin/*" 
         element={
           <ProtectedRoute allowedRoles={['admin', 'super_admin']}>
             <AdminDashboard />
@@ -56,21 +62,29 @@ const AppContent = () => {
         } 
       />
       
-      {/* Wali Routes */}
+      {/* Wali Routes dengan Layout */}
       <Route 
-        path="/wali" 
+        path="/wali/*" 
         element={
           <ProtectedRoute allowedRoles={['wali', 'admin', 'super_admin']}>
-            <WaliDashboard />
+            <WaliLayout />
           </ProtectedRoute>
         } 
-      />
+      >
+        <Route index element={<WaliDashboard />} />
+        <Route path="keuangan" element={<KeuanganTPQ />} />
+        <Route path="keluarga" element={<Keluarga />} />
+        <Route path="profil" element={<Profil />} />
+      </Route>
       
       {/* Default redirect based on role */}
       <Route 
-        path="/" 
+        path="/dashboard" 
         element={<Navigate to={getDashboardByRole()} replace />} 
       />
+      
+      {/* Catch all route - redirect to home */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 };

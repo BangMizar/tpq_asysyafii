@@ -1,0 +1,173 @@
+// components/layout/WaliLayout.jsx
+import React, { useState } from 'react';
+import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+
+const WaliLayout = () => {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const { user, logout } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  const isActive = (path) => {
+    return location.pathname === path || location.pathname.startsWith(path + '/');
+  };
+
+  const menuItems = [
+    {
+      title: 'Dashboard',
+      path: '/wali',
+      icon: '📊'
+    },
+    {
+      title: 'Keuangan TPQ',
+      path: '/wali/keuangan',
+      icon: '💰'
+    },
+    {
+      title: 'Keluarga',
+      path: '/wali/keluarga',
+      icon: '👪'
+    }
+  ];
+
+  // Get page title based on current route
+  const getPageTitle = () => {
+    const currentItem = menuItems.find(item => 
+      location.pathname === item.path || location.pathname.startsWith(item.path + '/')
+    );
+    return currentItem ? currentItem.title : 'Dashboard';
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Top Bar */}
+      <header className="bg-white border-b border-gray-200 fixed w-full top-0 z-30">
+        <div className="flex items-center justify-between px-6 py-4">
+          <div className="flex items-center">
+            <button
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 lg:hidden"
+            >
+              <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            
+            <div className="ml-4 lg:ml-0">
+              <h1 className="text-xl font-bold text-gray-900">{getPageTitle()}</h1>
+              <p className="text-sm text-gray-600 mt-1">Portal Wali Santri TPQ</p>
+            </div>
+          </div>
+
+          {/* User Menu */}
+          <div className="flex items-center space-x-4">
+            <Link
+              to="/wali/profil"
+              className="flex items-center space-x-3 p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+            >
+              <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                {user?.nama_lengkap?.charAt(0) || 'W'}
+              </div>
+              <div className="text-left hidden md:block">
+                <p className="text-sm font-medium text-gray-900">{user?.nama_lengkap}</p>
+                <p className="text-xs text-gray-500">Wali Santri</p>
+              </div>
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      {/* Mobile Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        ></div>
+      )}
+
+      {/* Sidebar */}
+      <div className={`
+        fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        mt-16 lg:mt-0
+      `}>
+        <div className="flex flex-col h-full">
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b border-gray-200">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">TPQ</span>
+              </div>
+              <div>
+                <h1 className="font-bold text-gray-800">Portal Wali</h1>
+                <p className="text-xs text-gray-500">Orang Tua/Wali</p>
+              </div>
+            </div>
+          </div>
+
+          {/* User Info */}
+          <div className="p-4 border-b border-gray-200">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
+                {user?.nama_lengkap?.charAt(0) || 'W'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 truncate">
+                  {user?.nama_lengkap || 'Wali Santri'}
+                </p>
+                <p className="text-xs text-gray-500 truncate">Wali Santri</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Navigation */}
+          <nav className="flex-1 overflow-y-auto py-4">
+            <div className="space-y-1 px-2">
+              {menuItems.map((item, index) => (
+                <Link
+                  key={index}
+                  to={item.path}
+                  onClick={() => setIsSidebarOpen(false)}
+                  className={`flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
+                    isActive(item.path)
+                      ? 'bg-blue-100 text-blue-700 border-r-2 border-blue-600'
+                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  }`}
+                >
+                  <span className="text-lg">{item.icon}</span>
+                  <span>{item.title}</span>
+                </Link>
+              ))}
+            </div>
+          </nav>
+
+          {/* Footer */}
+          <div className="p-4 border-t border-gray-200">
+            <button
+              onClick={handleLogout}
+              className="flex items-center space-x-3 w-full px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg transition-all duration-200"
+            >
+              <span className="text-lg">🚪</span>
+              <span>Keluar</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <main className="lg:ml-64 pt-16">
+        <div className="p-6">
+          <Outlet />
+        </div>
+      </main>
+    </div>
+  );
+};
+
+export default WaliLayout;
