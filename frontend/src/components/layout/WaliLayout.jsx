@@ -15,32 +15,45 @@ const WaliLayout = () => {
   };
 
   const isActive = (path) => {
-    return location.pathname === path || location.pathname.startsWith(path + '/');
+    if (path === '/wali') {
+      return location.pathname === '/wali';
+    }
+    return location.pathname.startsWith(path);
   };
 
   const menuItems = [
     {
       title: 'Dashboard',
       path: '/wali',
-      icon: '📊'
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+        </svg>
+      )
     },
     {
       title: 'Keuangan TPQ',
       path: '/wali/keuangan',
-      icon: '💰'
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      )
     },
     {
       title: 'Keluarga',
       path: '/wali/keluarga',
-      icon: '👪'
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+      )
     }
   ];
 
   // Get page title based on current route
   const getPageTitle = () => {
-    const currentItem = menuItems.find(item => 
-      location.pathname === item.path || location.pathname.startsWith(item.path + '/')
-    );
+    const currentItem = menuItems.find(item => isActive(item.path));
     return currentItem ? currentItem.title : 'Dashboard';
   };
 
@@ -64,7 +77,9 @@ const WaliLayout = () => {
         <div className="flex items-center justify-between p-4 border-b border-green-700">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">TPQ</span>
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
             </div>
             <div>
               <h1 className="font-bold text-white">Portal Wali</h1>
@@ -98,11 +113,13 @@ const WaliLayout = () => {
                 onClick={() => setIsSidebarOpen(false)}
                 className={`flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
                   isActive(item.path)
-                    ? 'bg-green-700 text-white border-r-2 border-green-400'
+                    ? 'bg-green-700 text-white border-r-2 border-green-400 shadow-sm'
                     : 'text-green-100 hover:bg-green-700 hover:text-white'
                 }`}
               >
-                <span className="text-lg">{item.icon}</span>
+                <span className={`${isActive(item.path) ? 'text-green-300' : 'text-green-200'}`}>
+                  {item.icon}
+                </span>
                 <span>{item.title}</span>
               </Link>
             ))}
@@ -115,7 +132,9 @@ const WaliLayout = () => {
             onClick={handleLogout}
             className="flex items-center space-x-3 w-full px-4 py-3 text-sm font-medium text-red-300 hover:bg-green-700 hover:text-white rounded-lg transition-all duration-200"
           >
-            <span className="text-lg">🚪</span>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
             <span>Keluar</span>
           </button>
         </div>

@@ -8,9 +8,6 @@ const DashboardWali = () => {
   const [error, setError] = useState('');
   const [tagihanSyahriah, setTagihanSyahriah] = useState([]);
   const [summarySyahriah, setSummarySyahriah] = useState({
-    total: 0,
-    lunas: 0,
-    belum_lunas: 0,
     total_nominal: 0
   });
 
@@ -71,7 +68,14 @@ const DashboardWali = () => {
           total_nominal: 0
         });
         
-        setTagihanSyahriah(tagihanData.data || []);
+        // Urutkan: belum lunas di atas, lalu lunas
+        const sortedTagihan = (tagihanData.data || []).sort((a, b) => {
+          if (a.status === 'belum' && b.status === 'lunas') return -1;
+          if (a.status === 'lunas' && b.status === 'belum') return 1;
+          return 0;
+        });
+        
+        setTagihanSyahriah(sortedTagihan.slice(0, 3)); // Limit 3 data
 
       } catch (err) {
         console.error('Error fetching data:', err);
@@ -139,8 +143,15 @@ const DashboardWali = () => {
       const summaryData = await summaryResponse.json();
       const tagihanData = await tagihanResponse.json();
 
+      // Urutkan kembali data setelah pembayaran
+      const sortedTagihan = (tagihanData.data || []).sort((a, b) => {
+        if (a.status === 'belum' && b.status === 'lunas') return -1;
+        if (a.status === 'lunas' && b.status === 'belum') return 1;
+        return 0;
+      });
+
       setSummarySyahriah(summaryData.data);
-      setTagihanSyahriah(tagihanData.data);
+      setTagihanSyahriah(sortedTagihan.slice(0, 3));
       
       alert('Pembayaran berhasil!');
     } catch (err) {
@@ -186,8 +197,8 @@ const DashboardWali = () => {
 
   const getStatusBadge = (status) => {
     const statusConfig = {
-      lunas: { color: 'bg-green-100 text-green-800', text: 'Lunas' },
-      belum: { color: 'bg-red-100 text-red-800', text: 'Belum Lunas' },
+      lunas: { color: 'bg-green-100 text-green-800 border border-green-200', text: 'Lunas' },
+      belum: { color: 'bg-red-100 text-red-800 border border-red-200', text: 'Belum Lunas' },
       aktif: { color: 'bg-blue-100 text-blue-800', text: 'Aktif' },
       non_aktif: { color: 'bg-gray-100 text-gray-800', text: 'Non Aktif' }
     };
@@ -202,61 +213,57 @@ const DashboardWali = () => {
 
   // Skeleton Loader
   const SkeletonLoader = () => (
-    <div className="min-h-screen bg-gray-50 pt-20">
-      <div className="container mx-auto px-4 py-8">
-        <div className="animate-pulse">
-          {/* Welcome Section Skeleton */}
-          <div className="mb-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl p-6 text-white">
-            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between">
-              <div className="space-y-3">
-                <div className="h-8 bg-blue-400 rounded w-64"></div>
-                <div className="h-4 bg-blue-400 rounded w-96"></div>
-              </div>
-              <div className="flex space-x-2 mt-4 lg:mt-0">
-                <div className="h-6 bg-blue-400 rounded w-24"></div>
-                <div className="h-6 bg-green-400 rounded w-16"></div>
+    <div className="animate-pulse">
+      {/* Welcome Section Skeleton */}
+      <div className="mb-8 bg-gradient-to-r from-green-500 to-green-600 rounded-2xl p-6 text-white">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between">
+          <div className="space-y-3">
+            <div className="h-8 bg-green-400 rounded w-64"></div>
+            <div className="h-4 bg-green-400 rounded w-96"></div>
+          </div>
+          <div className="flex space-x-2 mt-4 lg:mt-0">
+            <div className="h-6 bg-green-400 rounded w-24"></div>
+            <div className="h-6 bg-green-400 rounded w-16"></div>
+          </div>
+        </div>
+      </div>
+
+      {/* Statistics Cards Skeleton */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="bg-white rounded-xl p-6 shadow-sm border border-green-200">
+            <div className="flex items-center">
+              <div className="w-12 h-12 bg-green-200 rounded-xl"></div>
+              <div className="ml-4 space-y-2">
+                <div className="h-4 bg-green-200 rounded w-24"></div>
+                <div className="h-6 bg-green-200 rounded w-20"></div>
               </div>
             </div>
           </div>
+        ))}
+      </div>
 
-          {/* Statistics Cards Skeleton */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="bg-white rounded-xl p-6 shadow-sm">
-                <div className="flex items-center">
-                  <div className="w-12 h-12 bg-gray-200 rounded-xl"></div>
-                  <div className="ml-4 space-y-2">
-                    <div className="h-4 bg-gray-200 rounded w-24"></div>
-                    <div className="h-6 bg-gray-200 rounded w-20"></div>
-                  </div>
+      {/* Tagihan Section Skeleton */}
+      <div className="bg-white rounded-xl shadow-sm border border-green-200">
+        <div className="px-6 py-4 border-b border-green-200">
+          <div className="h-6 bg-green-200 rounded w-48"></div>
+        </div>
+        <div className="p-6 space-y-4">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-green-200 rounded-lg"></div>
+                <div className="space-y-2">
+                  <div className="h-4 bg-green-200 rounded w-32"></div>
+                  <div className="h-3 bg-green-200 rounded w-24"></div>
                 </div>
               </div>
-            ))}
-          </div>
-
-          {/* Tagihan Section Skeleton */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <div className="h-6 bg-gray-200 rounded w-48"></div>
+              <div className="space-y-2">
+                <div className="h-6 bg-green-200 rounded w-24"></div>
+                <div className="h-8 bg-green-200 rounded w-20"></div>
+              </div>
             </div>
-            <div className="p-6 space-y-4">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-gray-200 rounded-lg"></div>
-                    <div className="space-y-2">
-                      <div className="h-4 bg-gray-200 rounded w-32"></div>
-                      <div className="h-3 bg-gray-200 rounded w-24"></div>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="h-6 bg-gray-200 rounded w-24"></div>
-                    <div className="h-8 bg-gray-200 rounded w-20"></div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </div>
@@ -268,32 +275,28 @@ const DashboardWali = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 pt-20">
-        <div className="container mx-auto px-4 py-8">
-          <div className="max-w-2xl mx-auto">
-            <div className="bg-white rounded-2xl shadow-sm border border-red-100 p-6 text-center">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold text-red-800 mb-2">Terjadi Kesalahan</h3>
-              <p className="text-red-600 mb-6">{error}</p>
-              <div className="flex gap-3 justify-center">
-                <button 
-                  onClick={() => window.location.reload()}
-                  className="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-all duration-300 font-medium shadow-sm"
-                >
-                  Coba Lagi
-                </button>
-                <Link 
-                  to="/"
-                  className="bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-all duration-300 font-medium shadow-sm"
-                >
-                  Kembali ke Beranda
-                </Link>
-              </div>
-            </div>
+      <div className="max-w-2xl mx-auto">
+        <div className="bg-white rounded-2xl shadow-sm border border-red-100 p-6 text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-red-800 mb-2">Terjadi Kesalahan</h3>
+          <p className="text-red-600 mb-6">{error}</p>
+          <div className="flex gap-3 justify-center">
+            <button 
+              onClick={() => window.location.reload()}
+              className="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-all duration-300 font-medium shadow-sm"
+            >
+              Coba Lagi
+            </button>
+            <Link 
+              to="/"
+              className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-all duration-300 font-medium shadow-sm"
+            >
+              Kembali ke Beranda
+            </Link>
           </div>
         </div>
       </div>
@@ -301,20 +304,20 @@ const DashboardWali = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="space-y-8">
       {/* Welcome Section */}
-      <div className="mb-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl p-6 text-white">
+      <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-2xl p-6 text-white">
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between">
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold mb-2">
               Selamat datang, {user?.nama_lengkap}!
             </h1>
-            <p className="text-blue-100 text-lg">
+            <p className="text-green-100 text-lg">
               Portal informasi dan pembayaran syahriah TPQ
             </p>
           </div>
           <div className="mt-4 lg:mt-0 flex items-center space-x-2">
-            <span className="bg-blue-400 bg-opacity-20 px-3 py-1 rounded-full text-sm">
+            <span className="bg-green-500 bg-opacity-20 px-3 py-1 rounded-full text-sm">
               👨‍👩‍👧‍👦 Wali Santri
             </span>
           </div>
@@ -322,15 +325,18 @@ const DashboardWali = () => {
       </div>
 
       {/* Tagihan Syahriah Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-8">
-        <div className="px-6 py-4 border-b border-gray-200">
+      <div className="bg-white rounded-xl shadow-sm border border-green-200">
+        <div className="px-6 py-4 border-b border-green-200">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">Tagihan Syahriah Terbaru</h2>
+            <h2 className="text-lg font-semibold text-green-900">Tagihan Syahriah Terbaru</h2>
             <Link 
-              to="/wali/tagihan"
-              className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+              to="/wali/detail"
+              className="text-green-600 hover:text-green-700 text-sm font-medium flex items-center space-x-1"
             >
-              Lihat Semua →
+              <span>Lihat Semua</span>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
             </Link>
           </div>
         </div>
@@ -338,23 +344,39 @@ const DashboardWali = () => {
         <div className="p-6">
           {tagihanSyahriah.length === 0 ? (
             <div className="text-center py-8">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">💰</span>
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
               </div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">Tidak Ada Tagihan</h3>
-              <p className="text-gray-600">Semua tagihan sudah lunas atau belum ada tagihan</p>
+              <h3 className="text-lg font-semibold text-green-800 mb-2">Tidak Ada Tagihan</h3>
+              <p className="text-green-600">Semua tagihan sudah lunas atau belum ada tagihan</p>
             </div>
           ) : (
             <div className="space-y-4">
               {tagihanSyahriah.map((tagihan) => (
                 <div 
                   key={tagihan.id_syahriah}
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200"
+                  className={`flex items-center justify-between p-4 rounded-lg border ${
+                    tagihan.status === 'belum' 
+                      ? 'bg-red-50 border-red-200 shadow-sm' 
+                      : 'bg-green-50 border-green-200'
+                  }`}
                 >
                   <div className="flex-1">
                     <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <span className="text-blue-600">📅</span>
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                        tagihan.status === 'belum' ? 'bg-red-100' : 'bg-green-100'
+                      }`}>
+                        {tagihan.status === 'belum' ? (
+                          <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        ) : (
+                          <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        )}
                       </div>
                       <div>
                         <div className="font-semibold text-gray-900">
@@ -375,7 +397,9 @@ const DashboardWali = () => {
                   </div>
                   
                   <div className="text-right">
-                    <div className="font-bold text-lg text-gray-900">
+                    <div className={`font-bold text-lg ${
+                      tagihan.status === 'belum' ? 'text-red-800' : 'text-green-800'
+                    }`}>
                       {formatCurrency(tagihan.nominal)}
                     </div>
                     <div className="mt-1">

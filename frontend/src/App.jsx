@@ -9,6 +9,7 @@ import Homepage from './pages/Homepage';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import WaliDashboard from './pages/wali/WaliDashboard';
+import SemuaTagihanWali from './pages/wali/DetailTagihan';
 import DonasiPage from './pages/Donasi';
 
 // Import Wali Layout dan Pages
@@ -75,6 +76,7 @@ const AppContent = () => {
         <Route path="keuangan" element={<KeuanganTPQ />} />
         <Route path="keluarga" element={<Keluarga />} />
         <Route path="profil" element={<Profil />} />
+        <Route path="detail" element={<SemuaTagihanWali />} />
       </Route>
       
       {/* Default redirect based on role */}
