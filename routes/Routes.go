@@ -18,19 +18,13 @@ func SetupRoutes(r *gin.Engine) {
 		api.GET("/donasi-public", donasiController.GetDonasiPublic)
     	api.GET("/donasi-public/summary", donasiController.GetDonasiSummaryPublic)
 
-		// Protected routes (wali, admin, superadmin)
 		protected := api.Group("/")
 		protected.Use(middlewares.AuthMiddleware())
 		{
-			// User routes - bisa diakses semua role yang login
 			protected.GET("/users", controllers.GetUsers)
 			protected.GET("/users/:id", controllers.GetUserByID)
 			protected.PUT("/users/:id", controllers.UpdateUser)
 			protected.DELETE("/users/:id", controllers.DeleteUser)
-
-			// Profile routes
-			// protected.GET("/profile", controllers.GetProfile)
-			// protected.PUT("/profile", controllers.UpdateProfile)
 
 			keluargaController := controllers.NewKeluargaController(config.DB)
 			protected.POST("/keluarga", keluargaController.CreateKeluarga)
@@ -54,11 +48,11 @@ func SetupRoutes(r *gin.Engine) {
 			protected.GET("/pengumuman/:id", pengumumanController.GetPengumumanByID)
 		}
 
-		// Admin routes (admin & super_admin)
 		admin := api.Group("/admin")
 		admin.Use(middlewares.AuthMiddleware(), middlewares.AdminMiddleware())
 		{
-			// Admin kelola user
+			admin.GET("/users", controllers.GetUsers)
+			admin.GET("/wali",controllers.GetWali)
 			admin.POST("/users", controllers.RegisterUser)
 
 			// Donasi routes - hanya admin & super_admin

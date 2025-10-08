@@ -9,85 +9,203 @@ const DataSyahriah = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [pembayaranData, setPembayaranData] = useState([]);
-  const [summaryData, setSummaryData] = useState(null);
+  const [summaryData, setSummaryData] = useState({
+    total_nominal: 0,
+    lunas: 0,
+    belum_lunas: 0
+  });
+  const [filteredSummaryData, setFilteredSummaryData] = useState({
+    total_nominal: 0,
+    lunas: 0,
+    belum_lunas: 0
+  });
+  const [waliData, setWaliData] = useState([]);
+  
+  // State untuk modal
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showAlertModal, setShowAlertModal] = useState(false);
+  const [alertMessage, setAlertMessage] = useState({ title: '', message: '', type: '' });
+  const [selectedSyahriah, setSelectedSyahriah] = useState(null);
+  
+  // State untuk filter
+  const [filterNama, setFilterNama] = useState('');
+  const [filterBulanTahun, setFilterBulanTahun] = useState('');
+  
+  // State untuk form
+  const [formData, setFormData] = useState({
+    id_wali: '',
+    bulan: '',
+    nominal: 110000,
+    status: 'belum'
+  });
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
-  // Fetch semua data syahriah
+  // Get current month in YYYY-MM format
+  const getCurrentMonth = () => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  };
+
+  // Fetch semua data
   useEffect(() => {
-    const fetchAllData = async () => {
-      try {
-        setLoading(true);
-        setError('');
-        
-        // Fetch data syahriah
-        const syahriahResponse = await fetch(`${API_URL}/api/syahriah`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (!syahriahResponse.ok) {
-          throw new Error(`HTTP error! status: ${syahriahResponse.status}`);
-        }
-
-        const syahriahContentType = syahriahResponse.headers.get("content-type");
-        if (!syahriahContentType || !syahriahContentType.includes("application/json")) {
-          throw new Error('Server returned non-JSON response');
-        }
-
-        const syahriahData = await syahriahResponse.json();
-        
-        // Urutkan data: belum lunas di atas, lalu lunas, dan urut berdasarkan bulan terbaru
-        const sortedData = (syahriahData.data || []).sort((a, b) => {
-          // Prioritas status belum lunas
-          if (a.status === 'belum' && b.status === 'lunas') return -1;
-          if (a.status === 'lunas' && b.status === 'belum') return 1;
-          
-          // Urutkan berdasarkan bulan (terbaru di atas)
-          return new Date(b.bulan) - new Date(a.bulan);
-        });
-        
-        setPembayaranData(sortedData);
-
-        // Fetch summary data
-        const summaryResponse = await fetch(`${API_URL}/api/syahriah/summary`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (summaryResponse.ok) {
-          const summaryContentType = summaryResponse.headers.get("content-type");
-          if (summaryContentType && summaryContentType.includes("application/json")) {
-            const summaryResult = await summaryResponse.json();
-            setSummaryData(summaryResult.data);
-          }
-        }
-
-      } catch (err) {
-        console.error('Error fetching data:', err);
-        setError(`Gagal memuat data: ${err.message}`);
-        setPembayaranData([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchAllData();
+    fetchWaliData();
   }, [API_URL]);
 
+  // Calculate summary when data or filters change
+  useEffect(() => {
+    calculateFilteredSummary();
+  }, [pembayaranData, filterNama, filterBulanTahun]);
+
+  const fetchAllData = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      // Fetch data syahriah
+      const syahriahResponse = await fetch(`${API_URL}/api/admin/syahriah`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!syahriahResponse.ok) {
+        throw new Error(`HTTP error! status: ${syahriahResponse.status}`);
+      }
+
+      const syahriahData = await syahriahResponse.json();
+      
+      // Urutkan data: belum lunas di atas, lalu lunas, dan urut berdasarkan bulan terbaru
+      const sortedData = (syahriahData.data || []).sort((a, b) => {
+        // Prioritas status belum lunas
+        if (a.status === 'belum' && b.status === 'lunas') return -1;
+        if (a.status === 'lunas' && b.status === 'belum') return 1;
+        
+        // Urutkan berdasarkan bulan (terbaru di atas)
+        return new Date(b.bulan) - new Date(a.bulan);
+      });
+      
+      setPembayaranData(sortedData);
+      calculateSummary(sortedData);
+
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError(`Gagal memuat data: ${err.message}`);
+      setPembayaranData([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Calculate summary data from pembayaranData
+  const calculateSummary = (data) => {
+    if (!data || data.length === 0) {
+      setSummaryData({
+        total_nominal: 0,
+        lunas: 0,
+        belum_lunas: 0
+      });
+      return;
+    }
+
+    const totalNominal = data
+      .filter(item => item.status === 'lunas')
+      .reduce((sum, item) => sum + (parseFloat(item.nominal) || 0), 0);
+
+    const lunasCount = data.filter(item => item.status === 'lunas').length;
+    const belumLunasCount = data.filter(item => item.status === 'belum').length;
+
+    setSummaryData({
+      total_nominal: totalNominal,
+      lunas: lunasCount,
+      belum_lunas: belumLunasCount
+    });
+  };
+
+  // Calculate filtered summary based on current filters
+  const calculateFilteredSummary = () => {
+    const filteredData = pembayaranData.filter(item => {
+      const matchesNama = filterNama === '' || 
+        (item.wali?.nama_lengkap && item.wali.nama_lengkap.toLowerCase().includes(filterNama.toLowerCase()));
+      
+      const matchesBulanTahun = filterBulanTahun === '' || item.bulan.includes(filterBulanTahun);
+      
+      return matchesNama && matchesBulanTahun;
+    });
+
+    if (!filteredData || filteredData.length === 0) {
+      setFilteredSummaryData({
+        total_nominal: 0,
+        lunas: 0,
+        belum_lunas: 0
+      });
+      return;
+    }
+
+    const totalNominal = filteredData
+      .filter(item => item.status === 'lunas')
+      .reduce((sum, item) => sum + (parseFloat(item.nominal) || 0), 0);
+
+    const lunasCount = filteredData.filter(item => item.status === 'lunas').length;
+    const belumLunasCount = filteredData.filter(item => item.status === 'belum').length;
+
+    setFilteredSummaryData({
+      total_nominal: totalNominal,
+      lunas: lunasCount,
+      belum_lunas: belumLunasCount
+    });
+  };
+
+  // Fetch data wali untuk dropdown
+  const fetchWaliData = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/admin/wali`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setWaliData(data.data || []);
+      } else {
+        console.error('Failed to fetch wali data');
+      }
+    } catch (err) {
+      console.error('Error fetching wali data:', err);
+    }
+  };
+
+  // Filter data berdasarkan nama wali dan bulan
+  const filteredData = pembayaranData.filter(item => {
+    const matchesNama = filterNama === '' || 
+      (item.wali?.nama_lengkap && item.wali.nama_lengkap.toLowerCase().includes(filterNama.toLowerCase()));
+    
+    const matchesBulanTahun = filterBulanTahun === '' || item.bulan.includes(filterBulanTahun);
+    
+    return matchesNama && matchesBulanTahun;
+  });
+
   // Filter data untuk tab tunggakan
-  const tunggakanData = pembayaranData.filter(item => item.status === 'belum');
+  const tunggakanData = filteredData.filter(item => item.status === 'belum');
+
+  // Show alert modal
+  const showAlert = (title, message, type = 'success') => {
+    setAlertMessage({ title, message, type });
+    setShowAlertModal(true);
+  };
 
   // Handle pembayaran
   const handleBayarSyahriah = async (idSyahriah) => {
     try {
       setLoading(true);
       
-      const response = await fetch(`${API_URL}/api/syahriah/${idSyahriah}/bayar`, {
+      const response = await fetch(`${API_URL}/api/admin/syahriah/${idSyahriah}/bayar`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -100,35 +218,164 @@ const DataSyahriah = () => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      // Refresh data setelah pembayaran berhasil
-      const fetchData = async () => {
-        const syahriahResponse = await fetch(`${API_URL}/api/syahriah`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (syahriahResponse.ok) {
-          const syahriahData = await syahriahResponse.json();
-          const sortedData = (syahriahData.data || []).sort((a, b) => {
-            if (a.status === 'belum' && b.status === 'lunas') return -1;
-            if (a.status === 'lunas' && b.status === 'belum') return 1;
-            return new Date(b.bulan) - new Date(a.bulan);
-          });
-          setPembayaranData(sortedData);
-        }
-      };
-
-      await fetchData();
-      
-      alert('Pembayaran berhasil dilakukan');
+      await fetchAllData();
+      showAlert('Berhasil', 'Pembayaran berhasil dilakukan', 'success');
     } catch (err) {
       console.error('Error paying syahriah:', err);
-      setError('Gagal melakukan pembayaran');
+      showAlert('Gagal', 'Gagal melakukan pembayaran', 'error');
     } finally {
       setLoading(false);
     }
+  };
+
+  // Handle create syahriah
+  const handleCreateSyahriah = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      
+      const response = await fetch(`${API_URL}/api/admin/syahriah`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      await fetchAllData();
+      setShowCreateModal(false);
+      resetForm();
+      showAlert('Berhasil', 'Data syahriah berhasil dibuat', 'success');
+    } catch (err) {
+      console.error('Error creating syahriah:', err);
+      showAlert('Gagal', err.message || 'Gagal membuat data syahriah', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle update syahriah
+  const handleUpdateSyahriah = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      
+      const response = await fetch(`${API_URL}/api/admin/syahriah/${selectedSyahriah.id_syahriah}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          nominal: parseFloat(formData.nominal),
+          status: formData.status
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = `HTTP error! status: ${response.status}`;
+        
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          errorMessage = errorText || errorMessage;
+        }
+        
+        throw new Error(errorMessage);
+      }
+
+      await fetchAllData();
+      setShowEditModal(false);
+      resetForm();
+      setSelectedSyahriah(null);
+      showAlert('Berhasil', 'Data syahriah berhasil diupdate', 'success');
+    } catch (err) {
+      console.error('Error updating syahriah:', err);
+      showAlert('Gagal', err.message || 'Gagal mengupdate data syahriah', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle delete syahriah
+  const handleDeleteSyahriah = async () => {
+    try {
+      setLoading(true);
+      
+      const response = await fetch(`${API_URL}/api/admin/syahriah/${selectedSyahriah.id_syahriah}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = `HTTP error! status: ${response.status}`;
+        
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          errorMessage = errorText || errorMessage;
+        }
+        
+        throw new Error(errorMessage);
+      }
+
+      await fetchAllData();
+      setShowDeleteModal(false);
+      setSelectedSyahriah(null);
+      showAlert('Berhasil', 'Data syahriah berhasil dihapus', 'success');
+    } catch (err) {
+      console.error('Error deleting syahriah:', err);
+      showAlert('Gagal', err.message || 'Gagal menghapus data syahriah', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Reset form
+  const resetForm = () => {
+    setFormData({
+      id_wali: '',
+      bulan: getCurrentMonth(), // Set default to current month
+      nominal: 110000,
+      status: 'belum'
+    });
+  };
+
+  // Open create modal
+  const openCreateModal = () => {
+    resetForm();
+    setShowCreateModal(true);
+  };
+
+  // Open edit modal
+  const openEditModal = (syahriah) => {
+    setSelectedSyahriah(syahriah);
+    setFormData({
+      id_wali: syahriah.id_wali,
+      bulan: syahriah.bulan,
+      nominal: syahriah.nominal,
+      status: syahriah.status
+    });
+    setShowEditModal(true);
+  };
+
+  // Open delete modal
+  const openDeleteModal = (syahriah) => {
+    setSelectedSyahriah(syahriah);
+    setShowDeleteModal(true);
   };
 
   // Format currency
@@ -168,6 +415,27 @@ const DataSyahriah = () => {
     }
   };
 
+  // Get unique bulan-tahun from data for filter
+  const getUniqueBulanTahun = () => {
+    const bulanTahunList = pembayaranData.map(item => item.bulan);
+    const uniqueBulanTahun = [...new Set(bulanTahunList)].sort((a, b) => {
+      // Sort descending (newest first)
+      return new Date(b) - new Date(a);
+    });
+    
+    return uniqueBulanTahun;
+  };
+
+  // Check if filters are active
+  const isFilterActive = () => {
+    return filterNama !== '' || filterBulanTahun !== '';
+  };
+
+  // Get current summary data (filtered or total)
+  const getCurrentSummaryData = () => {
+    return isFilterActive() ? filteredSummaryData : summaryData;
+  };
+
   // Ikon SVG
   const icons = {
     money: (
@@ -204,11 +472,26 @@ const DataSyahriah = () => {
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
       </svg>
+    ),
+    edit: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+      </svg>
+    ),
+    delete: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+      </svg>
+    ),
+    filter: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
+      </svg>
     )
   };
 
   const renderContent = () => {
-    if (loading) {
+    if (loading && pembayaranData.length === 0) {
       return (
         <div className="animate-pulse space-y-4">
           {[...Array(5)].map((_, i) => (
@@ -218,7 +501,7 @@ const DataSyahriah = () => {
       );
     }
 
-    if (error) {
+    if (error && pembayaranData.length === 0) {
       return (
         <div className="text-center py-8">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -229,7 +512,7 @@ const DataSyahriah = () => {
           <h3 className="text-lg font-semibold text-red-800 mb-2">Terjadi Kesalahan</h3>
           <p className="text-red-600 mb-6">{error}</p>
           <button 
-            onClick={() => window.location.reload()}
+            onClick={fetchAllData}
             className="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-all duration-300 font-medium"
           >
             Coba Lagi
@@ -238,135 +521,88 @@ const DataSyahriah = () => {
       );
     }
 
-    switch (activeTab) {
-      case 'pembayaran':
-        return (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Santri/Wali</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bulan</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jumlah</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal Bayar</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {pembayaranData.map((item) => (
-                  <tr key={item.id_syahriah} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {item.wali?.nama_lengkap || 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatBulan(item.bulan)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatCurrency(item.nominal)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {item.status === 'lunas' ? formatDate(item.waktu_catat) : '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        item.status === 'lunas' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {item.status === 'lunas' ? 'Lunas' : 'Belum Bayar'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      {item.status === 'belum' ? (
-                        <button 
-                          onClick={() => handleBayarSyahriah(item.id_syahriah)}
-                          className="text-green-600 hover:text-green-900"
-                          disabled={loading}
-                        >
-                          {loading ? 'Memproses...' : 'Input Pembayaran'}
-                        </button>
-                      ) : (
-                        <button className="text-blue-600 hover:text-blue-900">Detail</button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            
-            {pembayaranData.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                Tidak ada data pembayaran
-              </div>
-            )}
+    const dataToShow = activeTab === 'tunggakan' ? tunggakanData : filteredData;
+    const currentSummaryData = getCurrentSummaryData();
+
+    return (
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Santri/Wali</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bulan</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jumlah</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal Bayar</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {dataToShow.map((item) => (
+              <tr key={item.id_syahriah} className="hover:bg-gray-50">
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  {item.wali?.nama_lengkap || 'N/A'}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {formatBulan(item.bulan)}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {formatCurrency(item.nominal)}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {item.status === 'lunas' ? formatDate(item.waktu_catat) : '-'}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                    item.status === 'lunas' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  }`}>
+                    {item.status === 'lunas' ? 'Lunas' : 'Belum Bayar'}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                  {item.status === 'belum' ? (
+                    <button 
+                      onClick={() => handleBayarSyahriah(item.id_syahriah)}
+                      className="text-green-600 hover:text-green-900"
+                      disabled={loading}
+                    >
+                      Bayar
+                    </button>
+                  ) : (
+                    <button className="text-blue-600 hover:text-blue-900">Detail</button>
+                  )}
+                  <button 
+                    onClick={() => openEditModal(item)}
+                    className="text-yellow-600 hover:text-yellow-900 ml-2"
+                  >
+                    {icons.edit}
+                  </button>
+                  <button 
+                    onClick={() => openDeleteModal(item)}
+                    className="text-red-600 hover:text-red-900 ml-2"
+                  >
+                    {icons.delete}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        
+        {dataToShow.length === 0 && (
+          <div className="text-center py-8 text-gray-500">
+            Tidak ada data {activeTab === 'tunggakan' ? 'tunggakan' : 'pembayaran'}
           </div>
-        );
-      
-      case 'tunggakan':
-        return (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Santri/Wali</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bulan</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jumlah Tunggakan</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {tunggakanData.map((item) => (
-                  <tr key={item.id_syahriah} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {item.wali?.nama_lengkap || 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatBulan(item.bulan)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatCurrency(item.nominal)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button 
-                        onClick={() => handleBayarSyahriah(item.id_syahriah)}
-                        className="text-green-600 hover:text-green-900 mr-3"
-                        disabled={loading}
-                      >
-                        {loading ? 'Memproses...' : 'Bayar'}
-                      </button>
-                      <button className="text-blue-600 hover:text-blue-900">Reminder</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            
-            {tunggakanData.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                Tidak ada data tunggakan
-              </div>
-            )}
-          </div>
-        );
-      
-      default:
-        return null;
-    }
+        )}
+      </div>
+    );
   };
+
+  // Get current summary data for display
+  const currentSummaryData = getCurrentSummaryData();
 
   return (
     <AuthDashboardLayout title="Data Syahriah">
-      {/* Welcome Section */}
-      <div className="mb-8 bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-6 text-white">
-        <h3 className="text-2xl font-bold mb-2">
-          Selamat datang, {user?.nama_lengkap}!
-        </h3>
-        <p className="text-purple-100">Kelola data syahriah dan pembayaran santri</p>
-        <div className="flex items-center mt-4 space-x-2 text-sm">
-          <span className="bg-purple-400 bg-opacity-20 px-3 py-1 rounded-full">💰 Syahriah</span>
-          <span className="bg-purple-400 bg-opacity-20 px-3 py-1 rounded-full">👨‍💼 Admin</span>
-        </div>
-      </div>
-
       {/* Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
@@ -375,9 +611,11 @@ const DataSyahriah = () => {
               <span className="text-white">{icons.money}</span>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Pembayaran</p>
+              <p className="text-sm font-medium text-gray-600">
+                Total Pembayaran {isFilterActive() && <span className="text-green-600 text-xs">(Filtered)</span>}
+              </p>
               <p className="text-2xl font-bold text-gray-900">
-                {summaryData ? formatCurrency(summaryData.total_nominal) : 'Rp 0'}
+                {currentSummaryData ? formatCurrency(currentSummaryData.total_nominal) : 'Rp 0'}
               </p>
             </div>
           </div>
@@ -389,9 +627,11 @@ const DataSyahriah = () => {
               <span className="text-white">{icons.check}</span>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Santri Lunas</p>
+              <p className="text-sm font-medium text-gray-600">
+                Santri Lunas {isFilterActive() && <span className="text-blue-600 text-xs">(Filtered)</span>}
+              </p>
               <p className="text-2xl font-bold text-gray-900">
-                {summaryData ? summaryData.lunas : 0}
+                {currentSummaryData ? currentSummaryData.lunas : 0}
               </p>
             </div>
           </div>
@@ -403,64 +643,14 @@ const DataSyahriah = () => {
               <span className="text-white">{icons.clock}</span>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Santri Menunggak</p>
+              <p className="text-sm font-medium text-gray-600">
+                Santri Menunggak {isFilterActive() && <span className="text-red-600 text-xs">(Filtered)</span>}
+              </p>
               <p className="text-2xl font-bold text-gray-900">
-                {summaryData ? summaryData.belum_lunas : 0}
+                {currentSummaryData ? currentSummaryData.belum_lunas : 0}
               </p>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="bg-white rounded-xl p-6 mb-8 border border-gray-200 shadow-sm">
-        <h4 className="text-xl font-bold text-gray-800 mb-6">Aksi Cepat</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <button 
-            onClick={() => {/* Implement create payment modal */}}
-            className="bg-purple-600 hover:bg-purple-700 text-white p-4 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg"
-          >
-            <div className="flex items-center space-x-3">
-              <span className="text-white">{icons.plus}</span>
-              <div>
-                <div className="font-semibold text-lg">Input Pembayaran</div>
-                <div className="text-sm opacity-90">Bayar syahriah santri</div>
-              </div>
-            </div>
-          </button>
-          
-          <button className="bg-green-600 hover:bg-green-700 text-white p-4 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg">
-            <div className="flex items-center space-x-3">
-              <span className="text-white">{icons.chart}</span>
-              <div>
-                <div className="font-semibold text-lg">Laporan Bulanan</div>
-                <div className="text-sm opacity-90">Generate laporan</div>
-              </div>
-            </div>
-          </button>
-          
-          <button className="bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg">
-            <div className="flex items-center space-x-3">
-              <span className="text-white">{icons.email}</span>
-              <div>
-                <div className="font-semibold text-lg">Kirim Reminder</div>
-                <div className="text-sm opacity-90">Pengingat pembayaran</div>
-              </div>
-            </div>
-          </button>
-          
-          <Link 
-            to="/admin/dashboard"
-            className="bg-gray-600 hover:bg-gray-700 text-white p-4 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg"
-          >
-            <div className="flex items-center space-x-3">
-              <span className="text-white">{icons.home}</span>
-              <div>
-                <div className="font-semibold text-lg">Kembali</div>
-                <div className="text-sm opacity-90">Ke dashboard</div>
-              </div>
-            </div>
-          </Link>
         </div>
       </div>
 
@@ -469,11 +659,60 @@ const DataSyahriah = () => {
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-gray-800">Data Pembayaran Syahriah</h2>
           <button 
-            onClick={() => {/* Implement create payment modal */}}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+            onClick={openCreateModal}
+            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center"
           >
-            Input Pembayaran
+            {icons.plus}
+            <span className="ml-2">Input Pembayaran</span>
           </button>
+        </div>
+
+        {/* Filter Section */}
+        <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Cari Nama Wali
+            </label>
+            <input
+              type="text"
+              value={filterNama}
+              onChange={(e) => setFilterNama(e.target.value)}
+              placeholder="Masukkan nama wali..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Filter Bulan/Tahun
+            </label>
+            <input
+              type="month"
+              value={filterBulanTahun}
+              onChange={(e) => setFilterBulanTahun(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            />
+          </div>
+          <div className="flex items-end">
+            <button
+              onClick={() => {
+                setFilterNama('');
+                setFilterBulanTahun('');
+              }}
+              className="w-full px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors flex items-center justify-center"
+            >
+              {icons.filter}
+              <span className="ml-2">Reset Filter</span>
+            </button>
+          </div>
+          <div className="flex items-end">
+            {isFilterActive() && (
+              <div className="w-full bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                <p className="text-sm text-yellow-800 text-center">
+                  Menampilkan data yang difilter
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Tabs */}
@@ -501,6 +740,239 @@ const DataSyahriah = () => {
           {renderContent()}
         </div>
       </div>
+
+      {/* Create Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 backdrop-blur drop-shadow-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">Tambah Data Syahriah</h3>
+            <form onSubmit={handleCreateSyahriah}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Wali
+                  </label>
+                  <select
+                    required
+                    value={formData.id_wali}
+                    onChange={(e) => setFormData({...formData, id_wali: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="">Pilih Wali</option>
+                    {waliData.map((wali) => (
+                      <option key={wali.id_wali} value={wali.id_wali}>
+                        {wali.nama_lengkap} - {wali.email}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Bulan
+                  </label>
+                  <input
+                    type="month"
+                    required
+                    value={formData.bulan}
+                    onChange={(e) => setFormData({...formData, bulan: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nominal
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    value={formData.nominal}
+                    onChange={(e) => setFormData({...formData, nominal: parseFloat(e.target.value)})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="Masukkan nominal"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={formData.status}
+                    onChange={(e) => setFormData({...formData, status: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="belum">Belum Bayar</option>
+                    <option value="lunas">Lunas</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                >
+                  {loading ? 'Menyimpan...' : 'Simpan'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {showEditModal && selectedSyahriah && (
+        <div className="fixed inset-0 backdrop-blur drop-shadow-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">Edit Data Syahriah</h3>
+            <form onSubmit={handleUpdateSyahriah}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Wali
+                  </label>
+                  <input
+                    type="text"
+                    value={selectedSyahriah.wali?.nama_lengkap || 'N/A'}
+                    disabled
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Bulan
+                  </label>
+                  <input
+                    type="text"
+                    value={formatBulan(selectedSyahriah.bulan)}
+                    disabled
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nominal
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    value={formData.nominal}
+                    onChange={(e) => setFormData({...formData, nominal: parseFloat(e.target.value)})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={formData.status}
+                    onChange={(e) => setFormData({...formData, status: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="belum">Belum Bayar</option>
+                    <option value="lunas">Lunas</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                >
+                  {loading ? 'Menyimpan...' : 'Simpan'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Modal */}
+      {showDeleteModal && selectedSyahriah && (
+        <div className="fixed inset-0 backdrop-blur drop-shadow-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">Hapus Data Syahriah</h3>
+            <p className="text-gray-600 mb-6">
+              Apakah Anda yakin ingin menghapus data syahriah untuk{' '}
+              <strong>{selectedSyahriah.wali?.nama_lengkap || 'N/A'}</strong> bulan{' '}
+              <strong>{formatBulan(selectedSyahriah.bulan)}</strong>?
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleDeleteSyahriah}
+                disabled={loading}
+                className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+              >
+                {loading ? 'Menghapus...' : 'Hapus'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Alert Modal */}
+      {showAlertModal && (
+        <div className="fixed inset-0 backdrop-blur drop-shadow-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
+              alertMessage.type === 'success' ? 'bg-green-100' : 'bg-red-100'
+            }`}>
+              {alertMessage.type === 'success' ? (
+                <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              )}
+            </div>
+            <h3 className={`text-xl font-bold text-center mb-2 ${
+              alertMessage.type === 'success' ? 'text-green-800' : 'text-red-800'
+            }`}>
+              {alertMessage.title}
+            </h3>
+            <p className={`text-center mb-6 ${
+              alertMessage.type === 'success' ? 'text-green-600' : 'text-red-600'
+            }`}>
+              {alertMessage.message}
+            </p>
+            <div className="flex justify-center">
+              <button
+                onClick={() => setShowAlertModal(false)}
+                className={`px-6 py-2 rounded-lg text-white ${
+                  alertMessage.type === 'success' 
+                    ? 'bg-green-600 hover:bg-green-700' 
+                    : 'bg-red-600 hover:bg-red-700'
+                } transition-colors`}
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AuthDashboardLayout>
   );
 };

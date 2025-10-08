@@ -266,3 +266,15 @@ func DeleteUser(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "user berhasil dihapus"})
 }
+
+func GetWali(c *gin.Context) {
+	var wali []models.User
+	
+	// Filter hanya users dengan role wali
+	if err := config.DB.Where("role = ?", models.RoleWali).Find(&wali).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "gagal mengambil data wali"})
+		return
+	}
+	
+	c.JSON(http.StatusOK, wali)
+}

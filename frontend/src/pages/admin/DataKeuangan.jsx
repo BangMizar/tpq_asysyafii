@@ -91,18 +91,6 @@ const DataKeuangan = () => {
 
   return (
     <AuthDashboardLayout title="Data Keuangan">
-      {/* Welcome Section */}
-      <div className="mb-8 bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-xl p-6 text-white">
-        <h3 className="text-2xl font-bold mb-2">
-          Selamat datang, {user?.nama_lengkap}!
-        </h3>
-        <p className="text-indigo-100">Kelola dan pantau laporan keuangan TPQ</p>
-        <div className="flex items-center mt-4 space-x-2 text-sm">
-          <span className="bg-indigo-400 bg-opacity-20 px-3 py-1 rounded-full">📊 Keuangan</span>
-          <span className="bg-indigo-400 bg-opacity-20 px-3 py-1 rounded-full">👨‍💼 Admin</span>
-        </div>
-      </div>
-
       {/* Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
@@ -142,55 +130,6 @@ const DataKeuangan = () => {
               <p className="text-xs text-gray-500 mt-1">Sampai Maret 2024</p>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="bg-white rounded-xl p-6 mb-8 border border-gray-200 shadow-sm">
-        <h4 className="text-xl font-bold text-gray-800 mb-6">Aksi Cepat</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <button className="bg-green-600 hover:bg-green-700 text-white p-4 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg">
-            <div className="flex items-center space-x-3">
-              <span className="text-2xl">📥</span>
-              <div>
-                <div className="font-semibold text-lg">Input Pemasukan</div>
-                <div className="text-sm opacity-90">Tambah data masuk</div>
-              </div>
-            </div>
-          </button>
-          
-          <button className="bg-red-600 hover:bg-red-700 text-white p-4 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg">
-            <div className="flex items-center space-x-3">
-              <span className="text-2xl">📤</span>
-              <div>
-                <div className="font-semibold text-lg">Input Pengeluaran</div>
-                <div className="text-sm opacity-90">Catat pengeluaran</div>
-              </div>
-            </div>
-          </button>
-          
-          <button className="bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg">
-            <div className="flex items-center space-x-3">
-              <span className="text-2xl">📋</span>
-              <div>
-                <div className="font-semibold text-lg">Export Laporan</div>
-                <div className="text-sm opacity-90">Download Excel/PDF</div>
-              </div>
-            </div>
-          </button>
-          
-          <Link 
-            to="/admin/dashboard"
-            className="bg-gray-600 hover:bg-gray-700 text-white p-4 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg"
-          >
-            <div className="flex items-center space-x-3">
-              <span className="text-2xl">🏠</span>
-              <div>
-                <div className="font-semibold text-lg">Kembali</div>
-                <div className="text-sm opacity-90">Ke dashboard</div>
-              </div>
-            </div>
-          </Link>
         </div>
       </div>
 
