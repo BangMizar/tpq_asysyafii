@@ -47,7 +47,6 @@ func SetupRoutes(r *gin.Engine) {
 			protected.GET("/syahriah/my", syahriahController.GetMySyahriah)	
 			protected.GET("/syahriah/summary", syahriahController.GetSyahriahSummary)
 			protected.GET("/syahriah/:id", syahriahController.GetSyahriahByID)
-			protected.PUT("/syahriah/:id/bayar", syahriahController.BayarSyahriah)
 
 			pengumumanController := controllers.NewPengumumanController(config.DB)
 			protected.GET("/pengumuman", pengumumanController.GetAllPengumuman)
@@ -76,6 +75,11 @@ func SetupRoutes(r *gin.Engine) {
 			admin.POST("/syahriah", syahriahController.CreateSyahriah)
         	admin.PUT("/syahriah/:id", syahriahController.UpdateSyahriah)
         	admin.DELETE("/syahriah/:id", syahriahController.DeleteSyahriah)
+			admin.GET("/syahriah", syahriahController.GetAllSyahriah)
+			admin.GET("/syahriah/my", syahriahController.GetMySyahriah)	
+			admin.GET("/syahriah/summary", syahriahController.GetSyahriahSummary)
+			admin.GET("/syahriah/:id", syahriahController.GetSyahriahByID)
+			admin.PUT("/syahriah/:id/bayar", syahriahController.BayarSyahriah)
 
 			pengumumanController := controllers.NewPengumumanController(config.DB)
 			admin.POST("/pengumuman", pengumumanController.CreatePengumuman)
