@@ -18,6 +18,21 @@ const DataKeuangan = () => {
   // State untuk modal
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [alertMessage, setAlertMessage] = useState({ title: '', message: '', type: '' });
+  
+  // State untuk modal CRUD pemakaian
+  const [showPemakaianModal, setShowPemakaianModal] = useState(false);
+  const [modalMode, setModalMode] = useState('create'); // 'create' or 'edit'
+  const [selectedPemakaian, setSelectedPemakaian] = useState(null);
+  const [formData, setFormData] = useState({
+    judul_pemakaian: '',
+    deskripsi: '',
+    nominal: '',
+    tipe_pemakaian: 'operasional',
+    sumber_dana: 'syahriah',
+    tanggal_pemakaian: new Date().toISOString().split('T')[0],
+    keterangan: ''
+  });
+  const [formLoading, setFormLoading] = useState(false);
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
@@ -128,6 +143,176 @@ const DataKeuangan = () => {
       saldoAkhir,
       totalDonasiBulanIni
     });
+  };
+
+  // ========== CRUD FUNCTIONS FOR PEMAKAIAN ==========
+
+  // Create new pemakaian
+  const handleCreatePemakaian = async (e) => {
+    e.preventDefault();
+    try {
+      setFormLoading(true);
+
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/admin/pemakaian`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          judul_pemakaian: formData.judul_pemakaian,
+          deskripsi: formData.deskripsi,
+          nominal: parseFloat(formData.nominal),
+          tipe_pemakaian: formData.tipe_pemakaian,
+          sumber_dana: formData.sumber_dana,
+          tanggal_pemakaian: formData.tanggal_pemakaian,
+          keterangan: formData.keterangan || null
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Gagal membuat data pemakaian');
+      }
+
+      const result = await response.json();
+      showAlert('Berhasil', 'Data pemakaian berhasil dibuat!', 'success');
+      setShowPemakaianModal(false);
+      resetForm();
+      await fetchAllData(); // Refresh data
+      
+    } catch (err) {
+      console.error('Error creating pemakaian:', err);
+      showAlert('Gagal', `Gagal membuat data pemakaian: ${err.message}`, 'error');
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  // Update pemakaian
+  const handleUpdatePemakaian = async (e) => {
+    e.preventDefault();
+    try {
+      setFormLoading(true);
+
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/admin/pemakaian/${selectedPemakaian.id_pemakaian}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          judul_pemakaian: formData.judul_pemakaian,
+          deskripsi: formData.deskripsi,
+          nominal: parseFloat(formData.nominal),
+          tipe_pemakaian: formData.tipe_pemakaian,
+          sumber_dana: formData.sumber_dana,
+          tanggal_pemakaian: formData.tanggal_pemakaian,
+          keterangan: formData.keterangan || null
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Gagal mengupdate data pemakaian');
+      }
+
+      const result = await response.json();
+      showAlert('Berhasil', 'Data pemakaian berhasil diupdate!', 'success');
+      setShowPemakaianModal(false);
+      resetForm();
+      await fetchAllData(); // Refresh data
+      
+    } catch (err) {
+      console.error('Error updating pemakaian:', err);
+      showAlert('Gagal', `Gagal mengupdate data pemakaian: ${err.message}`, 'error');
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  // Delete pemakaian
+  const handleDeletePemakaian = async (pemakaianId) => {
+    if (!confirm('Apakah Anda yakin ingin menghapus data pemakaian ini?')) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/admin/pemakaian/${pemakaianId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Gagal menghapus data pemakaian');
+      }
+
+      showAlert('Berhasil', 'Data pemakaian berhasil dihapus!', 'success');
+      await fetchAllData(); // Refresh data
+      
+    } catch (err) {
+      console.error('Error deleting pemakaian:', err);
+      showAlert('Gagal', `Gagal menghapus data pemakaian: ${err.message}`, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Open modal for create
+  const handleOpenCreateModal = () => {
+    setModalMode('create');
+    setSelectedPemakaian(null);
+    resetForm();
+    setShowPemakaianModal(true);
+  };
+
+  // Open modal for edit
+  const handleOpenEditModal = (pemakaian) => {
+    setModalMode('edit');
+    setSelectedPemakaian(pemakaian);
+    setFormData({
+      judul_pemakaian: pemakaian.judul_pemakaian,
+      deskripsi: pemakaian.deskripsi,
+      nominal: pemakaian.nominal.toString(),
+      tipe_pemakaian: pemakaian.tipe_pemakaian,
+      sumber_dana: pemakaian.sumber_dana,
+      tanggal_pemakaian: pemakaian.tanggal_pemakaian 
+        ? new Date(pemakaian.tanggal_pemakaian).toISOString().split('T')[0]
+        : new Date(pemakaian.created_at).toISOString().split('T')[0],
+      keterangan: pemakaian.keterangan || ''
+    });
+    setShowPemakaianModal(true);
+  };
+
+  // Reset form
+  const resetForm = () => {
+    setFormData({
+      judul_pemakaian: '',
+      deskripsi: '',
+      nominal: '',
+      tipe_pemakaian: 'operasional',
+      sumber_dana: 'syahriah',
+      tanggal_pemakaian: new Date().toISOString().split('T')[0],
+      keterangan: ''
+    });
+  };
+
+  // Handle form input change
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
   // Show alert modal
@@ -257,7 +442,7 @@ const DataKeuangan = () => {
     return formatPeriod(selectedPeriod);
   };
 
-  // Ikon SVG (sama seperti di DataSyahriah)
+  // Ikon SVG
   const icons = {
     money: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -277,6 +462,16 @@ const DataKeuangan = () => {
     refresh: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+    ),
+    edit: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+      </svg>
+    ),
+    delete: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
       </svg>
     ),
     filter: (
@@ -419,7 +614,14 @@ const DataKeuangan = () => {
                   </svg>
                 </div>
                 <h3 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Pengeluaran</h3>
-                <p className="text-green-600">Data pengeluaran akan muncul setelah ada pemakaian saldo</p>
+                <p className="text-green-600 mb-4">Data pengeluaran akan muncul setelah ada pemakaian saldo</p>
+                <button
+                  onClick={handleOpenCreateModal}
+                  className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors font-medium"
+                >
+                  {icons.plus}
+                  <span className="ml-2">Tambah Pengeluaran</span>
+                </button>
               </div>
             ) : (
               <table className="min-w-full divide-y divide-gray-200">
@@ -431,6 +633,7 @@ const DataKeuangan = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sumber Dana</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jumlah</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Diajukan Oleh</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -465,6 +668,24 @@ const DataKeuangan = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {item.pengaju?.nama || 'Admin'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleOpenEditModal(item)}
+                            className="text-blue-600 hover:text-blue-900 transition-colors"
+                            title="Edit"
+                          >
+                            {icons.edit}
+                          </button>
+                          <button
+                            onClick={() => handleDeletePemakaian(item.id_pemakaian)}
+                            className="text-red-600 hover:text-red-900 transition-colors"
+                            title="Hapus"
+                          >
+                            {icons.delete}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -619,13 +840,13 @@ const DataKeuangan = () => {
 
             {/* Action Buttons untuk Admin */}
             <div className="flex space-x-3">
-              <Link 
-                to="/admin/pemakaian"
+              <button
+                onClick={handleOpenCreateModal}
                 className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors font-medium text-sm flex items-center"
               >
                 {icons.plus}
                 <span className="ml-2">Pengeluaran</span>
-              </Link>
+              </button>
               <Link 
                 to="/admin/donasi"
                 className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium text-sm flex items-center"
@@ -671,6 +892,157 @@ const DataKeuangan = () => {
           {renderContent()}
         </div>
       </div>
+
+      {/* Modal untuk Create/Edit Pemakaian */}
+      {showPemakaianModal && (
+        <div className="fixed inset-0 backdrop-blur drop-shadow-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <h3 className="text-xl font-bold text-gray-800 mb-6">
+              {modalMode === 'create' ? 'Tambah Pengeluaran Baru' : 'Edit Pengeluaran'}
+            </h3>
+            
+            <form onSubmit={modalMode === 'create' ? handleCreatePemakaian : handleUpdatePemakaian}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                {/* Judul Pemakaian */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Judul Pengeluaran *
+                  </label>
+                  <input
+                    type="text"
+                    name="judul_pemakaian"
+                    value={formData.judul_pemakaian}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    placeholder="Masukkan judul pengeluaran"
+                  />
+                </div>
+
+                {/* Deskripsi */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Deskripsi *
+                  </label>
+                  <textarea
+                    name="deskripsi"
+                    value={formData.deskripsi}
+                    onChange={handleInputChange}
+                    required
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    placeholder="Masukkan deskripsi pengeluaran"
+                  />
+                </div>
+
+                {/* Nominal */}
+                <input
+                type="number"
+                name="nominal"
+                value={formData.nominal}
+                onChange={handleInputChange}
+                required
+                min="1"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                placeholder="0"
+              />
+                {/* Tanggal Pemakaian */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Tanggal Pengeluaran *
+                  </label>
+                  <input
+                    type="date"
+                    name="tanggal_pemakaian"
+                    value={formData.tanggal_pemakaian}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Tipe Pemakaian */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Tipe Pengeluaran *
+                  </label>
+                  <select
+                    name="tipe_pemakaian"
+                    value={formData.tipe_pemakaian}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  >
+                    <option value="operasional">Operasional</option>
+                    <option value="investasi">Investasi</option>
+                    <option value="lainnya">Lainnya</option>
+                  </select>
+                </div>
+
+                {/* Sumber Dana */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Sumber Dana *
+                  </label>
+                  <select
+                    name="sumber_dana"
+                    value={formData.sumber_dana}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  >
+                    <option value="syahriah">Syahriah</option>
+                    <option value="donasi">Donasi</option>
+                    <option value="campuran">Campuran</option>
+                  </select>
+                </div>
+
+                {/* Keterangan */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Keterangan Tambahan
+                  </label>
+                  <textarea
+                    name="keterangan"
+                    value={formData.keterangan}
+                    onChange={handleInputChange}
+                    rows={2}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    placeholder="Masukkan keterangan tambahan (opsional)"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setShowPemakaianModal(false)}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={formLoading}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center"
+                >
+                  {formLoading ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Memproses...
+                    </>
+                  ) : (
+                    modalMode === 'create' ? 'Tambah Pengeluaran' : 'Update Pengeluaran'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Alert Modal */}
       {showAlertModal && (
