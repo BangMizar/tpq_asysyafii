@@ -90,7 +90,6 @@ func (ctrl *RekapController) updateRekapSaldo(periode string, tipeSaldo models.T
 		// Hitung total dari syahriah dan donasi
 		var syahriahTotal, donasiTotal float64
 		
-		// ✅ PERBAIKAN: Syahriah hanya yang lunas
 		err1 := ctrl.db.Model(&models.Syahriah{}).
 			Where("bulan = ? AND status = ?", periode, models.StatusLunas).
 			Select("COALESCE(SUM(nominal), 0)").
@@ -655,4 +654,36 @@ func (ctrl *RekapController) SyncAllRekap(c *gin.Context) {
 		"total_periode": len(periodMap),
 		"periods": periodMap,
 	})
+}
+
+// updateRekapSaldoDenganPengeluaran - Update rekap dengan tambahan pengeluaran
+func (ctrl *RekapController) updateRekapSaldoDenganPengeluaran(periode string, tipeSaldo models.TipeSaldo, pengeluaran float64) error {
+	var existingRekap models.RekapSaldo
+	if err := ctrl.db.Where("tipe_saldo = ? AND periode = ?", tipeSaldo, periode).First(&existingRekap).Error; err != nil {
+		// Jika tidak ada rekap, buat baru dengan data dari transaksi
+		return ctrl.updateRekapSaldo(periode, tipeSaldo)
+	}
+	
+	// Update pengeluaran dan saldo
+	existingRekap.PengeluaranTotal += pengeluaran
+	existingRekap.SaldoAkhir -= pengeluaran
+	existingRekap.TerakhirUpdate = time.Now()
+	
+	return ctrl.db.Save(&existingRekap).Error
+}
+
+// updateRekapSaldoDenganPemasukan - Update rekap dengan tambahan pemasukan (untuk koreksi)
+func (ctrl *RekapController) updateRekapSaldoDenganPemasukan(periode string, tipeSaldo models.TipeSaldo, pemasukan float64) error {
+	var existingRekap models.RekapSaldo
+	if err := ctrl.db.Where("tipe_saldo = ? AND periode = ?", tipeSaldo, periode).First(&existingRekap).Error; err != nil {
+		// Jika tidak ada rekap, buat baru dengan data dari transaksi
+		return ctrl.updateRekapSaldo(periode, tipeSaldo)
+	}
+	
+	// Update pemasukan dan saldo
+	existingRekap.PemasukanTotal += pemasukan
+	existingRekap.SaldoAkhir += pemasukan
+	existingRekap.TerakhirUpdate = time.Now()
+	
+	return ctrl.db.Save(&existingRekap).Error
 }

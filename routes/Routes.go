@@ -11,7 +11,6 @@ import (
 func SetupRoutes(r *gin.Engine) {
 	api := r.Group("/api")
 	{
-		// Auth
 		api.POST("/register", controllers.RegisterUser)
 		api.POST("/login", controllers.LoginUser)
 		donasiController := controllers.NewDonasiController(config.GetDB())
@@ -47,13 +46,17 @@ func SetupRoutes(r *gin.Engine) {
 			protected.GET("/pengumuman/aktif", pengumumanController.GetPengumumanAktif)
 			protected.GET("/pengumuman/:id", pengumumanController.GetPengumumanByID)
 
-			// Rekap routes - bisa diakses oleh semua user yang terautentikasi
 			rekapController := controllers.NewRekapController(config.DB)
 			protected.GET("/rekap", rekapController.GetAllRekap)
 			protected.GET("/rekap/summary", rekapController.GetRekapSummary)
 			protected.GET("/rekap/latest", rekapController.GetLatestRekap)
 			protected.GET("/rekap/period", rekapController.GetRekapByPeriode)
 			protected.GET("/rekap/:id", rekapController.GetRekapByID)
+
+			pemakaianController := controllers.NewPemakaianSaldoController(config.DB)
+			protected.GET("/pemakaian", pemakaianController.GetAllPemakaian)
+			protected.GET("/pemakaian/summary", pemakaianController.GetPemakaianSummary)
+			protected.GET("/pemakaian/:id", pemakaianController.GetPemakaianByID)
 		}
 
 		admin := api.Group("/admin")
@@ -63,7 +66,6 @@ func SetupRoutes(r *gin.Engine) {
 			admin.GET("/wali",controllers.GetWali)
 			admin.POST("/users", controllers.RegisterUser)
 
-			// Donasi routes - hanya admin & super_admin
 			donasiController := controllers.NewDonasiController(config.GetDB())
 			admin.POST("/donasi", donasiController.CreateDonasi)
 			admin.GET("/donasi", donasiController.GetAllDonasi)
@@ -94,12 +96,16 @@ func SetupRoutes(r *gin.Engine) {
 			admin.GET("/logs/summary", logController.GetLogSummary)
 			admin.GET("/logs/:id", logController.GetLogAktivitasByID)
 
-			// Rekap routes - admin only (create, update, delete, generate)
 			rekapController := controllers.NewRekapController(config.DB)
 			admin.POST("/rekap", rekapController.CreateRekap)
 			admin.PUT("/rekap/:id", rekapController.UpdateRekap)
 			admin.DELETE("/rekap/:id", rekapController.DeleteRekap)
 			admin.POST("/rekap/generate", rekapController.GenerateRekapOtomatis)
+
+			pemakaianController := controllers.NewPemakaianSaldoController(config.DB)
+			admin.POST("/pemakaian", pemakaianController.CreatePemakaian)
+			admin.PUT("/pemakaian/:id", pemakaianController.UpdatePemakaian)
+			admin.DELETE("/pemakaian/:id", pemakaianController.DeletePemakaian)
 		}
 
 		superAdmin := api.Group("/super-admin")
