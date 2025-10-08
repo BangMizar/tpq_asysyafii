@@ -8,7 +8,9 @@ const SemuaTagihanWali = () => {
   const [error, setError] = useState('');
   const [tagihanSyahriah, setTagihanSyahriah] = useState([]);
   const [filterStatus, setFilterStatus] = useState('semua');
-  const [showAll, setShowAll] = useState(false);
+  const [filterTahun, setFilterTahun] = useState('semua');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(6);
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
@@ -61,14 +63,52 @@ const SemuaTagihanWali = () => {
     fetchAllTagihan();
   }, [API_URL]);
 
-  // Filter tagihan berdasarkan status
+  // Get unique years from tagihan data
+  const getAvailableYears = () => {
+    const years = tagihanSyahriah.map(tagihan => {
+      try {
+        return new Date(tagihan.bulan).getFullYear();
+      } catch {
+        return null;
+      }
+    }).filter(year => year !== null);
+    
+    const uniqueYears = [...new Set(years)].sort((a, b) => b - a);
+    return uniqueYears;
+  };
+
+  // Filter tagihan berdasarkan status dan tahun
   const filteredTagihan = tagihanSyahriah.filter(tagihan => {
-    if (filterStatus === 'semua') return true;
-    return tagihan.status === filterStatus;
+    // Filter by status
+    const statusMatch = filterStatus === 'semua' || tagihan.status === filterStatus;
+    
+    // Filter by year
+    let yearMatch = true;
+    if (filterTahun !== 'semua') {
+      try {
+        const tagihanYear = new Date(tagihan.bulan).getFullYear();
+        yearMatch = tagihanYear.toString() === filterTahun;
+      } catch {
+        yearMatch = false;
+      }
+    }
+    
+    return statusMatch && yearMatch;
   });
 
-  // Limit daftar tagihan menjadi 6 item kecuali jika showAll true
-  const displayedTagihan = showAll ? filteredTagihan : filteredTagihan.slice(0, 6);
+  // Pagination logic
+  const totalPages = Math.ceil(filteredTagihan.length / itemsPerPage);
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredTagihan.slice(indexOfFirstItem, indexOfLastItem);
+
+  // Change page
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterStatus, filterTahun]);
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('id-ID', {
@@ -123,6 +163,100 @@ const SemuaTagihanWali = () => {
       .reduce((total, tagihan) => total + tagihan.nominal, 0);
   };
 
+  // Pagination component
+  const Pagination = () => {
+    if (totalPages <= 1) return null;
+
+    const pageNumbers = [];
+    const maxVisiblePages = 5;
+    
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pageNumbers.push(i);
+    }
+
+    return (
+      <div className="flex justify-center items-center space-x-2 mt-6">
+        {/* Previous button */}
+        <button
+          onClick={() => paginate(Math.max(1, currentPage - 1))}
+          disabled={currentPage === 1}
+          className={`px-3 py-2 rounded-lg text-sm font-medium ${
+            currentPage === 1
+              ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              : 'bg-green-100 text-green-700 hover:bg-green-200'
+          }`}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+
+        {/* First page */}
+        {startPage > 1 && (
+          <>
+            <button
+              onClick={() => paginate(1)}
+              className="px-3 py-2 rounded-lg text-sm font-medium bg-green-100 text-green-700 hover:bg-green-200"
+            >
+              1
+            </button>
+            {startPage > 2 && <span className="px-2 text-gray-500">...</span>}
+          </>
+        )}
+
+        {/* Page numbers */}
+        {pageNumbers.map(number => (
+          <button
+            key={number}
+            onClick={() => paginate(number)}
+            className={`px-3 py-2 rounded-lg text-sm font-medium ${
+              currentPage === number
+                ? 'bg-green-600 text-white'
+                : 'bg-green-100 text-green-700 hover:bg-green-200'
+            }`}
+          >
+            {number}
+          </button>
+        ))}
+
+        {/* Last page */}
+        {endPage < totalPages && (
+          <>
+            {endPage < totalPages - 1 && <span className="px-2 text-gray-500">...</span>}
+            <button
+              onClick={() => paginate(totalPages)}
+              className="px-3 py-2 rounded-lg text-sm font-medium bg-green-100 text-green-700 hover:bg-green-200"
+            >
+              {totalPages}
+            </button>
+          </>
+        )}
+
+        {/* Next button */}
+        <button
+          onClick={() => paginate(Math.min(totalPages, currentPage + 1))}
+          disabled={currentPage === totalPages}
+          className={`px-3 py-2 rounded-lg text-sm font-medium ${
+            currentPage === totalPages
+              ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              : 'bg-green-100 text-green-700 hover:bg-green-200'
+          }`}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="animate-pulse space-y-6">
@@ -161,13 +295,14 @@ const SemuaTagihanWali = () => {
     );
   }
 
+  const availableYears = getAvailableYears();
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-green-900">Semua Tagihan Syahriah</h1>
-          <p className="text-green-600 mt-1">Riwayat lengkap tagihan syahriah</p>
         </div>
         <Link 
           to="/wali"
@@ -248,39 +383,57 @@ const SemuaTagihanWali = () => {
         </div>
       </div>
 
-      {/* Filter */}
+      {/* Filters */}
       <div className="bg-white rounded-xl p-4 shadow-sm border border-green-200">
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => setFilterStatus('semua')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              filterStatus === 'semua' 
-                ? 'bg-green-600 text-white' 
-                : 'bg-green-100 text-green-700 hover:bg-green-200'
-            }`}
-          >
-            Semua
-          </button>
-          <button
-            onClick={() => setFilterStatus('belum')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              filterStatus === 'belum' 
-                ? 'bg-red-600 text-white' 
-                : 'bg-red-100 text-red-700 hover:bg-red-200'
-            }`}
-          >
-            Belum Dibayar
-          </button>
-          <button
-            onClick={() => setFilterStatus('lunas')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              filterStatus === 'lunas' 
-                ? 'bg-green-600 text-white' 
-                : 'bg-green-100 text-green-700 hover:bg-green-200'
-            }`}
-          >
-            Dibayar
-          </button>
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setFilterStatus('semua')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                filterStatus === 'semua' 
+                  ? 'bg-green-600 text-white' 
+                  : 'bg-green-100 text-green-700 hover:bg-green-200'
+              }`}
+            >
+              Semua Status
+            </button>
+            <button
+              onClick={() => setFilterStatus('belum')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                filterStatus === 'belum' 
+                  ? 'bg-red-600 text-white' 
+                  : 'bg-red-100 text-red-700 hover:bg-red-200'
+              }`}
+            >
+              Belum Dibayar
+            </button>
+            <button
+              onClick={() => setFilterStatus('lunas')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                filterStatus === 'lunas' 
+                  ? 'bg-green-600 text-white' 
+                  : 'bg-green-100 text-green-700 hover:bg-green-200'
+              }`}
+            >
+              Dibayar
+            </button>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <label className="text-sm font-medium text-gray-700">Tahun:</label>
+            <select
+              value={filterTahun}
+              onChange={(e) => setFilterTahun(e.target.value)}
+              className="px-3 py-2 border border-green-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            >
+              <option value="semua">Semua Tahun</option>
+              {availableYears.map(year => (
+                <option key={year} value={year.toString()}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -289,16 +442,16 @@ const SemuaTagihanWali = () => {
         <div className="px-6 py-4 border-b border-green-200">
           <h2 className="text-lg font-semibold text-green-900">
             Daftar Syahriah ({filteredTagihan.length})
-            {filteredTagihan.length > 6 && !showAll && (
+            {filteredTagihan.length > itemsPerPage && (
               <span className="text-sm font-normal text-green-600 ml-2">
-                (Menampilkan 6 dari {filteredTagihan.length})
+                (Halaman {currentPage} dari {totalPages})
               </span>
             )}
           </h2>
         </div>
         
         <div className="p-6">
-          {displayedTagihan.length === 0 ? (
+          {currentItems.length === 0 ? (
             <div className="text-center py-8">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -307,15 +460,15 @@ const SemuaTagihanWali = () => {
               </div>
               <h3 className="text-lg font-semibold text-green-800 mb-2">Tidak Ada Tagihan</h3>
               <p className="text-green-600">
-                {filterStatus === 'semua' 
+                {filterStatus === 'semua' && filterTahun === 'semua'
                   ? 'Belum ada tagihan syahriah' 
-                  : `Tidak ada tagihan dengan status ${filterStatus === 'lunas' ? 'lunas' : 'belum lunas'}`
+                  : `Tidak ada tagihan dengan filter yang dipilih`
                 }
               </p>
             </div>
           ) : (
             <div className="space-y-4">
-              {displayedTagihan.map((tagihan) => (
+              {currentItems.map((tagihan) => (
                 <div 
                   key={tagihan.id_syahriah}
                   className={`flex items-center justify-between p-4 rounded-lg border ${
@@ -368,17 +521,8 @@ const SemuaTagihanWali = () => {
                 </div>
               ))}
 
-              {/* Tombol Lihat Semua/Lebih Sedikit */}
-              {filteredTagihan.length > 6 && (
-                <div className="text-center pt-4">
-                  <button
-                    onClick={() => setShowAll(!showAll)}
-                    className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-all duration-300 font-medium"
-                  >
-                    {showAll ? 'Tampilkan Lebih Sedikit' : `Lihat Semua (${filteredTagihan.length})`}
-                  </button>
-                </div>
-              )}
+              {/* Pagination */}
+              <Pagination />
             </div>
           )}
         </div>
