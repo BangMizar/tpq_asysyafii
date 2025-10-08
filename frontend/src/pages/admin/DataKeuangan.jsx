@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
+import AuthDashboardLayout from '../../components/layout/AuthDashboardLayout';
+import { useAuth } from '../../context/AuthContext';
+import { Link } from 'react-router-dom';
 
 const DataKeuangan = () => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('rekap');
 
   const rekapData = [
@@ -34,9 +38,9 @@ const DataKeuangan = () => {
                 {rekapData.map((item, index) => (
                   <tr key={index} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.bulan}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">Rp {item.pemasukan.toLocaleString()}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">Rp {item.pengeluaran.toLocaleString()}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600">Rp {item.saldo.toLocaleString()}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium">Rp {item.pemasukan.toLocaleString()}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">Rp {item.pengeluaran.toLocaleString()}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 font-medium">Rp {item.saldo.toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>
@@ -86,30 +90,126 @@ const DataKeuangan = () => {
   };
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold text-gray-800 mb-6">Data Keuangan</h1>
-
-      {/* Statistik */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-500">
-          <h3 className="text-lg font-semibold text-gray-800">Total Pemasukan</h3>
-          <p className="text-3xl font-bold text-green-600">Rp 22.500.000</p>
-          <p className="text-sm text-gray-600 mt-1">Tahun 2024</p>
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-red-500">
-          <h3 className="text-lg font-semibold text-gray-800">Total Pengeluaran</h3>
-          <p className="text-3xl font-bold text-red-600">Rp 15.800.000</p>
-          <p className="text-sm text-gray-600 mt-1">Tahun 2024</p>
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-500">
-          <h3 className="text-lg font-semibold text-gray-800">Saldo Akhir</h3>
-          <p className="text-3xl font-bold text-blue-600">Rp 6.700.000</p>
-          <p className="text-sm text-gray-600 mt-1">Sampai Maret 2024</p>
+    <AuthDashboardLayout title="Data Keuangan">
+      {/* Welcome Section */}
+      <div className="mb-8 bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-xl p-6 text-white">
+        <h3 className="text-2xl font-bold mb-2">
+          Selamat datang, {user?.nama_lengkap}!
+        </h3>
+        <p className="text-indigo-100">Kelola dan pantau laporan keuangan TPQ</p>
+        <div className="flex items-center mt-4 space-x-2 text-sm">
+          <span className="bg-indigo-400 bg-opacity-20 px-3 py-1 rounded-full">📊 Keuangan</span>
+          <span className="bg-indigo-400 bg-opacity-20 px-3 py-1 rounded-full">👨‍💼 Admin</span>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md">
-        <div className="border-b border-gray-200">
+      {/* Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center">
+            <div className="bg-green-500 w-12 h-12 rounded-xl flex items-center justify-center">
+              <span className="text-white text-xl">📈</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Total Pemasukan</p>
+              <p className="text-2xl font-bold text-gray-900">Rp 22.5Jt</p>
+              <p className="text-xs text-gray-500 mt-1">Tahun 2024</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center">
+            <div className="bg-red-500 w-12 h-12 rounded-xl flex items-center justify-center">
+              <span className="text-white text-xl">📉</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Total Pengeluaran</p>
+              <p className="text-2xl font-bold text-gray-900">Rp 15.8Jt</p>
+              <p className="text-xs text-gray-500 mt-1">Tahun 2024</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center">
+            <div className="bg-blue-500 w-12 h-12 rounded-xl flex items-center justify-center">
+              <span className="text-white text-xl">💰</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Saldo Akhir</p>
+              <p className="text-2xl font-bold text-gray-900">Rp 6.7Jt</p>
+              <p className="text-xs text-gray-500 mt-1">Sampai Maret 2024</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="bg-white rounded-xl p-6 mb-8 border border-gray-200 shadow-sm">
+        <h4 className="text-xl font-bold text-gray-800 mb-6">Aksi Cepat</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <button className="bg-green-600 hover:bg-green-700 text-white p-4 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg">
+            <div className="flex items-center space-x-3">
+              <span className="text-2xl">📥</span>
+              <div>
+                <div className="font-semibold text-lg">Input Pemasukan</div>
+                <div className="text-sm opacity-90">Tambah data masuk</div>
+              </div>
+            </div>
+          </button>
+          
+          <button className="bg-red-600 hover:bg-red-700 text-white p-4 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg">
+            <div className="flex items-center space-x-3">
+              <span className="text-2xl">📤</span>
+              <div>
+                <div className="font-semibold text-lg">Input Pengeluaran</div>
+                <div className="text-sm opacity-90">Catat pengeluaran</div>
+              </div>
+            </div>
+          </button>
+          
+          <button className="bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg">
+            <div className="flex items-center space-x-3">
+              <span className="text-2xl">📋</span>
+              <div>
+                <div className="font-semibold text-lg">Export Laporan</div>
+                <div className="text-sm opacity-90">Download Excel/PDF</div>
+              </div>
+            </div>
+          </button>
+          
+          <Link 
+            to="/admin/dashboard"
+            className="bg-gray-600 hover:bg-gray-700 text-white p-4 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg"
+          >
+            <div className="flex items-center space-x-3">
+              <span className="text-2xl">🏠</span>
+              <div>
+                <div className="font-semibold text-lg">Kembali</div>
+                <div className="text-sm opacity-90">Ke dashboard</div>
+              </div>
+            </div>
+          </Link>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-bold text-gray-800">Laporan Keuangan</h2>
+          <div className="flex space-x-3">
+            <button className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium">
+              + Pemasukan
+            </button>
+            <button className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors font-medium">
+              + Pengeluaran
+            </button>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="border-b border-gray-200 mb-6">
           <nav className="flex -mb-px">
             {['rekap', 'arus-kas'].map((tab) => (
               <button
@@ -128,11 +228,12 @@ const DataKeuangan = () => {
           </nav>
         </div>
         
-        <div className="p-6">
+        {/* Table Content */}
+        <div>
           {renderContent()}
         </div>
       </div>
-    </div>
+    </AuthDashboardLayout>
   );
 };
 
