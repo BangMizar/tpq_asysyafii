@@ -143,21 +143,21 @@ const WaliLayout = () => {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-h-screen lg:ml-0">
         {/* Top Bar */}
-        <header className="bg-white border-b border-green-200 sticky top-0 z-30">
+        <header className="bg-gradient-to-br from-green-800 to-green-600 border-b border-green-200 sticky top-0 z-30">
           <div className="flex items-center justify-between px-6 py-4">
             <div className="flex items-center">
               <button
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
                 className="p-2 rounded-lg hover:bg-green-50 transition-colors duration-200 lg:hidden"
               >
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
               </button>
               
               <div className="ml-4 lg:ml-0">
-                <h1 className="text-xl font-bold text-green-800">{getPageTitle()}</h1>
-                <p className="text-sm text-green-600 mt-1">Portal Wali Santri TPQ</p>
+                <h1 className="text-xl font-bold text-white">{getPageTitle()}</h1>
+                <p className="text-sm text-white mt-1">Portal Wali Santri TPQ</p>
               </div>
             </div>
 
@@ -165,14 +165,14 @@ const WaliLayout = () => {
             <div className="flex items-center space-x-4">
               <Link
                 to="/wali/profil"
-                className="flex items-center space-x-3 p-2 hover:bg-green-50 rounded-lg transition-colors duration-200"
+                className="flex items-center space-x-3 p-2 hover:bg-green-700 rounded-lg transition-colors duration-200"
               >
                 <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
                   {user?.nama_lengkap?.charAt(0) || 'W'}
                 </div>
                 <div className="text-left hidden md:block">
-                  <p className="text-sm font-medium text-green-800">{user?.nama_lengkap}</p>
-                  <p className="text-xs text-green-600">Wali Santri</p>
+                  <p className="text-sm font-medium text-white">{user?.nama_lengkap}</p>
+                  <p className="text-xs text-white">Wali Santri</p>
                 </div>
               </Link>
             </div>
