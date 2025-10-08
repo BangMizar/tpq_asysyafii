@@ -98,7 +98,6 @@ func (ctrl *RekapController) updateRekapSaldo(periode string, tipeSaldo models.T
 	}
 
 	// Untuk pengeluaran, bisa disesuaikan dengan kebutuhan
-	// Saat ini di-set 0, bisa ditambahkan tabel pengeluaran nanti
 	pengeluaranTotal := 0.0
 	saldoAkhir := pemasukan - pengeluaranTotal
 
@@ -142,6 +141,7 @@ func (ctrl *RekapController) UpdateRekapOtomatis(transaksiTime time.Time) error 
 	
 	return nil
 }
+
 
 // CreateRekap membuat data rekap saldo baru (MANUAL - Admin Only)
 func (ctrl *RekapController) CreateRekap(c *gin.Context) {
@@ -209,6 +209,17 @@ func (ctrl *RekapController) CreateRekap(c *gin.Context) {
 		"message": "Data rekap berhasil dibuat",
 		"data":    rekap,
 	})
+}
+
+// UpdateRekapByBulan - Untuk update berdasarkan bulan syahriah
+func (ctrl *RekapController) UpdateRekapByBulan(bulan string) error {
+	// Parse bulan untuk dapat time.Time
+	bulanTime, err := time.Parse("2006-01", bulan)
+	if err != nil {
+		return err
+	}
+	
+	return ctrl.UpdateRekapOtomatis(bulanTime)
 }
 
 // UpdateRekap mengupdate data rekap saldo (MANUAL - Admin Only)

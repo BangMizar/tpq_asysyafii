@@ -113,7 +113,14 @@ func (ctrl *DonasiController) formatDonasiTerbaruPublic(donasi models.Donasi) Do
 	}
 }
 
-// CreateDonasi membuat data donasi baru
+func (ctrl *DonasiController) updateRekapOtomatis(transaksiTime time.Time) {
+	rekapController := NewRekapController(ctrl.db)
+	if err := rekapController.UpdateRekapOtomatis(transaksiTime); err != nil {
+		// Log error tapi jangan gagalkan operasi utama
+		fmt.Printf("Gagal update rekap: %v\n", err)
+	}
+}
+
 func (ctrl *DonasiController) CreateDonasi(c *gin.Context) {
 	// Check role
 	if !ctrl.checkAdminRole(c) {
@@ -164,11 +171,7 @@ func (ctrl *DonasiController) CreateDonasi(c *gin.Context) {
 	// Preload admin data untuk response
 	ctrl.db.Preload("Admin").First(&donasi, "id_donasi = ?", donasi.IDDonasi)
 
-	rekapController := NewRekapController(ctrl.db)
-	if err := rekapController.UpdateRekapOtomatis(donasi.WaktuCatat); err != nil {
-		// Log error tapi jangan gagalkan create donasi
-		fmt.Printf("Gagal update rekap: %v\n", err)
-	}
+	ctrl.updateRekapOtomatis(donasi.WaktuCatat)
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Donasi berhasil dibuat",
@@ -323,6 +326,8 @@ func (ctrl *DonasiController) UpdateDonasi(c *gin.Context) {
 	// Preload admin data untuk response
 	ctrl.db.Preload("Admin").First(&existingDonasi, "id_donasi = ?", existingDonasi.IDDonasi)
 
+	ctrl.updateRekapOtomatis(existingDonasi.WaktuCatat)
+
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Donasi berhasil diupdate",
 		"data":    existingDonasi,
@@ -355,11 +360,15 @@ func (ctrl *DonasiController) DeleteDonasi(c *gin.Context) {
 		return
 	}
 
+	waktuCatat := donasi.WaktuCatat
+
 	// Hapus donasi
 	if err := ctrl.db.Where("id_donasi = ?", id).Delete(&models.Donasi{}).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus donasi: " + err.Error()})
 		return
 	}
+
+	ctrl.updateRekapOtomatis(waktuCatat)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Donasi berhasil dihapus",
