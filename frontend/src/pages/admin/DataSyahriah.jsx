@@ -630,7 +630,7 @@ const DataSyahriah = () => {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">
-                Total Pembayaran {isFilterActive() && <span className="text-green-600 text-xs">(Filtered)</span>}
+                Total Pembayaran {isFilterActive() && <span className="text-green-600 text-xs">(1 Bulan)</span>}
               </p>
               <p className="text-2xl font-bold text-gray-900">
                 {currentSummaryData ? formatCurrency(currentSummaryData.total_nominal) : 'Rp 0'}
@@ -646,7 +646,7 @@ const DataSyahriah = () => {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">
-                Santri Lunas {isFilterActive() && <span className="text-blue-600 text-xs">(Filtered)</span>}
+                Santri Lunas {isFilterActive() && <span className="text-blue-600 text-xs">(1 Bulan)</span>}
               </p>
               <p className="text-2xl font-bold text-gray-900">
                 {currentSummaryData ? currentSummaryData.lunas : 0}
@@ -662,7 +662,7 @@ const DataSyahriah = () => {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">
-                Santri Menunggak {isFilterActive() && <span className="text-red-600 text-xs">(Filtered)</span>}
+                Santri Menunggak {isFilterActive() && <span className="text-red-600 text-xs">(1 Bulan)</span>}
               </p>
               <p className="text-2xl font-bold text-gray-900">
                 {currentSummaryData ? currentSummaryData.belum_lunas : 0}
