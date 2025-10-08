@@ -198,7 +198,7 @@ const DashboardWali = () => {
   const getStatusBadge = (status) => {
     const statusConfig = {
       lunas: { color: 'bg-green-100 text-green-800 border border-green-200', text: 'Lunas' },
-      belum: { color: 'bg-red-100 text-red-800 border border-red-200', text: 'Belum Lunas' },
+      belum: { color: 'bg-red-100 text-red-800 border border-red-200', text: 'Belum dibayar' },
       aktif: { color: 'bg-blue-100 text-blue-800', text: 'Aktif' },
       non_aktif: { color: 'bg-gray-100 text-gray-800', text: 'Non Aktif' }
     };
@@ -313,7 +313,7 @@ const DashboardWali = () => {
               Selamat datang, {user?.nama_lengkap}!
             </h1>
             <p className="text-green-100 text-lg">
-              Portal informasi dan pembayaran syahriah TPQ
+              Portal informasi dan syahriah TPQ
             </p>
           </div>
           <div className="mt-4 lg:mt-0 flex items-center space-x-2">
@@ -328,7 +328,7 @@ const DashboardWali = () => {
       <div className="bg-white rounded-xl shadow-sm border border-green-200">
         <div className="px-6 py-4 border-b border-green-200">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-green-900">Tagihan Syahriah Terbaru</h2>
+            <h2 className="text-lg font-semibold text-green-900">Daftar syahriah bulanan</h2>
             <Link 
               to="/wali/detail"
               className="text-green-600 hover:text-green-700 text-sm font-medium flex items-center space-x-1"

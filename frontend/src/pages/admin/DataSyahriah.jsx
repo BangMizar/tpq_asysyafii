@@ -28,26 +28,24 @@ const DataSyahriah = () => {
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [alertMessage, setAlertMessage] = useState({ title: '', message: '', type: '' });
   const [selectedSyahriah, setSelectedSyahriah] = useState(null);
-  
-  // State untuk filter
-  const [filterNama, setFilterNama] = useState('');
-  const [filterBulanTahun, setFilterBulanTahun] = useState('');
-  
-  // State untuk form
-  const [formData, setFormData] = useState({
-    id_wali: '',
-    bulan: '',
-    nominal: 110000,
-    status: 'belum'
-  });
-
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-
   // Get current month in YYYY-MM format
   const getCurrentMonth = () => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   };
+  // State untuk filter
+  const [filterNama, setFilterNama] = useState('');
+  const [filterBulanTahun, setFilterBulanTahun] = useState(getCurrentMonth());
+  
+  // State untuk form
+  const [formData, setFormData] = useState({
+    id_wali: '',
+    bulan: getCurrentMonth(),
+    nominal: 110000,
+    status: 'belum'
+  });
+
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
   // Fetch semua data
   useEffect(() => {
@@ -160,24 +158,46 @@ const DataSyahriah = () => {
     });
   };
 
-  // Fetch data wali untuk dropdown
+  // Fetch data wali
   const fetchWaliData = async () => {
     try {
+      console.log('🔍 Fetching wali data from:', `${API_URL}/api/admin/wali`);
+      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('No token found');
+        setError('Token tidak ditemukan');
+        return;
+      }
+
       const response = await fetch(`${API_URL}/api/admin/wali`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setWaliData(data.data || []);
-      } else {
-        console.error('Failed to fetch wali data');
+      console.log('📡 Response status:', response.status);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      const data = await response.json();
+      console.log('Wali data received:', data);
+      
+      if (Array.isArray(data)) {
+        setWaliData(data);
+        console.log(`Loaded ${data.length} wali records`);
+      } else {
+        console.error('Expected array but got:', typeof data, data);
+        setWaliData([]);
+      }
+
     } catch (err) {
       console.error('Error fetching wali data:', err);
+      setError('Gagal memuat data wali: ' + err.message);
+      setWaliData([]);
     }
   };
 
@@ -348,7 +368,7 @@ const DataSyahriah = () => {
   const resetForm = () => {
     setFormData({
       id_wali: '',
-      bulan: getCurrentMonth(), // Set default to current month
+      bulan: getCurrentMonth(),
       nominal: 110000,
       status: 'belum'
     });
@@ -568,9 +588,7 @@ const DataSyahriah = () => {
                     >
                       Bayar
                     </button>
-                  ) : (
-                    <button className="text-blue-600 hover:text-blue-900">Detail</button>
-                  )}
+                  ) : ("")}
                   <button 
                     onClick={() => openEditModal(item)}
                     className="text-yellow-600 hover:text-yellow-900 ml-2"
@@ -759,12 +777,26 @@ const DataSyahriah = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                   >
                     <option value="">Pilih Wali</option>
-                    {waliData.map((wali) => (
-                      <option key={wali.id_wali} value={wali.id_wali}>
-                        {wali.nama_lengkap} - {wali.email}
+                    {waliData && waliData.length > 0 ? (
+                      waliData.map((wali) => (
+                        <option 
+                          key={wali.id_user} 
+                          value={wali.id_user} // PERBAIKAN: Gunakan id_user sebagai value
+                        >
+                          {wali.nama_lengkap} {wali.email ? `- ${wali.email}` : wali.no_telp ? `- ${wali.no_telp}` : ''}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="" disabled>
+                        {loading ? 'Memuat data wali...' : 'Tidak ada data wali tersedia'}
                       </option>
-                    ))}
+                    )}
                   </select>
+                  {!loading && waliData.length === 0 && (
+                    <p className="text-red-500 text-sm mt-1">
+                      Tidak ada data wali. Pastikan backend berjalan dan ada user dengan role "wali".
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -815,7 +847,7 @@ const DataSyahriah = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || waliData.length === 0}
                   className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
                 >
                   {loading ? 'Menyimpan...' : 'Simpan'}
