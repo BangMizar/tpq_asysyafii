@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -162,6 +163,12 @@ func (ctrl *DonasiController) CreateDonasi(c *gin.Context) {
 
 	// Preload admin data untuk response
 	ctrl.db.Preload("Admin").First(&donasi, "id_donasi = ?", donasi.IDDonasi)
+
+	rekapController := NewRekapController(ctrl.db)
+	if err := rekapController.UpdateRekapOtomatis(donasi.WaktuCatat); err != nil {
+		// Log error tapi jangan gagalkan create donasi
+		fmt.Printf("Gagal update rekap: %v\n", err)
+	}
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Donasi berhasil dibuat",

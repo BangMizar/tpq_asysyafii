@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -133,6 +134,12 @@ func (ctrl *SyahriahController) CreateSyahriah(c *gin.Context) {
 
 	// Preload relations untuk response
 	ctrl.db.Preload("Wali").Preload("Admin").First(&syahriah, "id_syahriah = ?", syahriah.IDSyahriah)
+
+	rekapController := NewRekapController(ctrl.db)
+	if err := rekapController.UpdateRekapOtomatis(syahriah.WaktuCatat); err != nil {
+		// Log error tapi jangan gagalkan create syahriah
+		fmt.Printf("Gagal update rekap: %v\n", err)
+	}
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Data syahriah berhasil dibuat",
@@ -428,6 +435,13 @@ func (ctrl *SyahriahController) BayarSyahriah(c *gin.Context) {
 
 	// Preload relations untuk response
 	ctrl.db.Preload("Wali").Preload("Admin").First(&existingSyahriah, "id_syahriah = ?", existingSyahriah.IDSyahriah)
+
+	// ✅ PERBAIKAN: Tambahkan update rekap otomatis di sini
+	rekapController := NewRekapController(ctrl.db)
+	if err := rekapController.UpdateRekapOtomatis(existingSyahriah.WaktuCatat); err != nil {
+		// Log error tapi jangan gagalkan pembayaran
+		fmt.Printf("Gagal update rekap: %v\n", err)
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Pembayaran syahriah berhasil",

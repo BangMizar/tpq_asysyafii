@@ -52,9 +52,100 @@ func (ctrl *RekapController) isAdmin(c *gin.Context) bool {
 	return role == "admin" || role == "super_admin"
 }
 
-// CreateRekap membuat data rekap saldo baru
+// updateRekapSaldo - Internal function untuk update rekap otomatis
+func (ctrl *RekapController) updateRekapSaldo(periode string, tipeSaldo models.TipeSaldo) error {
+	var pemasukan float64
+	var err error
+
+	// Hitung pemasukan berdasarkan tipe saldo
+	switch tipeSaldo {
+	case models.SaldoSyahriah:
+		err = ctrl.db.Model(&models.Syahriah{}).
+			Where("bulan = ? AND status = ?", periode, models.StatusLunas).
+			Select("COALESCE(SUM(nominal), 0)").
+			Scan(&pemasukan).Error
+	case models.SaldoDonasi:
+		startDate, _ := time.Parse("2006-01", periode)
+		endDate := startDate.AddDate(0, 1, 0)
+		
+		err = ctrl.db.Model(&models.Donasi{}).
+			Where("waktu_catat >= ? AND waktu_catat < ?", startDate, endDate).
+			Select("COALESCE(SUM(nominal), 0)").
+			Scan(&pemasukan).Error
+	case models.SaldoTotal:
+		// Hitung total dari syahriah dan donasi
+		var syahriahTotal, donasiTotal float64
+		
+		err1 := ctrl.db.Model(&models.Syahriah{}).
+			Where("bulan = ? AND status = ?", periode, models.StatusLunas).
+			Select("COALESCE(SUM(nominal), 0)").
+			Scan(&syahriahTotal).Error
+			
+		startDate, _ := time.Parse("2006-01", periode)
+		endDate := startDate.AddDate(0, 1, 0)
+		
+		err2 := ctrl.db.Model(&models.Donasi{}).
+			Where("waktu_catat >= ? AND waktu_catat < ?", startDate, endDate).
+			Select("COALESCE(SUM(nominal), 0)").
+			Scan(&donasiTotal).Error
+			
+		pemasukan = syahriahTotal + donasiTotal
+		err = errors.Join(err1, err2)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	// Untuk pengeluaran, bisa disesuaikan dengan kebutuhan
+	// Saat ini di-set 0, bisa ditambahkan tabel pengeluaran nanti
+	pengeluaranTotal := 0.0
+	saldoAkhir := pemasukan - pengeluaranTotal
+
+	// Cek apakah sudah ada rekap untuk periode ini
+	var existingRekap models.RekapSaldo
+	if err := ctrl.db.Where("tipe_saldo = ? AND periode = ?", tipeSaldo, periode).First(&existingRekap).Error; err == nil {
+		// Update existing rekap
+		existingRekap.PemasukanTotal = pemasukan
+		existingRekap.PengeluaranTotal = pengeluaranTotal
+		existingRekap.SaldoAkhir = saldoAkhir
+		existingRekap.TerakhirUpdate = time.Now()
+
+		return ctrl.db.Save(&existingRekap).Error
+	} else {
+		// Buat rekap baru
+		rekap := models.RekapSaldo{
+			IDSaldo:          uuid.New().String(),
+			TipeSaldo:        tipeSaldo,
+			Periode:          periode,
+			PemasukanTotal:   pemasukan,
+			PengeluaranTotal: pengeluaranTotal,
+			SaldoAkhir:       saldoAkhir,
+			TerakhirUpdate:   time.Now(),
+		}
+		return ctrl.db.Create(&rekap).Error
+	}
+}
+
+// UpdateRekapOtomatis - Dipanggil setelah ada transaksi donasi/syahriah
+func (ctrl *RekapController) UpdateRekapOtomatis(transaksiTime time.Time) error {
+	periode := transaksiTime.Format("2006-01")
+	
+	// Update semua tipe saldo untuk periode tersebut
+	tipes := []models.TipeSaldo{models.SaldoSyahriah, models.SaldoDonasi, models.SaldoTotal}
+	
+	for _, tipe := range tipes {
+		if err := ctrl.updateRekapSaldo(periode, tipe); err != nil {
+			return err
+		}
+	}
+	
+	return nil
+}
+
+// CreateRekap membuat data rekap saldo baru (MANUAL - Admin Only)
 func (ctrl *RekapController) CreateRekap(c *gin.Context) {
-	// Hanya admin yang bisa create
+	// Hanya admin yang bisa create manual
 	if !ctrl.isAdmin(c) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden: hanya admin yang dapat membuat data rekap"})
 		return
@@ -117,6 +208,146 @@ func (ctrl *RekapController) CreateRekap(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Data rekap berhasil dibuat",
 		"data":    rekap,
+	})
+}
+
+// UpdateRekap mengupdate data rekap saldo (MANUAL - Admin Only)
+func (ctrl *RekapController) UpdateRekap(c *gin.Context) {
+	// Hanya admin yang bisa update manual
+	if !ctrl.isAdmin(c) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden: hanya admin yang dapat mengupdate data rekap"})
+		return
+	}
+
+	id := c.Param("id")
+	if id == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID rekap diperlukan"})
+		return
+	}
+
+	var req UpdateRekapRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Cek apakah rekap exists
+	var existingRekap models.RekapSaldo
+	err := ctrl.db.Where("id_saldo = ?", id).First(&existingRekap).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Data rekap tidak ditemukan"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data rekap: " + err.Error()})
+		return
+	}
+
+	// Update fields
+	if req.PemasukanTotal >= 0 {
+		existingRekap.PemasukanTotal = req.PemasukanTotal
+	}
+	if req.PengeluaranTotal >= 0 {
+		existingRekap.PengeluaranTotal = req.PengeluaranTotal
+	}
+	if req.SaldoAkhir >= 0 {
+		existingRekap.SaldoAkhir = req.SaldoAkhir
+	}
+
+	existingRekap.TerakhirUpdate = time.Now()
+
+	// Simpan perubahan
+	if err := ctrl.db.Save(&existingRekap).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengupdate data rekap: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Data rekap berhasil diupdate",
+		"data":    existingRekap,
+	})
+}
+
+// DeleteRekap menghapus data rekap saldo (MANUAL - Admin Only)
+func (ctrl *RekapController) DeleteRekap(c *gin.Context) {
+	// Hanya admin yang bisa delete manual
+	if !ctrl.isAdmin(c) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden: hanya admin yang dapat menghapus data rekap"})
+		return
+	}
+
+	id := c.Param("id")
+	if id == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID rekap diperlukan"})
+		return
+	}
+
+	// Cek apakah rekap exists
+	var rekap models.RekapSaldo
+	err := ctrl.db.Where("id_saldo = ?", id).First(&rekap).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Data rekap tidak ditemukan"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data rekap: " + err.Error()})
+		return
+	}
+
+	// Hapus rekap
+	if err := ctrl.db.Where("id_saldo = ?", id).Delete(&models.RekapSaldo{}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus data rekap: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Data rekap berhasil dihapus",
+	})
+}
+
+// GenerateRekapOtomatis menghasilkan rekap saldo secara otomatis berdasarkan data syahriah dan donasi
+func (ctrl *RekapController) GenerateRekapOtomatis(c *gin.Context) {
+	// Hanya admin yang bisa generate otomatis
+	if !ctrl.isAdmin(c) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden: hanya admin yang dapat generate rekap otomatis"})
+		return
+	}
+
+	periode := c.Query("periode")
+	if periode == "" {
+		// Default ke bulan sebelumnya
+		lastMonth := time.Now().AddDate(0, -1, 0)
+		periode = lastMonth.Format("2006-01")
+	}
+
+	// Validasi format periode
+	_, err := time.Parse("2006-01", periode)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Format periode tidak valid. Gunakan format YYYY-MM"})
+		return
+	}
+
+	// Generate rekap untuk masing-masing tipe saldo
+	tipes := []models.TipeSaldo{models.SaldoSyahriah, models.SaldoDonasi, models.SaldoTotal}
+	results := make([]models.RekapSaldo, 0)
+
+	for _, tipe := range tipes {
+		if err := ctrl.updateRekapSaldo(periode, tipe); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal generate rekap " + string(tipe) + ": " + err.Error()})
+			return
+		}
+
+		// Ambil data yang baru saja di-generate
+		var rekap models.RekapSaldo
+		if err := ctrl.db.Where("tipe_saldo = ? AND periode = ?", tipe, periode).First(&rekap).Error; err == nil {
+			results = append(results, rekap)
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Rekap berhasil digenerate otomatis",
+		"data":    results,
+		"periode": periode,
 	})
 }
 
@@ -259,100 +490,6 @@ func (ctrl *RekapController) GetRekapByPeriode(c *gin.Context) {
 	})
 }
 
-// UpdateRekap mengupdate data rekap saldo
-func (ctrl *RekapController) UpdateRekap(c *gin.Context) {
-	// Hanya admin yang bisa update
-	if !ctrl.isAdmin(c) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden: hanya admin yang dapat mengupdate data rekap"})
-		return
-	}
-
-	id := c.Param("id")
-	if id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ID rekap diperlukan"})
-		return
-	}
-
-	var req UpdateRekapRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	// Cek apakah rekap exists
-	var existingRekap models.RekapSaldo
-	err := ctrl.db.Where("id_saldo = ?", id).First(&existingRekap).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Data rekap tidak ditemukan"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data rekap: " + err.Error()})
-		return
-	}
-
-	// Update fields
-	if req.PemasukanTotal >= 0 {
-		existingRekap.PemasukanTotal = req.PemasukanTotal
-	}
-	if req.PengeluaranTotal >= 0 {
-		existingRekap.PengeluaranTotal = req.PengeluaranTotal
-	}
-	if req.SaldoAkhir >= 0 {
-		existingRekap.SaldoAkhir = req.SaldoAkhir
-	}
-
-	existingRekap.TerakhirUpdate = time.Now()
-
-	// Simpan perubahan
-	if err := ctrl.db.Save(&existingRekap).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengupdate data rekap: " + err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Data rekap berhasil diupdate",
-		"data":    existingRekap,
-	})
-}
-
-// DeleteRekap menghapus data rekap saldo
-func (ctrl *RekapController) DeleteRekap(c *gin.Context) {
-	// Hanya admin yang bisa delete
-	if !ctrl.isAdmin(c) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden: hanya admin yang dapat menghapus data rekap"})
-		return
-	}
-
-	id := c.Param("id")
-	if id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ID rekap diperlukan"})
-		return
-	}
-
-	// Cek apakah rekap exists
-	var rekap models.RekapSaldo
-	err := ctrl.db.Where("id_saldo = ?", id).First(&rekap).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Data rekap tidak ditemukan"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data rekap: " + err.Error()})
-		return
-	}
-
-	// Hapus rekap
-	if err := ctrl.db.Where("id_saldo = ?", id).Delete(&models.RekapSaldo{}).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus data rekap: " + err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Data rekap berhasil dihapus",
-	})
-}
-
 // GetRekapSummary mendapatkan summary rekap saldo
 func (ctrl *RekapController) GetRekapSummary(c *gin.Context) {
 	// Parse query parameters
@@ -439,119 +576,51 @@ func (ctrl *RekapController) GetLatestRekap(c *gin.Context) {
 	})
 }
 
-// GenerateRekapOtomatis menghasilkan rekap saldo secara otomatis berdasarkan data syahriah dan donasi
-func (ctrl *RekapController) GenerateRekapOtomatis(c *gin.Context) {
-	// Hanya admin yang bisa generate otomatis
+// SyncAllRekap - Sync semua rekap (admin only, untuk maintenance)
+func (ctrl *RekapController) SyncAllRekap(c *gin.Context) {
+	// Hanya admin yang bisa sync
 	if !ctrl.isAdmin(c) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden: hanya admin yang dapat generate rekap otomatis"})
+		c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden: hanya admin yang dapat sync rekap"})
 		return
 	}
 
-	periode := c.Query("periode")
-	if periode == "" {
-		// Default ke bulan sebelumnya
-		lastMonth := time.Now().AddDate(0, -1, 0)
-		periode = lastMonth.Format("2006-01")
+	// Ambil semua periode unik dari syahriah dan donasi
+	var periods []string
+	
+	// Dari syahriah
+	ctrl.db.Model(&models.Syahriah{}).
+		Distinct("bulan").
+		Pluck("bulan", &periods)
+	
+	// Dari donasi (convert waktu_catat ke periode YYYY-MM)
+	var donasiPeriods []string
+	ctrl.db.Model(&models.Donasi{}).
+		Select("DISTINCT DATE_FORMAT(waktu_catat, '%Y-%m') as periode").
+		Pluck("periode", &donasiPeriods)
+	
+	// Gabungkan periods
+	periodMap := make(map[string]bool)
+	for _, p := range periods {
+		periodMap[p] = true
 	}
-
-	// Validasi format periode
-	_, err := time.Parse("2006-01", periode)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Format periode tidak valid. Gunakan format YYYY-MM"})
-		return
+	for _, p := range donasiPeriods {
+		periodMap[p] = true
 	}
-
-	// Hitung pemasukan dari syahriah (status lunas)
-	var totalSyahriah float64
-	err = ctrl.db.Model(&models.Syahriah{}).
-		Where("bulan = ? AND status = ?", periode, models.StatusLunas).
-		Select("COALESCE(SUM(nominal), 0)").
-		Scan(&totalSyahriah).Error
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung total syahriah: " + err.Error()})
-		return
-	}
-
-	// Hitung pemasukan dari donasi (dalam bulan yang sama)
-	startDate, _ := time.Parse("2006-01", periode)
-	endDate := startDate.AddDate(0, 1, 0)
-
-	var totalDonasi float64
-	err = ctrl.db.Model(&models.Donasi{}).
-		Where("waktu_catat >= ? AND waktu_catat < ?", startDate, endDate).
-		Select("COALESCE(SUM(nominal), 0)").
-		Scan(&totalDonasi).Error
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung total donasi: " + err.Error()})
-		return
-	}
-
-	// Untuk pengeluaran, perlu disesuaikan dengan kebutuhan aplikasi
-	// Saat ini di-set 0, bisa di-extend sesuai kebutuhan
-	pengeluaranTotal := 0.0
-
-	// Generate rekap untuk masing-masing tipe saldo
-	tipes := []models.TipeSaldo{models.SaldoSyahriah, models.SaldoDonasi, models.SaldoTotal}
-	results := make([]models.RekapSaldo, 0)
-
-	for _, tipe := range tipes {
-		var pemasukan float64
-		var saldoAkhir float64
-
-		switch tipe {
-		case models.SaldoSyahriah:
-			pemasukan = totalSyahriah
-			saldoAkhir = totalSyahriah - pengeluaranTotal
-		case models.SaldoDonasi:
-			pemasukan = totalDonasi
-			saldoAkhir = totalDonasi - pengeluaranTotal
-		case models.SaldoTotal:
-			pemasukan = totalSyahriah + totalDonasi
-			saldoAkhir = (totalSyahriah + totalDonasi) - pengeluaranTotal
-		}
-
-		// Cek apakah sudah ada rekap untuk periode ini
-		var existingRekap models.RekapSaldo
-		if err := ctrl.db.Where("tipe_saldo = ? AND periode = ?", tipe, periode).First(&existingRekap).Error; err == nil {
-			// Update existing rekap
-			existingRekap.PemasukanTotal = pemasukan
-			existingRekap.PengeluaranTotal = pengeluaranTotal
-			existingRekap.SaldoAkhir = saldoAkhir
-			existingRekap.TerakhirUpdate = time.Now()
-
-			if err := ctrl.db.Save(&existingRekap).Error; err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengupdate rekap " + string(tipe) + ": " + err.Error()})
+	
+	// Update rekap untuk setiap periode
+	for periode := range periodMap {
+		tipes := []models.TipeSaldo{models.SaldoSyahriah, models.SaldoDonasi, models.SaldoTotal}
+		for _, tipe := range tipes {
+			if err := ctrl.updateRekapSaldo(periode, tipe); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal sync rekap untuk periode " + periode + ": " + err.Error()})
 				return
 			}
-			results = append(results, existingRekap)
-		} else {
-			// Buat rekap baru
-			rekap := models.RekapSaldo{
-				IDSaldo:          uuid.New().String(),
-				TipeSaldo:        tipe,
-				Periode:          periode,
-				PemasukanTotal:   pemasukan,
-				PengeluaranTotal: pengeluaranTotal,
-				SaldoAkhir:       saldoAkhir,
-				TerakhirUpdate:   time.Now(),
-			}
-
-			if err := ctrl.db.Create(&rekap).Error; err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat rekap " + string(tipe) + ": " + err.Error()})
-				return
-			}
-			results = append(results, rekap)
 		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Rekap berhasil digenerate otomatis",
-		"data":    results,
-		"periode": periode,
-		"summary": gin.H{
-			"total_syahriah": totalSyahriah,
-			"total_donasi":   totalDonasi,
-			"total_pemasukan": totalSyahriah + totalDonasi,
-		},
+		"message": "Sync rekap berhasil",
+		"total_periode": len(periodMap),
+		"periods": periodMap,
 	})
 }
