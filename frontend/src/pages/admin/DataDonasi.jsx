@@ -62,7 +62,7 @@ const DataDonasi = () => {
     fetchSummaryData();
   }, [API_URL, pagination.page, filterSearch, filterStartDate, filterEndDate]);
 
-  // Fetch data donasi dengan pagination
+  // Fetch data donasi dengan pagination dan filter
   const fetchDonasiData = async () => {
     try {
       setLoading(true);
@@ -75,24 +75,50 @@ const DataDonasi = () => {
       
       if (filterSearch) params.append('search', filterSearch);
       
-      const response = await fetch(`${API_URL}/api/admin/donasi?${params.toString()}`, {
+      // Gunakan endpoint by-date range untuk filter tanggal
+      let fetchUrl = `${API_URL}/api/admin/donasi`;
+      
+      // Jika ada filter tanggal, gunakan endpoint by-date
+      if (filterStartDate && filterEndDate) {
+        fetchUrl = `${API_URL}/api/admin/donasi/by-date`;
+        params.append('start_date', filterStartDate);
+        params.append('end_date', filterEndDate);
+      }
+  
+      const response = await fetch(`${fetchUrl}?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'
         }
       });
-
+  
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-
+  
       const data = await response.json();
-      setDonasiData(data.data || []);
-      setPagination(prev => ({
-        ...prev,
-        total: data.meta?.total || 0,
-        total_page: data.meta?.total_page || 0
-      }));
+      
+      // Untuk endpoint by-date, hitung manual pagination
+      if (filterStartDate && filterEndDate) {
+        const allData = data.data || [];
+        const startIndex = (pagination.page - 1) * pagination.limit;
+        const endIndex = startIndex + pagination.limit;
+        const paginatedData = allData.slice(startIndex, endIndex);
+        
+        setDonasiData(paginatedData);
+        setPagination(prev => ({
+          ...prev,
+          total: allData.length,
+          total_page: Math.ceil(allData.length / pagination.limit)
+        }));
+      } else {
+        setDonasiData(data.data || []);
+        setPagination(prev => ({
+          ...prev,
+          total: data.meta?.total || 0,
+          total_page: data.meta?.total_page || 0
+        }));
+      }
     } catch (err) {
       console.error('Error fetching donasi data:', err);
       setError(`Gagal memuat data: ${err.message}`);
@@ -132,33 +158,38 @@ const DataDonasi = () => {
     }
   };
 
-  // Handle export to Excel
+  // Handle export to Excel/CSV
   const handleExportExcel = async () => {
     try {
       setLoading(true);
       
       // Fetch semua data untuk export (tanpa pagination)
+      let exportUrl = `${API_URL}/api/admin/donasi`;
       const params = new URLSearchParams();
-      if (filterSearch) params.append('search', filterSearch);
-      if (filterStartDate) params.append('start_date', filterStartDate);
-      if (filterEndDate) params.append('end_date', filterEndDate);
       
-      const response = await fetch(`${API_URL}/api/admin/donasi?${params.toString()}&limit=1000`, {
+      if (filterSearch) params.append('search', filterSearch);
+      if (filterStartDate && filterEndDate) {
+        exportUrl = `${API_URL}/api/admin/donasi/by-date`;
+        params.append('start_date', filterStartDate);
+        params.append('end_date', filterEndDate);
+      }
+      
+      const response = await fetch(`${exportUrl}?${params.toString()}&limit=1000`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'
         }
       });
-
+  
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-
+  
       const data = await response.json();
       const donasiForExport = data.data || [];
 
-      // Create Excel data
-      const excelData = [
+      // Create CSV data
+      const csvData = [
         ['LAPORAN DATA DONASI'],
         [`Periode: ${formatDateForExport(filterStartDate)} - ${formatDateForExport(filterEndDate)}`],
         [''],
@@ -167,7 +198,7 @@ const DataDonasi = () => {
 
       // Add data rows
       donasiForExport.forEach((item, index) => {
-        excelData.push([
+        csvData.push([
           index + 1,
           item.nama_donatur || 'Hamba Allah',
           item.no_telp || '-',
@@ -178,17 +209,17 @@ const DataDonasi = () => {
       });
 
       // Add summary row
-      excelData.push(['']);
-      excelData.push(['TOTAL DONASI:', '', '', formatCurrencyForExport(summaryData.total_nominal), '', '']);
-      excelData.push(['TOTAL DONATUR:', '', '', summaryData.total_donatur, '', '']);
-      excelData.push(['RATA-RATA:', '', '', formatCurrencyForExport(summaryData.rata_rata), '', '']);
+      csvData.push(['']);
+      csvData.push(['TOTAL DONASI:', '', '', formatCurrencyForExport(summaryData.total_nominal), '', '']);
+      csvData.push(['TOTAL DONATUR:', '', '', summaryData.total_donatur, '', '']);
+      csvData.push(['RATA-RATA:', '', '', formatCurrencyForExport(summaryData.rata_rata), '', '']);
 
       // Convert to CSV
-      const csvContent = excelData.map(row => 
+      const csvContent = csvData.map(row => 
         row.map(field => `"${field}"`).join(',')
       ).join('\n');
 
-      // Create and download file
+      // Create and download CSV file
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
@@ -199,10 +230,210 @@ const DataDonasi = () => {
       link.click();
       document.body.removeChild(link);
 
-      showAlert('Berhasil', 'Data berhasil diexport ke Excel', 'success');
+      showAlert('Berhasil', 'Data berhasil diexport ke CSV', 'success');
     } catch (err) {
       console.error('Error exporting data:', err);
       showAlert('Gagal', 'Gagal mengexport data: ' + err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle export to Word
+  const handleExportWord = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch semua data untuk export (tanpa pagination)
+      let wordExportUrl = `${API_URL}/api/admin/donasi`;
+      const params = new URLSearchParams();
+      
+      if (filterSearch) params.append('search', filterSearch);
+      if (filterStartDate && filterEndDate) {
+        wordExportUrl = `${API_URL}/api/admin/donasi/by-date`;
+        params.append('start_date', filterStartDate);
+        params.append('end_date', filterEndDate);
+      }
+      
+      const response = await fetch(`${wordExportUrl}?${params.toString()}&limit=1000`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+  
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+  
+      const data = await response.json();
+      const donasiForExport = data.data || [];
+
+      // Create HTML content for Word
+      const htmlContent = `
+        <html xmlns:o="urn:schemas-microsoft-com:office:office" 
+              xmlns:w="urn:schemas-microsoft-com:office:word" 
+              xmlns="http://www.w3.org/TR/REC-html40">
+        <head>
+          <meta charset="utf-8">
+          <title>Laporan Donasi</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            h1 { color: #2c5aa0; text-align: center; }
+            h2 { color: #555; }
+            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; font-weight: bold; }
+            .summary { margin-top: 30px; padding: 15px; background-color: #f9f9f9; border-left: 4px solid #2c5aa0; }
+          </style>
+        </head>
+        <body>
+          <h1>LAPORAN DATA DONASI</h1>
+          <h2>Periode: ${formatDateForExport(filterStartDate)} - ${formatDateForExport(filterEndDate)}</h2>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>No</th>
+                <th>Nama Donatur</th>
+                <th>No. Telepon</th>
+                <th>Nominal</th>
+                <th>Tanggal Donasi</th>
+                <th>Dicatat Oleh</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${donasiForExport.map((item, index) => `
+                <tr>
+                  <td>${index + 1}</td>
+                  <td>${item.nama_donatur || 'Hamba Allah'}</td>
+                  <td>${item.no_telp || '-'}</td>
+                  <td>${formatCurrencyForExport(item.nominal)}</td>
+                  <td>${formatDateForExport(item.waktu_catat)}</td>
+                  <td>${item.admin?.nama_lengkap || 'System'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <div class="summary">
+            <h3>Ringkasan Donasi</h3>
+            <p><strong>Total Donasi:</strong> ${formatCurrencyForExport(summaryData.total_nominal)}</p>
+            <p><strong>Total Donatur:</strong> ${summaryData.total_donatur}</p>
+            <p><strong>Rata-rata Donasi:</strong> ${formatCurrencyForExport(summaryData.rata_rata)}</p>
+          </div>
+        </body>
+        </html>
+      `;
+
+      // Create and download Word file
+      const blob = new Blob([htmlContent], { type: 'application/msword' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `laporan-donasi-${filterStartDate}-${filterEndDate}.doc`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      showAlert('Berhasil', 'Data berhasil diexport ke Word', 'success');
+    } catch (err) {
+      console.error('Error exporting data to Word:', err);
+      showAlert('Gagal', 'Gagal mengexport data ke Word: ' + err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle export to Excel (XLSX)
+  const handleExportXLSX = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch semua data untuk export (tanpa pagination)
+      let xlsxExportUrl = `${API_URL}/api/admin/donasi`;
+      const params = new URLSearchParams();
+      
+      if (filterSearch) params.append('search', filterSearch);
+      if (filterStartDate && filterEndDate) {
+        xlsxExportUrl = `${API_URL}/api/admin/donasi/by-date`;
+        params.append('start_date', filterStartDate);
+        params.append('end_date', filterEndDate);
+      }
+      
+      const response = await fetch(`${xlsxExportUrl}?${params.toString()}&limit=1000`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+  
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+  
+      const data = await response.json();
+      const donasiForExport = data.data || [];
+
+      // Create Excel data in HTML table format (simple approach)
+      const excelHTML = `
+        <table>
+          <tr><td colspan="6" style="text-align: center; font-size: 16px; font-weight: bold;">LAPORAN DATA DONASI</td></tr>
+          <tr><td colspan="6" style="text-align: center;">Periode: ${formatDateForExport(filterStartDate)} - ${formatDateForExport(filterEndDate)}</td></tr>
+          <tr></tr>
+          <tr style="background-color: #f2f2f2; font-weight: bold;">
+            <td>No</td>
+            <td>Nama Donatur</td>
+            <td>No. Telepon</td>
+            <td>Nominal</td>
+            <td>Tanggal Donasi</td>
+            <td>Dicatat Oleh</td>
+          </tr>
+          ${donasiForExport.map((item, index) => `
+            <tr>
+              <td>${index + 1}</td>
+              <td>${item.nama_donatur || 'Hamba Allah'}</td>
+              <td>${item.no_telp || '-'}</td>
+              <td>${formatCurrencyForExport(item.nominal)}</td>
+              <td>${formatDateForExport(item.waktu_catat)}</td>
+              <td>${item.admin?.nama_lengkap || 'System'}</td>
+            </tr>
+          `).join('')}
+          <tr></tr>
+          <tr style="font-weight: bold;">
+            <td colspan="3">TOTAL DONASI:</td>
+            <td>${formatCurrencyForExport(summaryData.total_nominal)}</td>
+            <td colspan="2"></td>
+          </tr>
+          <tr style="font-weight: bold;">
+            <td colspan="3">TOTAL DONATUR:</td>
+            <td>${summaryData.total_donatur}</td>
+            <td colspan="2"></td>
+          </tr>
+          <tr style="font-weight: bold;">
+            <td colspan="3">RATA-RATA:</td>
+            <td>${formatCurrencyForExport(summaryData.rata_rata)}</td>
+            <td colspan="2"></td>
+          </tr>
+        </table>
+      `;
+
+      // Create and download HTML file (can be opened in Excel)
+      const blob = new Blob([excelHTML], { type: 'application/vnd.ms-excel' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `laporan-donasi-${filterStartDate}-${filterEndDate}.xls`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      showAlert('Berhasil', 'Data berhasil diexport ke Excel', 'success');
+    } catch (err) {
+      console.error('Error exporting data to Excel:', err);
+      showAlert('Gagal', 'Gagal mengexport data ke Excel: ' + err.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -467,6 +698,16 @@ const DataDonasi = () => {
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
       </svg>
     ),
+    excel: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+    ),
+    word: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+    ),
     edit: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -634,7 +875,7 @@ const DataDonasi = () => {
                                 onClick={() => handlePageChange(page)}
                                 className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
                                   pagination.page === page
-                                    ? 'bg-green-600 text-white focus:z-20 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-green-600'
+                                    ? 'bg-green-600 text-white focus:z-20 focus-visible:outline  focus-visible:outline-offset-2 focus-visible:outline-green-600'
                                     : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0'
                                 }`}
                               >
@@ -700,12 +941,28 @@ const DataDonasi = () => {
                 <h3 className="text-lg font-semibold mb-4 text-gray-800">Download Laporan</h3>
                 <div className="space-y-3">
                   <button 
-                    onClick={handleExportExcel}
+                    onClick={handleExportXLSX}
                     disabled={loading}
                     className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center disabled:opacity-50"
                   >
-                    {icons.export}
+                    {icons.excel}
                     <span className="ml-2">Export ke Excel</span>
+                  </button>
+                  <button 
+                    onClick={handleExportWord}
+                    disabled={loading}
+                    className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center disabled:opacity-50"
+                  >
+                    {icons.word}
+                    <span className="ml-2">Export ke Word</span>
+                  </button>
+                  <button 
+                    onClick={handleExportExcel}
+                    disabled={loading}
+                    className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center justify-center disabled:opacity-50"
+                  >
+                    {icons.export}
+                    <span className="ml-2">Export ke CSV</span>
                   </button>
                   <div className="text-xs text-gray-500 text-center">
                     Data akan diexport berdasarkan filter yang aktif
@@ -806,14 +1063,34 @@ const DataDonasi = () => {
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-gray-800">Manajemen Donasi</h2>
           <div className="flex space-x-2">
-            <button 
-              onClick={handleExportExcel}
-              disabled={loading}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center disabled:opacity-50"
-            >
-              {icons.export}
-              <span className="ml-2">Export Excel</span>
-            </button>
+            <div className="dropdown relative">
+            <div className="grid grid-cols-3 gap-2">
+              <button 
+                onClick={handleExportXLSX}
+                disabled={loading}
+                className="bg-green-600 text-white py-2 px-3 rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center disabled:opacity-50 text-sm"
+              >
+                {icons.excel}
+                <span className="ml-1">Excel</span>
+              </button>
+              <button 
+                onClick={handleExportWord}
+                disabled={loading}
+                className="bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center disabled:opacity-50 text-sm"
+              >
+                {icons.word}
+                <span className="ml-1">Word</span>
+              </button>
+              <button 
+                onClick={handleExportExcel}
+                disabled={loading}
+                className="bg-purple-600 text-white py-2 px-3 rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center justify-center disabled:opacity-50 text-sm"
+              >
+                {icons.export}
+                <span className="ml-1">CSV</span>
+              </button>
+            </div>
+            </div>
             <button 
               onClick={openCreateModal}
               className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center"
@@ -1130,6 +1407,26 @@ const DataDonasi = () => {
           </div>
         </div>
       )}
+
+      {/* Dropdown JavaScript */}
+      <script dangerouslySetInnerHTML={{
+        __html: `
+          document.addEventListener('click', function(e) {
+            if (!e.target.closest('.dropdown')) {
+              document.querySelectorAll('.dropdown-menu').forEach(menu => {
+                menu.classList.add('hidden');
+              });
+            }
+          });
+          
+          document.querySelectorAll('.dropdown > button').forEach(button => {
+            button.addEventListener('click', function() {
+              const menu = this.nextElementSibling;
+              menu.classList.toggle('hidden');
+            });
+          });
+        `
+      }} />
     </AuthDashboardLayout>
   );
 };
