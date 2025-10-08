@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -60,10 +61,17 @@ func (ctrl *RekapController) updateRekapSaldo(periode string, tipeSaldo models.T
 	// Hitung pemasukan berdasarkan tipe saldo
 	switch tipeSaldo {
 	case models.SaldoSyahriah:
+		// ✅ PERBAIKAN: Pastikan hanya menghitung syahriah dengan status LUNAS
 		err = ctrl.db.Model(&models.Syahriah{}).
 			Where("bulan = ? AND status = ?", periode, models.StatusLunas).
 			Select("COALESCE(SUM(nominal), 0)").
 			Scan(&pemasukan).Error
+		
+		// Debug log untuk troubleshooting
+		if err == nil {
+			fmt.Printf("DEBUG: Rekap syahriah periode %s - Status lunas: %.2f\n", periode, pemasukan)
+		}
+
 	case models.SaldoDonasi:
 		startDate, _ := time.Parse("2006-01", periode)
 		endDate := startDate.AddDate(0, 1, 0)
@@ -72,10 +80,17 @@ func (ctrl *RekapController) updateRekapSaldo(periode string, tipeSaldo models.T
 			Where("waktu_catat >= ? AND waktu_catat < ?", startDate, endDate).
 			Select("COALESCE(SUM(nominal), 0)").
 			Scan(&pemasukan).Error
+
+		// Debug log untuk troubleshooting
+		if err == nil {
+			fmt.Printf("DEBUG: Rekap donasi periode %s - Total: %.2f\n", periode, pemasukan)
+		}
+
 	case models.SaldoTotal:
 		// Hitung total dari syahriah dan donasi
 		var syahriahTotal, donasiTotal float64
 		
+		// ✅ PERBAIKAN: Syahriah hanya yang lunas
 		err1 := ctrl.db.Model(&models.Syahriah{}).
 			Where("bulan = ? AND status = ?", periode, models.StatusLunas).
 			Select("COALESCE(SUM(nominal), 0)").
@@ -91,6 +106,12 @@ func (ctrl *RekapController) updateRekapSaldo(periode string, tipeSaldo models.T
 			
 		pemasukan = syahriahTotal + donasiTotal
 		err = errors.Join(err1, err2)
+
+		// Debug log untuk troubleshooting
+		if err == nil {
+			fmt.Printf("DEBUG: Rekap total periode %s - Syahriah: %.2f, Donasi: %.2f, Total: %.2f\n", 
+				periode, syahriahTotal, donasiTotal, pemasukan)
+		}
 	}
 
 	if err != nil {
