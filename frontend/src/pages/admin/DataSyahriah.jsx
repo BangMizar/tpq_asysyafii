@@ -719,14 +719,14 @@ const DataSyahriah = () => {
               className="w-full px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors flex items-center justify-center"
             >
               {icons.filter}
-              <span className="ml-2">Reset Filter</span>
+              <span className="ml-2">Tampilkan Semua</span>
             </button>
           </div>
           <div className="flex items-end">
             {isFilterActive() && (
               <div className="w-full bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                 <p className="text-sm text-yellow-800 text-center">
-                  Menampilkan data yang difilter
+                  Menampilkan data bulan yang dipilih
                 </p>
               </div>
             )}

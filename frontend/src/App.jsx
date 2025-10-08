@@ -14,6 +14,7 @@ import DonasiPage from './pages/Donasi';
 import WaliLayout from './components/layout/WaliLayout';
 import KeuanganTPQ from './pages/wali/KeuanganTPQ';
 import Keluarga from './pages/wali/Keluarga';
+import SemuaTagihanWali from './pages/wali/DetailTagihan';
 import Profil from './pages/wali/Profil';
 
 import UserManagement from './pages/super-admin/UserManagement';
@@ -166,6 +167,7 @@ const AppContent = () => {
         <Route path="keuangan" element={<KeuanganTPQ />} />
         <Route path="keluarga" element={<Keluarga />} />
         <Route path="profil" element={<Profil />} />
+        <Route path="detail" element={<SemuaTagihanWali />} />
       </Route>
       
       {/* Default redirect based on role */}
