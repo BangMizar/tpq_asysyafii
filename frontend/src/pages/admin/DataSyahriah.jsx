@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
+import AuthDashboardLayout from '../../components/layout/AuthDashboardLayout';
+import { useAuth } from '../../context/AuthContext';
+import { Link } from 'react-router-dom';
 
 const DataSyahriah = () => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('pembayaran');
 
   const pembayaranData = [
@@ -96,32 +100,118 @@ const DataSyahriah = () => {
   };
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Data Syahriah</h1>
-        <button className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
-          Input Pembayaran
-        </button>
-      </div>
-
-      {/* Statistik */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-500">
-          <h3 className="text-lg font-semibold text-gray-800">Total Pembayaran Bulan Ini</h3>
-          <p className="text-3xl font-bold text-green-600">Rp 1.250.000</p>
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-500">
-          <h3 className="text-lg font-semibold text-gray-800">Santri Lunas</h3>
-          <p className="text-3xl font-bold text-blue-600">45</p>
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-red-500">
-          <h3 className="text-lg font-semibold text-gray-800">Santri Menunggak</h3>
-          <p className="text-3xl font-bold text-red-600">8</p>
+    <AuthDashboardLayout title="Data Syahriah">
+      {/* Welcome Section */}
+      <div className="mb-8 bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-6 text-white">
+        <h3 className="text-2xl font-bold mb-2">
+          Selamat datang, {user?.nama_lengkap}!
+        </h3>
+        <p className="text-purple-100">Kelola data syahriah dan pembayaran santri</p>
+        <div className="flex items-center mt-4 space-x-2 text-sm">
+          <span className="bg-purple-400 bg-opacity-20 px-3 py-1 rounded-full">💰 Syahriah</span>
+          <span className="bg-purple-400 bg-opacity-20 px-3 py-1 rounded-full">👨‍💼 Admin</span>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md">
-        <div className="border-b border-gray-200">
+      {/* Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center">
+            <div className="bg-green-500 w-12 h-12 rounded-xl flex items-center justify-center">
+              <span className="text-white text-xl">💰</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Total Pembayaran Bulan Ini</p>
+              <p className="text-2xl font-bold text-gray-900">Rp 1.250.000</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center">
+            <div className="bg-blue-500 w-12 h-12 rounded-xl flex items-center justify-center">
+              <span className="text-white text-xl">✅</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Santri Lunas</p>
+              <p className="text-2xl font-bold text-gray-900">45</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center">
+            <div className="bg-red-500 w-12 h-12 rounded-xl flex items-center justify-center">
+              <span className="text-white text-xl">⏰</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Santri Menunggak</p>
+              <p className="text-2xl font-bold text-gray-900">8</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="bg-white rounded-xl p-6 mb-8 border border-gray-200 shadow-sm">
+        <h4 className="text-xl font-bold text-gray-800 mb-6">Aksi Cepat</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <button className="bg-purple-600 hover:bg-purple-700 text-white p-4 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg">
+            <div className="flex items-center space-x-3">
+              <span className="text-2xl">➕</span>
+              <div>
+                <div className="font-semibold text-lg">Input Pembayaran</div>
+                <div className="text-sm opacity-90">Bayar syahriah santri</div>
+              </div>
+            </div>
+          </button>
+          
+          <button className="bg-green-600 hover:bg-green-700 text-white p-4 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg">
+            <div className="flex items-center space-x-3">
+              <span className="text-2xl">📊</span>
+              <div>
+                <div className="font-semibold text-lg">Laporan Bulanan</div>
+                <div className="text-sm opacity-90">Generate laporan</div>
+              </div>
+            </div>
+          </button>
+          
+          <button className="bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg">
+            <div className="flex items-center space-x-3">
+              <span className="text-2xl">📧</span>
+              <div>
+                <div className="font-semibold text-lg">Kirim Reminder</div>
+                <div className="text-sm opacity-90">Pengingat pembayaran</div>
+              </div>
+            </div>
+          </button>
+          
+          <Link 
+            to="/admin/dashboard"
+            className="bg-gray-600 hover:bg-gray-700 text-white p-4 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg"
+          >
+            <div className="flex items-center space-x-3">
+              <span className="text-2xl">🏠</span>
+              <div>
+                <div className="font-semibold text-lg">Kembali</div>
+                <div className="text-sm opacity-90">Ke dashboard</div>
+              </div>
+            </div>
+          </Link>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-bold text-gray-800">Data Pembayaran Syahriah</h2>
+          <button className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
+            Input Pembayaran
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="border-b border-gray-200 mb-6">
           <nav className="flex -mb-px">
             {['pembayaran', 'tunggakan'].map((tab) => (
               <button
@@ -140,11 +230,12 @@ const DataSyahriah = () => {
           </nav>
         </div>
         
-        <div className="p-6">
+        {/* Table Content */}
+        <div>
           {renderContent()}
         </div>
       </div>
-    </div>
+    </AuthDashboardLayout>
   );
 };
 
