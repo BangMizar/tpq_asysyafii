@@ -46,6 +46,14 @@ func SetupRoutes(r *gin.Engine) {
 			protected.GET("/pengumuman", pengumumanController.GetAllPengumuman)
 			protected.GET("/pengumuman/aktif", pengumumanController.GetPengumumanAktif)
 			protected.GET("/pengumuman/:id", pengumumanController.GetPengumumanByID)
+
+			// Rekap routes - bisa diakses oleh semua user yang terautentikasi
+			rekapController := controllers.NewRekapController(config.DB)
+			protected.GET("/rekap", rekapController.GetAllRekap)
+			protected.GET("/rekap/summary", rekapController.GetRekapSummary)
+			protected.GET("/rekap/latest", rekapController.GetLatestRekap)
+			protected.GET("/rekap/period", rekapController.GetRekapByPeriode)
+			protected.GET("/rekap/:id", rekapController.GetRekapByID)
 		}
 
 		admin := api.Group("/admin")
@@ -85,6 +93,13 @@ func SetupRoutes(r *gin.Engine) {
 			admin.GET("/logs", logController.GetAllLogAktivitas)
 			admin.GET("/logs/summary", logController.GetLogSummary)
 			admin.GET("/logs/:id", logController.GetLogAktivitasByID)
+
+			// Rekap routes - admin only (create, update, delete, generate)
+			rekapController := controllers.NewRekapController(config.DB)
+			admin.POST("/rekap", rekapController.CreateRekap)
+			admin.PUT("/rekap/:id", rekapController.UpdateRekap)
+			admin.DELETE("/rekap/:id", rekapController.DeleteRekap)
+			admin.POST("/rekap/generate", rekapController.GenerateRekapOtomatis)
 		}
 
 		superAdmin := api.Group("/super-admin")
