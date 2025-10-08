@@ -101,11 +101,19 @@ func SetupRoutes(r *gin.Engine) {
 			admin.PUT("/rekap/:id", rekapController.UpdateRekap)
 			admin.DELETE("/rekap/:id", rekapController.DeleteRekap)
 			admin.POST("/rekap/generate", rekapController.GenerateRekapOtomatis)
+			admin.GET("/rekap", rekapController.GetAllRekap)
+			admin.GET("/rekap/summary", rekapController.GetRekapSummary)
+			admin.GET("/rekap/latest", rekapController.GetLatestRekap)
+			admin.GET("/rekap/period", rekapController.GetRekapByPeriode)
+			admin.GET("/rekap/:id", rekapController.GetRekapByID)
 
 			pemakaianController := controllers.NewPemakaianSaldoController(config.DB)
+			admin.GET("/pemakaian", pemakaianController.GetAllPemakaian)
 			admin.POST("/pemakaian", pemakaianController.CreatePemakaian)
 			admin.PUT("/pemakaian/:id", pemakaianController.UpdatePemakaian)
 			admin.DELETE("/pemakaian/:id", pemakaianController.DeletePemakaian)
+			admin.GET("/pemakaian/summary", pemakaianController.GetPemakaianSummary)
+			admin.GET("/pemakaian/:id", pemakaianController.GetPemakaianByID)
 		}
 
 		superAdmin := api.Group("/super-admin")

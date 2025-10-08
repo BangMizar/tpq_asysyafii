@@ -37,6 +37,7 @@ func InitDB() {
 		&models.AnggotaKeluarga{},
 		&models.Syahriah{},
 		&models.Donasi{},
+		&models.PemakaianSaldo{},
 		&models.RekapSaldo{},
 		&models.Pengumuman{},
 		&models.LogAktivitas{},
