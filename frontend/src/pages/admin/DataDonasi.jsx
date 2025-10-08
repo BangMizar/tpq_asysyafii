@@ -1,7 +1,10 @@
-// pages/admin/DataDonasi.jsx
 import React, { useState } from 'react';
+import AuthDashboardLayout from '../../components/layout/AuthDashboardLayout';
+import { useAuth } from '../../context/AuthContext';
+import { Link } from 'react-router-dom';
 
 const DataDonasi = () => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('data');
 
   const donasiData = [
@@ -56,32 +59,39 @@ const DataDonasi = () => {
         return (
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-white p-6 rounded-lg shadow-md">
-                <h3 className="text-lg font-semibold mb-4">Laporan Donasi Bulan Ini</h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>Total Donasi:</span>
-                    <span className="font-semibold">Rp 6.500.000</span>
+              <div className="bg-white p-6 rounded-lg border border-gray-200">
+                <h3 className="text-lg font-semibold mb-4 text-gray-800">Laporan Donasi Bulan Ini</h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between py-2 border-b border-gray-100">
+                    <span className="text-gray-600">Total Donasi:</span>
+                    <span className="font-semibold text-gray-900">Rp 6.500.000</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Jumlah Donatur:</span>
-                    <span className="font-semibold">15</span>
+                  <div className="flex justify-between py-2 border-b border-gray-100">
+                    <span className="text-gray-600">Jumlah Donatur:</span>
+                    <span className="font-semibold text-gray-900">15</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Rata-rata Donasi:</span>
-                    <span className="font-semibold">Rp 433.333</span>
+                  <div className="flex justify-between py-2 border-b border-gray-100">
+                    <span className="text-gray-600">Rata-rata Donasi:</span>
+                    <span className="font-semibold text-gray-900">Rp 433.333</span>
+                  </div>
+                  <div className="flex justify-between py-2">
+                    <span className="text-gray-600">Donasi Tertinggi:</span>
+                    <span className="font-semibold text-gray-900">Rp 2.000.000</span>
                   </div>
                 </div>
               </div>
               
-              <div className="bg-white p-6 rounded-lg shadow-md">
-                <h3 className="text-lg font-semibold mb-4">Download Laporan</h3>
+              <div className="bg-white p-6 rounded-lg border border-gray-200">
+                <h3 className="text-lg font-semibold mb-4 text-gray-800">Download Laporan</h3>
                 <div className="space-y-3">
-                  <button className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition-colors">
-                    Laporan Bulanan
+                  <button className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors font-medium">
+                    📄 Laporan Bulanan
                   </button>
-                  <button className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors">
-                    Laporan Tahunan
+                  <button className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                    📊 Laporan Tahunan
+                  </button>
+                  <button className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition-colors font-medium">
+                    📋 Laporan Donatur
                   </button>
                 </div>
               </div>
@@ -95,36 +105,130 @@ const DataDonasi = () => {
   };
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Data Donasi</h1>
-        <button className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
-          Input Donasi
-        </button>
-      </div>
-
-      {/* Statistik */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-        <div className="bg-white p-6 rounded-lg shadow-md text-center">
-          <div className="text-3xl font-bold text-green-600">Rp 25.5Jt</div>
-          <div className="text-gray-600">Total Donasi</div>
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow-md text-center">
-          <div className="text-3xl font-bold text-blue-600">45</div>
-          <div className="text-gray-600">Donatur Aktif</div>
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow-md text-center">
-          <div className="text-3xl font-bold text-purple-600">Rp 2.1Jt</div>
-          <div className="text-gray-600">Bulan Ini</div>
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow-md text-center">
-          <div className="text-3xl font-bold text-yellow-600">12</div>
-          <div className="text-gray-600">Pending</div>
+    <AuthDashboardLayout title="Data Donasi">
+      {/* Welcome Section */}
+      <div className="mb-8 bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-xl p-6 text-white">
+        <h3 className="text-2xl font-bold mb-2">
+          Selamat datang, {user?.nama_lengkap}!
+        </h3>
+        <p className="text-yellow-100">Kelola data donasi dan transaksi amal</p>
+        <div className="flex items-center mt-4 space-x-2 text-sm">
+          <span className="bg-yellow-400 bg-opacity-20 px-3 py-1 rounded-full">🎁 Donasi</span>
+          <span className="bg-yellow-400 bg-opacity-20 px-3 py-1 rounded-full">👨‍💼 Admin</span>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md">
-        <div className="border-b border-gray-200">
+      {/* Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center">
+            <div className="bg-green-500 w-12 h-12 rounded-xl flex items-center justify-center">
+              <span className="text-white text-xl">💰</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Total Donasi</p>
+              <p className="text-2xl font-bold text-gray-900">Rp 25.5Jt</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center">
+            <div className="bg-blue-500 w-12 h-12 rounded-xl flex items-center justify-center">
+              <span className="text-white text-xl">👥</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Donatur Aktif</p>
+              <p className="text-2xl font-bold text-gray-900">45</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center">
+            <div className="bg-purple-500 w-12 h-12 rounded-xl flex items-center justify-center">
+              <span className="text-white text-xl">📅</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Bulan Ini</p>
+              <p className="text-2xl font-bold text-gray-900">Rp 2.1Jt</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center">
+            <div className="bg-yellow-500 w-12 h-12 rounded-xl flex items-center justify-center">
+              <span className="text-white text-xl">⏰</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Pending</p>
+              <p className="text-2xl font-bold text-gray-900">12</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="bg-white rounded-xl p-6 mb-8 border border-gray-200 shadow-sm">
+        <h4 className="text-xl font-bold text-gray-800 mb-6">Aksi Cepat</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <button className="bg-green-600 hover:bg-green-700 text-white p-4 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg">
+            <div className="flex items-center space-x-3">
+              <span className="text-2xl">➕</span>
+              <div>
+                <div className="font-semibold text-lg">Input Donasi</div>
+                <div className="text-sm opacity-90">Tambah data donasi</div>
+              </div>
+            </div>
+          </button>
+          
+          <button className="bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg">
+            <div className="flex items-center space-x-3">
+              <span className="text-2xl">📧</span>
+              <div>
+                <div className="font-semibold text-lg">Kirim Terima Kasih</div>
+                <div className="text-sm opacity-90">Email ke donatur</div>
+              </div>
+            </div>
+          </button>
+          
+          <button className="bg-purple-600 hover:bg-purple-700 text-white p-4 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg">
+            <div className="flex items-center space-x-3">
+              <span className="text-2xl">📊</span>
+              <div>
+                <div className="font-semibold text-lg">Laporan Cepat</div>
+                <div className="text-sm opacity-90">Generate laporan</div>
+              </div>
+            </div>
+          </button>
+          
+          <Link 
+            to="/admin/dashboard"
+            className="bg-gray-600 hover:bg-gray-700 text-white p-4 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg"
+          >
+            <div className="flex items-center space-x-3">
+              <span className="text-2xl">🏠</span>
+              <div>
+                <div className="font-semibold text-lg">Kembali</div>
+                <div className="text-sm opacity-90">Ke dashboard</div>
+              </div>
+            </div>
+          </Link>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-bold text-gray-800">Manajemen Donasi</h2>
+          <button className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium">
+            + Input Donasi
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="border-b border-gray-200 mb-6">
           <nav className="flex -mb-px">
             {['data', 'laporan'].map((tab) => (
               <button
@@ -143,11 +247,12 @@ const DataDonasi = () => {
           </nav>
         </div>
         
-        <div className="p-6">
+        {/* Table Content */}
+        <div>
           {renderContent()}
         </div>
       </div>
-    </div>
+    </AuthDashboardLayout>
   );
 };
 
