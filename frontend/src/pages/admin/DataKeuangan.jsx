@@ -186,302 +186,520 @@ const DataKeuangan = () => {
 
   // ========== EXPORT FUNCTIONS ==========
 
-  const exportToXLSX = () => {
-    setExportLoading(true);
-    try {
-      let dataToExport = [];
-      let fileName = '';
+const exportToXLSX = () => {
+  setExportLoading(true);
+  try {
+    const wb = XLSX.utils.book_new();
+    let fileName = 'Laporan_Keuangan_Lengkap';
 
-      switch (activeTab) {
-        case 'rekap':
-          dataToExport = getFilteredRekap().map(item => ({
-            'Periode': formatPeriod(item.periode),
-            'Pemasukan Total': item.pemasukan_total,
-            'Pengeluaran Total': item.pengeluaran_total,
-            'Saldo Akhir': item.saldo_akhir,
-            'Update Terakhir': formatDateTime(item.terakhir_update)
-          }));
-          fileName = `Rekap_Keuangan_${selectedPeriod === 'semua' ? 'Semua_Periode' : selectedPeriod}`;
-          break;
-        
-        case 'pengeluaran':
-          dataToExport = getFilteredPemakaian().map(item => ({
-            'Tanggal': item.tanggal_pemakaian ? formatDate(item.tanggal_pemakaian) : formatDate(item.created_at),
-            'Judul Pengeluaran': item.judul_pemakaian,
-            'Deskripsi': item.deskripsi,
-            'Tipe Pengeluaran': item.tipe_pemakaian,
-            'Sumber Dana': item.sumber_dana,
-            'Nominal': item.nominal,
-            'Keterangan': item.keterangan || '-',
-            'Diajukan Oleh': item.pengaju?.nama || 'Admin'
-          }));
-          fileName = `Data_Pengeluaran_${selectedPeriod === 'semua' ? 'Semua_Periode' : selectedPeriod}`;
-          break;
-        
-        case 'pemasukan':
-          dataToExport = getFilteredDonasi().map(item => ({
-            'Tanggal': formatDateTime(item.waktu_catat),
-            'Nama Donatur': item.nama_donatur,
-            'No. Telepon': item.no_telp || '-',
-            'Nominal': item.nominal,
-            'Dicatat Oleh': item.admin?.nama_lengkap || 'Admin'
-          }));
-          fileName = `Data_Pemasukan_Donasi_${selectedPeriod === 'semua' ? 'Semua_Periode' : selectedPeriod}`;
-          break;
+    // Sheet 1: Summary/Statistik
+    const summarySheetData = [
+      ['LAPORAN KEUANGAN - SUMMARY'],
+      ['Periode', getCurrentPeriodText()],
+      ['Tanggal Export', new Date().toLocaleDateString('id-ID', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      })],
+      [],
+      ['STATISTIK KEUANGAN'],
+      ['Total Pemasukan', summaryData?.totalPemasukan || 0],
+      ['Total Pengeluaran', summaryData?.totalPengeluaran || 0],
+      ['Saldo Akhir', summaryData?.saldoAkhir || 0],
+      ['Total Donasi', summaryData?.totalDonasi || 0],
+      ['Total Syahriah', summaryData?.totalSyahriah || 0],
+      [],
+      ['RINCIAN PER KATEGORI']
+    ];
 
-        case 'syahriah':
-          dataToExport = getFilteredSyahriah().map(item => ({
-            'Tanggal Bayar': formatDateTime(item.waktu_catat),
-            'Nama Wali': item.wali?.nama_lengkap || '-',
-            'Email': item.wali?.email || '-',
-            'No. Telepon': item.wali?.no_telp || '-',
-            'Bulan': formatPeriod(item.bulan),
-            'Nominal': item.nominal,
-            'Status': item.status,
-            'Dicatat Oleh': item.admin?.nama_lengkap || 'Admin'
-          }));
-          fileName = `Data_Pemasukan_Syahriah_${selectedPeriod === 'semua' ? 'Semua_Periode' : selectedPeriod}`;
-          break;
-      }
+    const wsSummary = XLSX.utils.aoa_to_sheet(summarySheetData);
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
 
-      const ws = XLSX.utils.json_to_sheet(dataToExport);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Data');
-      
-      // Auto-size columns
-      const colWidths = Object.keys(dataToExport[0] || {}).map(key => ({
-        wch: Math.max(key.length, ...dataToExport.map(row => String(row[key] || '').length))
+    // Sheet 2: Rekap Keuangan
+    if (getFilteredRekap().length > 0) {
+      const rekapDataToExport = getFilteredRekap().map(item => ({
+        'Periode': formatPeriod(item.periode),
+        'Pemasukan Total': item.pemasukan_total,
+        'Pengeluaran Total': item.pengeluaran_total,
+        'Saldo Akhir': item.saldo_akhir,
+        'Update Terakhir': formatDateTime(item.terakhir_update)
       }));
-      ws['!cols'] = colWidths;
-
-      XLSX.writeFile(wb, `${fileName}_${new Date().toISOString().split('T')[0]}.xlsx`);
-      showAlert('Berhasil', `Data berhasil diexport ke Excel`, 'success');
-    } catch (err) {
-      console.error('Error exporting to Excel:', err);
-      showAlert('Gagal', `Gagal export data: ${err.message}`, 'error');
-    } finally {
-      setExportLoading(false);
+      const wsRekap = XLSX.utils.json_to_sheet(rekapDataToExport);
+      XLSX.utils.book_append_sheet(wb, wsRekap, 'Rekap Keuangan');
     }
-  };
 
-  const exportToCSV = () => {
-    setExportLoading(true);
-    try {
-      let dataToExport = [];
-      let fileName = '';
-
-      switch (activeTab) {
-        case 'rekap':
-          dataToExport = getFilteredRekap().map(item => ({
-            'Periode': formatPeriod(item.periode),
-            'Pemasukan Total': item.pemasukan_total,
-            'Pengeluaran Total': item.pengeluaran_total,
-            'Saldo Akhir': item.saldo_akhir,
-            'Update Terakhir': formatDateTime(item.terakhir_update)
-          }));
-          fileName = `Rekap_Keuangan_${selectedPeriod === 'semua' ? 'Semua_Periode' : selectedPeriod}`;
-          break;
-        
-        case 'pengeluaran':
-          dataToExport = getFilteredPemakaian().map(item => ({
-            'Tanggal': item.tanggal_pemakaian ? formatDate(item.tanggal_pemakaian) : formatDate(item.created_at),
-            'Judul Pengeluaran': item.judul_pemakaian,
-            'Deskripsi': item.deskripsi,
-            'Tipe Pengeluaran': item.tipe_pemakaian,
-            'Sumber Dana': item.sumber_dana,
-            'Nominal': item.nominal,
-            'Keterangan': item.keterangan || '-',
-            'Diajukan Oleh': item.pengaju?.nama || 'Admin'
-          }));
-          fileName = `Data_Pengeluaran_${selectedPeriod === 'semua' ? 'Semua_Periode' : selectedPeriod}`;
-          break;
-        
-        case 'pemasukan':
-          dataToExport = getFilteredDonasi().map(item => ({
-            'Tanggal': formatDateTime(item.waktu_catat),
-            'Nama Donatur': item.nama_donatur,
-            'No. Telepon': item.no_telp || '-',
-            'Nominal': item.nominal,
-            'Dicatat Oleh': item.admin?.nama_lengkap || 'Admin'
-          }));
-          fileName = `Data_Pemasukan_Donasi_${selectedPeriod === 'semua' ? 'Semua_Periode' : selectedPeriod}`;
-          break;
-
-        case 'syahriah':
-          dataToExport = getFilteredSyahriah().map(item => ({
-            'Tanggal Bayar': formatDateTime(item.waktu_catat),
-            'Nama Wali': item.wali?.nama_lengkap || '-',
-            'Email': item.wali?.email || '-',
-            'No. Telepon': item.wali?.no_telp || '-',
-            'Bulan': formatPeriod(item.bulan),
-            'Nominal': item.nominal,
-            'Status': item.status,
-            'Dicatat Oleh': item.admin?.nama_lengkap || 'Admin'
-          }));
-          fileName = `Data_Pemasukan_Syahriah_${selectedPeriod === 'semua' ? 'Semua_Periode' : selectedPeriod}`;
-          break;
-      }
-
-      const headers = Object.keys(dataToExport[0] || {});
-      const csvContent = [
-        headers.join(','),
-        ...dataToExport.map(row => 
-          headers.map(header => {
-            const value = row[header] || '';
-            return `"${String(value).replace(/"/g, '""')}"`;
-          }).join(',')
-        )
-      ].join('\n');
-
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      saveAs(blob, `${fileName}_${new Date().toISOString().split('T')[0]}.csv`);
-      showAlert('Berhasil', `Data berhasil diexport ke CSV`, 'success');
-    } catch (err) {
-      console.error('Error exporting to CSV:', err);
-      showAlert('Gagal', `Gagal export data: ${err.message}`, 'error');
-    } finally {
-      setExportLoading(false);
+    // Sheet 3: Pengeluaran
+    if (getFilteredPemakaian().length > 0) {
+      const pemakaianDataToExport = getFilteredPemakaian().map(item => ({
+        'Tanggal': item.tanggal_pemakaian ? formatDate(item.tanggal_pemakaian) : formatDate(item.created_at),
+        'Judul Pengeluaran': item.judul_pemakaian,
+        'Deskripsi': item.deskripsi,
+        'Tipe Pengeluaran': item.tipe_pemakaian,
+        'Sumber Dana': item.sumber_dana,
+        'Nominal': item.nominal,
+        'Keterangan': item.keterangan || '-',
+        'Diajukan Oleh': item.pengaju?.nama || 'Admin'
+      }));
+      const wsPemakaian = XLSX.utils.json_to_sheet(pemakaianDataToExport);
+      XLSX.utils.book_append_sheet(wb, wsPemakaian, 'Pengeluaran');
     }
-  };
 
-  const exportToDOCX = () => {
-    setExportLoading(true);
-    try {
-      let dataToExport = [];
-      let title = '';
-      let columns = [];
+    // Sheet 4: Pemasukan Donasi
+    if (getFilteredDonasi().length > 0) {
+      const donasiDataToExport = getFilteredDonasi().map(item => ({
+        'Tanggal': formatDateTime(item.waktu_catat),
+        'Nama Donatur': item.nama_donatur,
+        'No. Telepon': item.no_telp || '-',
+        'Nominal': item.nominal,
+        'Dicatat Oleh': item.admin?.nama_lengkap || 'Admin'
+      }));
+      const wsDonasi = XLSX.utils.json_to_sheet(donasiDataToExport);
+      XLSX.utils.book_append_sheet(wb, wsDonasi, 'Pemasukan Donasi');
+    }
 
-      switch (activeTab) {
-        case 'rekap':
-          dataToExport = getFilteredRekap();
-          title = 'Rekap Keuangan';
-          columns = ['Periode', 'Pemasukan Total', 'Pengeluaran Total', 'Saldo Akhir', 'Update Terakhir'];
-          break;
+    // Sheet 5: Pemasukan Syahriah
+    if (getFilteredSyahriah().length > 0) {
+      const syahriahDataToExport = getFilteredSyahriah().map(item => ({
+        'Tanggal Bayar': formatDateTime(item.waktu_catat),
+        'Nama Wali': item.wali?.nama_lengkap || '-',
+        'Email': item.wali?.email || '-',
+        'No. Telepon': item.wali?.no_telp || '-',
+        'Bulan': formatPeriod(item.bulan),
+        'Nominal': item.nominal,
+        'Status': item.status,
+        'Dicatat Oleh': item.admin?.nama_lengkap || 'Admin'
+      }));
+      const wsSyahriah = XLSX.utils.json_to_sheet(syahriahDataToExport);
+      XLSX.utils.book_append_sheet(wb, wsSyahriah, 'Pemasukan Syahriah');
+    }
+
+    // Auto-size columns untuk semua sheet
+    wb.SheetNames.forEach(sheetName => {
+      const ws = wb.Sheets[sheetName];
+      if (ws['!ref']) {
+        const range = XLSX.utils.decode_range(ws['!ref']);
+        const colWidths = [];
         
-        case 'pengeluaran':
-          dataToExport = getFilteredPemakaian();
-          title = 'Data Pengeluaran';
-          columns = ['Tanggal', 'Judul Pengeluaran', 'Tipe', 'Sumber Dana', 'Nominal', 'Diajukan Oleh'];
-          break;
-        
-        case 'pemasukan':
-          dataToExport = getFilteredDonasi();
-          title = 'Data Pemasukan (Donasi)';
-          columns = ['Tanggal', 'Nama Donatur', 'No. Telepon', 'Nominal', 'Dicatat Oleh'];
-          break;
-
-        case 'syahriah':
-          dataToExport = getFilteredSyahriah();
-          title = 'Data Pemasukan (Syahriah)';
-          columns = ['Tanggal Bayar', 'Nama Wali', 'Email', 'No. Telepon', 'Bulan', 'Nominal', 'Status'];
-          break;
+        for (let col = range.s.c; col <= range.e.c; col++) {
+          let maxLength = 0;
+          for (let row = range.s.r; row <= range.e.r; row++) {
+            const cell = ws[XLSX.utils.encode_cell({ r: row, c: col })];
+            if (cell && cell.v) {
+              const length = String(cell.v).length;
+              if (length > maxLength) maxLength = length;
+            }
+          }
+          colWidths.push({ wch: Math.min(maxLength + 2, 50) }); // Max width 50 characters
+        }
+        ws['!cols'] = colWidths;
       }
+    });
 
-      // Create simple HTML content for DOCX
-      const htmlContent = `
-        <html>
-          <head>
-            <meta charset="utf-8">
-            <title>${title}</title>
-            <style>
-              body { font-family: Arial, sans-serif; margin: 20px; }
-              h1 { color: #2d3748; border-bottom: 2px solid #4a5568; padding-bottom: 10px; }
-              table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-              th, td { border: 1px solid #cbd5e0; padding: 12px; text-align: left; }
-              th { background-color: #f7fafc; font-weight: bold; }
-              tr:nth-child(even) { background-color: #f7fafc; }
-              .summary { background: #f0fff4; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
-              .period { color: #4a5568; font-style: italic; }
-            </style>
-          </head>
-          <body>
-            <h1>${title}</h1>
-            <div class="summary">
-              <p><strong>Periode:</strong> ${getCurrentPeriodText()}</p>
-              <p><strong>Total Data:</strong> ${dataToExport.length} records</p>
-              <p><strong>Tanggal Export:</strong> ${new Date().toLocaleDateString('id-ID', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-              })}</p>
+    XLSX.writeFile(wb, `${fileName}_${selectedPeriod === 'semua' ? 'Semua_Periode' : selectedPeriod}_${new Date().toISOString().split('T')[0]}.xlsx`);
+    showAlert('Berhasil', `Laporan keuangan lengkap berhasil diexport ke Excel`, 'success');
+  } catch (err) {
+    console.error('Error exporting to Excel:', err);
+    showAlert('Gagal', `Gagal export data: ${err.message}`, 'error');
+  } finally {
+    setExportLoading(false);
+  }
+};
+
+const exportToCSV = () => {
+  setExportLoading(true);
+  try {
+    let allData = [];
+    let fileName = 'Laporan_Keuangan_Lengkap';
+
+    // Header untuk file CSV
+    const header = [
+      'LAPORAN KEUANGAN LENGKAP',
+      `Periode: ${getCurrentPeriodText()}`,
+      `Tanggal Export: ${new Date().toLocaleDateString('id-ID')}`,
+      ''
+    ];
+
+    // Section 1: Summary
+    const summarySection = [
+      'SUMMARY KEUANGAN',
+      'Kategori,Nilai',
+      `Total Pemasukan,${summaryData?.totalPemasukan || 0}`,
+      `Total Pengeluaran,${summaryData?.totalPengeluaran || 0}`,
+      `Saldo Akhir,${summaryData?.saldoAkhir || 0}`,
+      `Total Donasi,${summaryData?.totalDonasi || 0}`,
+      `Total Syahriah,${summaryData?.totalSyahriah || 0}`,
+      ''
+    ];
+
+    allData = [...header, ...summarySection];
+
+    // Section 2: Rekap Keuangan
+    const rekapData = getFilteredRekap();
+    if (rekapData.length > 0) {
+      allData.push('REKAP KEUANGAN');
+      allData.push('Periode,Pemasukan Total,Pengeluaran Total,Saldo Akhir,Update Terakhir');
+      rekapData.forEach(item => {
+        allData.push([
+          formatPeriod(item.periode),
+          item.pemasukan_total,
+          item.pengeluaran_total,
+          item.saldo_akhir,
+          formatDateTime(item.terakhir_update)
+        ].join(','));
+      });
+      allData.push('');
+    }
+
+    // Section 3: Pengeluaran
+    const pemakaianData = getFilteredPemakaian();
+    if (pemakaianData.length > 0) {
+      allData.push('DATA PENGELUARAN');
+      allData.push('Tanggal,Judul Pengeluaran,Deskripsi,Tipe Pengeluaran,Sumber Dana,Nominal,Keterangan,Diajukan Oleh');
+      pemakaianData.forEach(item => {
+        allData.push([
+          item.tanggal_pemakaian ? formatDate(item.tanggal_pemakaian) : formatDate(item.created_at),
+          `"${item.judul_pemakaian}"`,
+          `"${item.deskripsi}"`,
+          item.tipe_pemakaian,
+          item.sumber_dana,
+          item.nominal,
+          `"${item.keterangan || '-'}"`,
+          item.pengaju?.nama || 'Admin'
+        ].join(','));
+      });
+      allData.push('');
+    }
+
+    // Section 4: Pemasukan Donasi
+    const donasiData = getFilteredDonasi();
+    if (donasiData.length > 0) {
+      allData.push('DATA PEMASUKAN DONASI');
+      allData.push('Tanggal,Nama Donatur,No. Telepon,Nominal,Dicatat Oleh');
+      donasiData.forEach(item => {
+        allData.push([
+          formatDateTime(item.waktu_catat),
+          `"${item.nama_donatur}"`,
+          item.no_telp || '-',
+          item.nominal,
+          item.admin?.nama_lengkap || 'Admin'
+        ].join(','));
+      });
+      allData.push('');
+    }
+
+    // Section 5: Pemasukan Syahriah
+    const syahriahData = getFilteredSyahriah();
+    if (syahriahData.length > 0) {
+      allData.push('DATA PEMASUKAN SYAHRIYAH');
+      allData.push('Tanggal Bayar,Nama Wali,Email,No. Telepon,Bulan,Nominal,Status,Dicatat Oleh');
+      syahriahData.forEach(item => {
+        allData.push([
+          formatDateTime(item.waktu_catat),
+          `"${item.wali?.nama_lengkap || '-'}"`,
+          item.wali?.email || '-',
+          item.wali?.no_telp || '-',
+          formatPeriod(item.bulan),
+          item.nominal,
+          item.status,
+          item.admin?.nama_lengkap || 'Admin'
+        ].join(','));
+      });
+    }
+
+    const csvContent = allData.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    saveAs(blob, `${fileName}_${selectedPeriod === 'semua' ? 'Semua_Periode' : selectedPeriod}_${new Date().toISOString().split('T')[0]}.csv`);
+    showAlert('Berhasil', `Laporan keuangan lengkap berhasil diexport ke CSV`, 'success');
+  } catch (err) {
+    console.error('Error exporting to CSV:', err);
+    showAlert('Gagal', `Gagal export data: ${err.message}`, 'error');
+  } finally {
+    setExportLoading(false);
+  }
+};
+
+const exportToDOCX = () => {
+  setExportLoading(true);
+  try {
+    // Create comprehensive HTML content for DOCX
+    const htmlContent = `
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Laporan Keuangan Lengkap</title>
+          <style>
+            body { 
+              font-family: Arial, sans-serif; 
+              margin: 20px; 
+              line-height: 1.6;
+            }
+            h1 { 
+              color: #2d3748; 
+              border-bottom: 3px solid #4a5568; 
+              padding-bottom: 10px;
+              text-align: center;
+            }
+            h2 {
+              color: #4a5568;
+              border-bottom: 2px solid #cbd5e0;
+              padding-bottom: 8px;
+              margin-top: 30px;
+            }
+            h3 {
+              color: #718096;
+              margin-top: 20px;
+            }
+            table { 
+              width: 100%; 
+              border-collapse: collapse; 
+              margin: 15px 0;
+              font-size: 14px;
+            }
+            th, td { 
+              border: 1px solid #cbd5e0; 
+              padding: 12px; 
+              text-align: left; 
+            }
+            th { 
+              background-color: #f7fafc; 
+              font-weight: bold;
+              color: #4a5568;
+            }
+            tr:nth-child(even) { 
+              background-color: #f7fafc; 
+            }
+            .summary-section { 
+              background: #f0fff4; 
+              padding: 20px; 
+              border-radius: 8px; 
+              margin: 20px 0;
+              border-left: 4px solid #48bb78;
+            }
+            .stat-grid {
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+              gap: 15px;
+              margin: 15px 0;
+            }
+            .stat-card {
+              background: white;
+              padding: 15px;
+              border-radius: 8px;
+              border-left: 4px solid #4299e1;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .stat-value {
+              font-size: 24px;
+              font-weight: bold;
+              color: #2d3748;
+            }
+            .stat-label {
+              font-size: 14px;
+              color: #718096;
+              margin-top: 5px;
+            }
+            .positive { color: #38a169; }
+            .negative { color: #e53e3e; }
+            .section {
+              margin: 30px 0;
+            }
+            .header-info {
+              text-align: center;
+              margin-bottom: 30px;
+              color: #718096;
+            }
+            .currency {
+              font-family: 'Courier New', monospace;
+              font-weight: bold;
+            }
+          </style>
+        </head>
+        <body>
+          <h1>LAPORAN KEUANGAN LENGKAP</h1>
+          
+          <div class="header-info">
+            <p><strong>Periode:</strong> ${getCurrentPeriodText()}</p>
+            <p><strong>Tanggal Export:</strong> ${new Date().toLocaleDateString('id-ID', { 
+              weekday: 'long', 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric' 
+            })}</p>
+          </div>
+
+          <!-- Summary Section -->
+          <div class="summary-section">
+            <h2>SUMMARY KEUANGAN</h2>
+            <div class="stat-grid">
+              <div class="stat-card">
+                <div class="stat-value positive">${formatCurrency(summaryData?.totalPemasukan || 0)}</div>
+                <div class="stat-label">Total Pemasukan</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value negative">${formatCurrency(summaryData?.totalPengeluaran || 0)}</div>
+                <div class="stat-label">Total Pengeluaran</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value" style="color: #3182ce;">${formatCurrency(summaryData?.saldoAkhir || 0)}</div>
+                <div class="stat-label">Saldo Akhir</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value positive">${formatCurrency(summaryData?.totalDonasi || 0)}</div>
+                <div class="stat-label">Total Donasi</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value positive">${formatCurrency(summaryData?.totalSyahriah || 0)}</div>
+                <div class="stat-label">Total Syahriah</div>
+              </div>
             </div>
-            <table>
-              <thead>
-                <tr>
-                  ${columns.map(col => `<th>${col}</th>`).join('')}
-                </tr>
-              </thead>
-              <tbody>
-                ${dataToExport.map(item => {
-                  let row = '';
-                  switch (activeTab) {
-                    case 'rekap':
-                      row = `
-                        <tr>
-                          <td>${formatPeriod(item.periode)}</td>
-                          <td>${formatCurrency(item.pemasukan_total)}</td>
-                          <td>${formatCurrency(item.pengeluaran_total)}</td>
-                          <td>${formatCurrency(item.saldo_akhir)}</td>
-                          <td>${formatDateTime(item.terakhir_update)}</td>
-                        </tr>
-                      `;
-                      break;
-                    case 'pengeluaran':
-                      row = `
-                        <tr>
-                          <td>${item.tanggal_pemakaian ? formatDate(item.tanggal_pemakaian) : formatDate(item.created_at)}</td>
-                          <td>${item.judul_pemakaian}</td>
-                          <td>${item.tipe_pemakaian}</td>
-                          <td>${item.sumber_dana}</td>
-                          <td>${formatCurrency(item.nominal)}</td>
-                          <td>${item.pengaju?.nama || 'Admin'}</td>
-                        </tr>
-                      `;
-                      break;
-                    case 'pemasukan':
-                      row = `
-                        <tr>
-                          <td>${formatDateTime(item.waktu_catat)}</td>
-                          <td>${item.nama_donatur}</td>
-                          <td>${item.no_telp || '-'}</td>
-                          <td>${formatCurrency(item.nominal)}</td>
-                          <td>${item.admin?.nama_lengkap || 'Admin'}</td>
-                        </tr>
-                      `;
-                      break;
-                    case 'syahriah':
-                      row = `
-                        <tr>
-                          <td>${formatDateTime(item.waktu_catat)}</td>
-                          <td>${item.wali?.nama_lengkap || '-'}</td>
-                          <td>${item.wali?.email || '-'}</td>
-                          <td>${item.wali?.no_telp || '-'}</td>
-                          <td>${formatPeriod(item.bulan)}</td>
-                          <td>${formatCurrency(item.nominal)}</td>
-                          <td>${item.status}</td>
-                        </tr>
-                      `;
-                      break;
-                  }
-                  return row;
-                }).join('')}
-              </tbody>
-            </table>
-          </body>
-        </html>
-      `;
+          </div>
 
-      const blob = new Blob([htmlContent], { type: 'application/msword' });
-      saveAs(blob, `${title.replace(/\s+/g, '_')}_${selectedPeriod === 'semua' ? 'Semua_Periode' : selectedPeriod}_${new Date().toISOString().split('T')[0]}.doc`);
-      showAlert('Berhasil', `Data berhasil diexport ke Word`, 'success');
-    } catch (err) {
-      console.error('Error exporting to DOCX:', err);
-      showAlert('Gagal', `Gagal export data: ${err.message}`, 'error');
-    } finally {
-      setExportLoading(false);
-    }
-  };
+          <!-- Rekap Keuangan Section -->
+          ${getFilteredRekap().length > 0 ? `
+            <div class="section">
+              <h2>REKAP KEUANGAN</h2>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Periode</th>
+                    <th>Pemasukan Total</th>
+                    <th>Pengeluaran Total</th>
+                    <th>Saldo Akhir</th>
+                    <th>Update Terakhir</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${getFilteredRekap().map(item => `
+                    <tr>
+                      <td>${formatPeriod(item.periode)}</td>
+                      <td class="currency positive">${formatCurrency(item.pemasukan_total)}</td>
+                      <td class="currency negative">${formatCurrency(item.pengeluaran_total)}</td>
+                      <td class="currency">${formatCurrency(item.saldo_akhir)}</td>
+                      <td>${formatDateTime(item.terakhir_update)}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          ` : ''}
+
+          <!-- Pengeluaran Section -->
+          ${getFilteredPemakaian().length > 0 ? `
+            <div class="section">
+              <h2>DATA PENGELUARAN</h2>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Tanggal</th>
+                    <th>Judul Pengeluaran</th>
+                    <th>Deskripsi</th>
+                    <th>Tipe</th>
+                    <th>Sumber Dana</th>
+                    <th>Nominal</th>
+                    <th>Diajukan Oleh</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${getFilteredPemakaian().map(item => `
+                    <tr>
+                      <td>${item.tanggal_pemakaian ? formatDate(item.tanggal_pemakaian) : formatDate(item.created_at)}</td>
+                      <td>${item.judul_pemakaian}</td>
+                      <td>${item.deskripsi}</td>
+                      <td>${item.tipe_pemakaian}</td>
+                      <td>${item.sumber_dana}</td>
+                      <td class="currency negative">${formatCurrency(item.nominal)}</td>
+                      <td>${item.pengaju?.nama || 'Admin'}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          ` : ''}
+
+          <!-- Pemasukan Donasi Section -->
+          ${getFilteredDonasi().length > 0 ? `
+            <div class="section">
+              <h2>DATA PEMASUKAN DONASI</h2>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Tanggal</th>
+                    <th>Nama Donatur</th>
+                    <th>No. Telepon</th>
+                    <th>Nominal</th>
+                    <th>Dicatat Oleh</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${getFilteredDonasi().map(item => `
+                    <tr>
+                      <td>${formatDateTime(item.waktu_catat)}</td>
+                      <td>${item.nama_donatur}</td>
+                      <td>${item.no_telp || '-'}</td>
+                      <td class="currency positive">${formatCurrency(item.nominal)}</td>
+                      <td>${item.admin?.nama_lengkap || 'Admin'}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          ` : ''}
+
+          <!-- Pemasukan Syahriah Section -->
+          ${getFilteredSyahriah().length > 0 ? `
+            <div class="section">
+              <h2>DATA PEMASUKAN SYAHRIYAH</h2>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Tanggal Bayar</th>
+                    <th>Nama Wali</th>
+                    <th>Email</th>
+                    <th>No. Telepon</th>
+                    <th>Bulan</th>
+                    <th>Nominal</th>
+                    <th>Status</th>
+                    <th>Dicatat Oleh</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${getFilteredSyahriah().map(item => `
+                    <tr>
+                      <td>${formatDateTime(item.waktu_catat)}</td>
+                      <td>${item.wali?.nama_lengkap || '-'}</td>
+                      <td>${item.wali?.email || '-'}</td>
+                      <td>${item.wali?.no_telp || '-'}</td>
+                      <td>${formatPeriod(item.bulan)}</td>
+                      <td class="currency positive">${formatCurrency(item.nominal)}</td>
+                      <td>${item.status}</td>
+                      <td>${item.admin?.nama_lengkap || 'Admin'}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          ` : ''}
+
+          <!-- Footer -->
+          <div style="margin-top: 50px; padding-top: 20px; border-top: 2px solid #e2e8f0; text-align: center; color: #718096;">
+            <p>Dokumen ini dihasilkan secara otomatis oleh Sistem Keuangan</p>
+            <p>Total Data: ${getFilteredRekap().length + getFilteredPemakaian().length + getFilteredDonasi().length + getFilteredSyahriah().length} records</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const blob = new Blob([htmlContent], { type: 'application/msword' });
+    saveAs(blob, `Laporan_Keuangan_Lengkap_${selectedPeriod === 'semua' ? 'Semua_Periode' : selectedPeriod}_${new Date().toISOString().split('T')[0]}.doc`);
+    showAlert('Berhasil', `Laporan keuangan lengkap berhasil diexport ke Word`, 'success');
+  } catch (err) {
+    console.error('Error exporting to DOCX:', err);
+    showAlert('Gagal', `Gagal export data: ${err.message}`, 'error');
+  } finally {
+    setExportLoading(false);
+  }
+};
 
   // ========== CRUD FUNCTIONS FOR PEMAKAIAN ==========
   const handleCreatePemakaian = async (e) => {
@@ -632,7 +850,7 @@ const DataKeuangan = () => {
       deskripsi: '',
       nominal: '',
       tipe_pemakaian: 'operasional',
-      sumber_dana: 'syahriah',
+      sumber_dana: 'campuran',
       tanggal_pemakaian: new Date().toISOString().split('T')[0],
       keterangan: ''
     });
