@@ -143,7 +143,7 @@ const DataKeuangan = () => {
         })
       : syahriahData;
 
-    // Filter pemakaian data berdasarkan periode
+    // Filter pemakaian data berdasarkan periode - PERBAIKAN: semua sumber dana dihitung
     const filteredPemakaian = currentPeriod
       ? pemakaianData.filter(item => {
           const itemPeriod = item.tanggal_pemakaian 
@@ -162,7 +162,7 @@ const DataKeuangan = () => {
     // Total Pemasukan: Total Donasi + Total Syahriah
     const totalPemasukan = totalDonasi + totalSyahriah;
 
-    // Total Pengeluaran: Sum dari semua pemakaian yang difilter
+    // Total Pengeluaran: Sum dari semua pemakaian yang difilter - PERBAIKAN: semua sumber dana dihitung
     const totalPengeluaran = filteredPemakaian.reduce((sum, item) => sum + (item.nominal || 0), 0);
 
     // Saldo Akhir: Total Pemasukan - Total Pengeluaran
@@ -184,127 +184,152 @@ const DataKeuangan = () => {
     }
   }, [selectedPeriod, rekapData, pemakaianData, donasiData, syahriahData]);
 
+  // ========== FORMAT CURRENCY IMPROVED ==========
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
+    }).format(amount || 0);
+  };
+
+  // Format currency untuk summary card dengan singkatan
+  const formatCurrencyShort = (amount) => {
+    if (!amount) return 'Rp 0';
+    
+    const num = Number(amount);
+    
+    if (num >= 1000000000) {
+      return `Rp ${(num / 1000000000).toFixed(1)}M`;
+    } else if (num >= 1000000) {
+      return `Rp ${(num / 1000000).toFixed(1)}jt`;
+    } else if (num >= 1000) {
+      return `Rp ${(num / 1000).toFixed(1)}rb`;
+    } else {
+      return `Rp ${num}`;
+    }
+  };
+
   // ========== EXPORT FUNCTIONS ==========
+  const exportToXLSX = () => {
+    setExportLoading(true);
+    try {
+      const wb = XLSX.utils.book_new();
+      let fileName = 'Laporan_Keuangan_Lengkap';
 
-const exportToXLSX = () => {
-  setExportLoading(true);
-  try {
-    const wb = XLSX.utils.book_new();
-    let fileName = 'Laporan_Keuangan_Lengkap';
+      // Sheet 1: Summary/Statistik
+      const summarySheetData = [
+        ['LAPORAN KEUANGAN - SUMMARY'],
+        ['Periode', getCurrentPeriodText()],
+        ['Tanggal Export', new Date().toLocaleDateString('id-ID', { 
+          weekday: 'long', 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        })],
+        [],
+        ['STATISTIK KEUANGAN'],
+        ['Total Pemasukan', summaryData?.totalPemasukan || 0],
+        ['Total Pengeluaran', summaryData?.totalPengeluaran || 0],
+        ['Saldo Akhir', summaryData?.saldoAkhir || 0],
+        ['Total Donasi', summaryData?.totalDonasi || 0],
+        ['Total Syahriah', summaryData?.totalSyahriah || 0],
+        [],
+        ['RINCIAN PER KATEGORI']
+      ];
 
-    // Sheet 1: Summary/Statistik
-    const summarySheetData = [
-      ['LAPORAN KEUANGAN - SUMMARY'],
-      ['Periode', getCurrentPeriodText()],
-      ['Tanggal Export', new Date().toLocaleDateString('id-ID', { 
-        weekday: 'long', 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-      })],
-      [],
-      ['STATISTIK KEUANGAN'],
-      ['Total Pemasukan', summaryData?.totalPemasukan || 0],
-      ['Total Pengeluaran', summaryData?.totalPengeluaran || 0],
-      ['Saldo Akhir', summaryData?.saldoAkhir || 0],
-      ['Total Donasi', summaryData?.totalDonasi || 0],
-      ['Total Syahriah', summaryData?.totalSyahriah || 0],
-      [],
-      ['RINCIAN PER KATEGORI']
-    ];
+      const wsSummary = XLSX.utils.aoa_to_sheet(summarySheetData);
+      XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
 
-    const wsSummary = XLSX.utils.aoa_to_sheet(summarySheetData);
-    XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
-
-    // Sheet 2: Rekap Keuangan
-    if (getFilteredRekap().length > 0) {
-      const rekapDataToExport = getFilteredRekap().map(item => ({
-        'Periode': formatPeriod(item.periode),
-        'Pemasukan Total': item.pemasukan_total,
-        'Pengeluaran Total': item.pengeluaran_total,
-        'Saldo Akhir': item.saldo_akhir,
-        'Update Terakhir': formatDateTime(item.terakhir_update)
-      }));
-      const wsRekap = XLSX.utils.json_to_sheet(rekapDataToExport);
-      XLSX.utils.book_append_sheet(wb, wsRekap, 'Rekap Keuangan');
-    }
-
-    // Sheet 3: Pengeluaran
-    if (getFilteredPemakaian().length > 0) {
-      const pemakaianDataToExport = getFilteredPemakaian().map(item => ({
-        'Tanggal': item.tanggal_pemakaian ? formatDate(item.tanggal_pemakaian) : formatDate(item.created_at),
-        'Judul Pengeluaran': item.judul_pemakaian,
-        'Deskripsi': item.deskripsi,
-        'Tipe Pengeluaran': item.tipe_pemakaian,
-        'Sumber Dana': item.sumber_dana,
-        'Nominal': item.nominal,
-        'Keterangan': item.keterangan || '-',
-        'Diajukan Oleh': item.pengaju?.nama || 'Admin'
-      }));
-      const wsPemakaian = XLSX.utils.json_to_sheet(pemakaianDataToExport);
-      XLSX.utils.book_append_sheet(wb, wsPemakaian, 'Pengeluaran');
-    }
-
-    // Sheet 4: Pemasukan Donasi
-    if (getFilteredDonasi().length > 0) {
-      const donasiDataToExport = getFilteredDonasi().map(item => ({
-        'Tanggal': formatDateTime(item.waktu_catat),
-        'Nama Donatur': item.nama_donatur,
-        'No. Telepon': item.no_telp || '-',
-        'Nominal': item.nominal,
-        'Dicatat Oleh': item.admin?.nama_lengkap || 'Admin'
-      }));
-      const wsDonasi = XLSX.utils.json_to_sheet(donasiDataToExport);
-      XLSX.utils.book_append_sheet(wb, wsDonasi, 'Pemasukan Donasi');
-    }
-
-    // Sheet 5: Pemasukan Syahriah
-    if (getFilteredSyahriah().length > 0) {
-      const syahriahDataToExport = getFilteredSyahriah().map(item => ({
-        'Tanggal Bayar': formatDateTime(item.waktu_catat),
-        'Nama Wali': item.wali?.nama_lengkap || '-',
-        'Email': item.wali?.email || '-',
-        'No. Telepon': item.wali?.no_telp || '-',
-        'Bulan': formatPeriod(item.bulan),
-        'Nominal': item.nominal,
-        'Status': item.status,
-        'Dicatat Oleh': item.admin?.nama_lengkap || 'Admin'
-      }));
-      const wsSyahriah = XLSX.utils.json_to_sheet(syahriahDataToExport);
-      XLSX.utils.book_append_sheet(wb, wsSyahriah, 'Pemasukan Syahriah');
-    }
-
-    // Auto-size columns untuk semua sheet
-    wb.SheetNames.forEach(sheetName => {
-      const ws = wb.Sheets[sheetName];
-      if (ws['!ref']) {
-        const range = XLSX.utils.decode_range(ws['!ref']);
-        const colWidths = [];
-        
-        for (let col = range.s.c; col <= range.e.c; col++) {
-          let maxLength = 0;
-          for (let row = range.s.r; row <= range.e.r; row++) {
-            const cell = ws[XLSX.utils.encode_cell({ r: row, c: col })];
-            if (cell && cell.v) {
-              const length = String(cell.v).length;
-              if (length > maxLength) maxLength = length;
-            }
-          }
-          colWidths.push({ wch: Math.min(maxLength + 2, 50) }); // Max width 50 characters
-        }
-        ws['!cols'] = colWidths;
+      // Sheet 2: Rekap Keuangan
+      if (getFilteredRekap().length > 0) {
+        const rekapDataToExport = getFilteredRekap().map(item => ({
+          'Periode': formatPeriod(item.periode),
+          'Pemasukan Total': item.pemasukan_total,
+          'Pengeluaran Total': item.pengeluaran_total,
+          'Saldo Akhir': item.saldo_akhir,
+          'Update Terakhir': formatDateTime(item.terakhir_update)
+        }));
+        const wsRekap = XLSX.utils.json_to_sheet(rekapDataToExport);
+        XLSX.utils.book_append_sheet(wb, wsRekap, 'Rekap Keuangan');
       }
-    });
 
-    XLSX.writeFile(wb, `${fileName}_${selectedPeriod === 'semua' ? 'Semua_Periode' : selectedPeriod}_${new Date().toISOString().split('T')[0]}.xlsx`);
-    showAlert('Berhasil', `Laporan keuangan lengkap berhasil diexport ke Excel`, 'success');
-  } catch (err) {
-    console.error('Error exporting to Excel:', err);
-    showAlert('Gagal', `Gagal export data: ${err.message}`, 'error');
-  } finally {
-    setExportLoading(false);
-  }
-};
+      // Sheet 3: Pengeluaran
+      if (getFilteredPemakaian().length > 0) {
+        const pemakaianDataToExport = getFilteredPemakaian().map(item => ({
+          'Tanggal': item.tanggal_pemakaian ? formatDate(item.tanggal_pemakaian) : formatDate(item.created_at),
+          'Judul Pengeluaran': item.judul_pemakaian,
+          'Deskripsi': item.deskripsi,
+          'Tipe Pengeluaran': item.tipe_pemakaian,
+          'Sumber Dana': item.sumber_dana,
+          'Nominal': item.nominal,
+          'Keterangan': item.keterangan || '-',
+          'Diajukan Oleh': item.pengaju?.nama || 'Admin'
+        }));
+        const wsPemakaian = XLSX.utils.json_to_sheet(pemakaianDataToExport);
+        XLSX.utils.book_append_sheet(wb, wsPemakaian, 'Pengeluaran');
+      }
+
+      // Sheet 4: Pemasukan Donasi
+      if (getFilteredDonasi().length > 0) {
+        const donasiDataToExport = getFilteredDonasi().map(item => ({
+          'Tanggal': formatDateTime(item.waktu_catat),
+          'Nama Donatur': item.nama_donatur,
+          'No. Telepon': item.no_telp || '-',
+          'Nominal': item.nominal,
+          'Dicatat Oleh': item.admin?.nama_lengkap || 'Admin'
+        }));
+        const wsDonasi = XLSX.utils.json_to_sheet(donasiDataToExport);
+        XLSX.utils.book_append_sheet(wb, wsDonasi, 'Pemasukan Donasi');
+      }
+
+      // Sheet 5: Pemasukan Syahriah
+      if (getFilteredSyahriah().length > 0) {
+        const syahriahDataToExport = getFilteredSyahriah().map(item => ({
+          'Tanggal Bayar': formatDateTime(item.waktu_catat),
+          'Nama Wali': item.wali?.nama_lengkap || '-',
+          'Email': item.wali?.email || '-',
+          'No. Telepon': item.wali?.no_telp || '-',
+          'Bulan': formatPeriod(item.bulan),
+          'Nominal': item.nominal,
+          'Status': item.status,
+          'Dicatat Oleh': item.admin?.nama_lengkap || 'Admin'
+        }));
+        const wsSyahriah = XLSX.utils.json_to_sheet(syahriahDataToExport);
+        XLSX.utils.book_append_sheet(wb, wsSyahriah, 'Pemasukan Syahriah');
+      }
+
+      // Auto-size columns untuk semua sheet
+      wb.SheetNames.forEach(sheetName => {
+        const ws = wb.Sheets[sheetName];
+        if (ws['!ref']) {
+          const range = XLSX.utils.decode_range(ws['!ref']);
+          const colWidths = [];
+          
+          for (let col = range.s.c; col <= range.e.c; col++) {
+            let maxLength = 0;
+            for (let row = range.s.r; row <= range.e.r; row++) {
+              const cell = ws[XLSX.utils.encode_cell({ r: row, c: col })];
+              if (cell && cell.v) {
+                const length = String(cell.v).length;
+                if (length > maxLength) maxLength = length;
+              }
+            }
+            colWidths.push({ wch: Math.min(maxLength + 2, 50) }); // Max width 50 characters
+          }
+          ws['!cols'] = colWidths;
+        }
+      });
+
+      XLSX.writeFile(wb, `${fileName}_${selectedPeriod === 'semua' ? 'Semua_Periode' : selectedPeriod}_${new Date().toISOString().split('T')[0]}.xlsx`);
+      showAlert('Berhasil', `Laporan keuangan lengkap berhasil diexport ke Excel`, 'success');
+    } catch (err) {
+      console.error('Error exporting to Excel:', err);
+      showAlert('Gagal', `Gagal export data: ${err.message}`, 'error');
+    } finally {
+      setExportLoading(false);
+    }
+  };
 
 const exportToCSV = () => {
   setExportLoading(true);
@@ -898,14 +923,6 @@ const exportToDOCX = () => {
     }
   };
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-    }).format(amount || 0);
-  };
-
   const formatPeriod = (period) => {
     try {
       const [year, month] = period.split('-');
@@ -979,7 +996,6 @@ const exportToDOCX = () => {
       return syahriahData;
     }
     return syahriahData.filter(item => {
-
       return item.bulan === selectedPeriod;
     });
   };
@@ -1137,6 +1153,7 @@ const exportToDOCX = () => {
                         {formatCurrency(item.pemasukan_total)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">
+                        {/* PERBAIKAN: Tampilkan pengeluaran dari semua sumber dana */}
                         {formatCurrency(item.pengeluaran_total)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 font-medium">
@@ -1369,7 +1386,7 @@ const exportToDOCX = () => {
   
     return (
       <AuthDashboardLayout title="Data Keuangan - Admin">
-        {/* Statistics yang sudah diperbaiki */}
+        {/* Statistics dengan format singkatan untuk nominal besar */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
           {/* Total Pemasukan */}
           <div className="bg-white border border-green-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
@@ -1380,7 +1397,8 @@ const exportToDOCX = () => {
               <div className="ml-4">
                 <p className="text-sm font-medium text-green-600">Total Pemasukan</p>
                 <p className="text-2xl font-bold text-green-900">
-                  {formatCurrency(summaryData?.totalPemasukan || 0)}
+                  {/* PERBAIKAN: Gunakan format singkatan */}
+                  {formatCurrencyShort(summaryData?.totalPemasukan || 0)}
                 </p>
                 <p className="text-xs text-green-500 mt-1">{getCurrentPeriodText()}</p>
               </div>
@@ -1396,7 +1414,8 @@ const exportToDOCX = () => {
               <div className="ml-4">
                 <p className="text-sm font-medium text-red-600">Total Pengeluaran</p>
                 <p className="text-2xl font-bold text-red-900">
-                  {formatCurrency(summaryData?.totalPengeluaran || 0)}
+                  {/* PERBAIKAN: Gunakan format singkatan */}
+                  {formatCurrencyShort(summaryData?.totalPengeluaran || 0)}
                 </p>
                 <p className="text-xs text-red-500 mt-1">{getCurrentPeriodText()}</p>
               </div>
@@ -1412,7 +1431,8 @@ const exportToDOCX = () => {
               <div className="ml-4">
                 <p className="text-sm font-medium text-blue-600">Saldo Akhir</p>
                 <p className="text-2xl font-bold text-blue-900">
-                  {formatCurrency(summaryData?.saldoAkhir || 0)}
+                  {/* PERBAIKAN: Gunakan format singkatan */}
+                  {formatCurrencyShort(summaryData?.saldoAkhir || 0)}
                 </p>
                 <p className="text-xs text-blue-500 mt-1">{getCurrentPeriodText()}</p>
               </div>
@@ -1428,7 +1448,8 @@ const exportToDOCX = () => {
               <div className="ml-4">
                 <p className="text-sm font-medium text-purple-600">Total Donasi</p>
                 <p className="text-2xl font-bold text-purple-900">
-                  {formatCurrency(summaryData?.totalDonasi || 0)}
+                  {/* PERBAIKAN: Gunakan format singkatan */}
+                  {formatCurrencyShort(summaryData?.totalDonasi || 0)}
                 </p>
                 <p className="text-xs text-purple-500 mt-1">{getCurrentPeriodText()}</p>
               </div>
@@ -1444,7 +1465,8 @@ const exportToDOCX = () => {
               <div className="ml-4">
                 <p className="text-sm font-medium text-orange-600">Total Syahriah</p>
                 <p className="text-2xl font-bold text-orange-900">
-                  {formatCurrency(summaryData?.totalSyahriah || 0)}
+                  {/* PERBAIKAN: Gunakan format singkatan */}
+                  {formatCurrencyShort(summaryData?.totalSyahriah || 0)}
                 </p>
                 <p className="text-xs text-orange-500 mt-1">{getCurrentPeriodText()}</p>
               </div>
@@ -1475,7 +1497,7 @@ const exportToDOCX = () => {
                 </select>
               </div>
   
-              {/* Export Buttons - Tidak Dropdown */}
+              {/* Export Buttons */}
               <div className="flex space-x-2">
                 <button
                   onClick={exportToXLSX}
