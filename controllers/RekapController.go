@@ -146,20 +146,81 @@ func (ctrl *RekapController) updateRekapSaldo(periode string, tipeSaldo models.T
 	}
 }
 
+// updateRekapPemasukan - Update hanya bagian pemasukan saja
+func (ctrl *RekapController) updateRekapPemasukan(periode string, tipeSaldo models.TipeSaldo) error {
+    var pemasukan float64
+    var err error
+
+    // Hitung pemasukan (sama seperti sebelumnya)
+    switch tipeSaldo {
+    case models.SaldoSyahriah:
+        err = ctrl.db.Model(&models.Syahriah{}).
+            Where("bulan = ? AND status = ?", periode, models.StatusLunas).
+            Select("COALESCE(SUM(nominal), 0)").
+            Scan(&pemasukan).Error
+    case models.SaldoDonasi:
+        startDate, _ := time.Parse("2006-01", periode)
+        endDate := startDate.AddDate(0, 1, 0)
+        err = ctrl.db.Model(&models.Donasi{}).
+            Where("waktu_catat >= ? AND waktu_catat < ?", startDate, endDate).
+            Select("COALESCE(SUM(nominal), 0)").
+            Scan(&pemasukan).Error
+    case models.SaldoTotal:
+        var syahriahTotal, donasiTotal float64
+        err1 := ctrl.db.Model(&models.Syahriah{}).
+            Where("bulan = ? AND status = ?", periode, models.StatusLunas).
+            Select("COALESCE(SUM(nominal), 0)").
+            Scan(&syahriahTotal).Error
+        startDate, _ := time.Parse("2006-01", periode)
+        endDate := startDate.AddDate(0, 1, 0)
+        err2 := ctrl.db.Model(&models.Donasi{}).
+            Where("waktu_catat >= ? AND waktu_catat < ?", startDate, endDate).
+            Select("COALESCE(SUM(nominal), 0)").
+            Scan(&donasiTotal).Error
+        pemasukan = syahriahTotal + donasiTotal
+        err = errors.Join(err1, err2)
+    }
+
+    if err != nil {
+        return err
+    }
+
+    // Update HANYA pemasukan dan saldo akhir
+    var existingRekap models.RekapSaldo
+    if err := ctrl.db.Where("tipe_saldo = ? AND periode = ?", tipeSaldo, periode).First(&existingRekap).Error; err == nil {
+        existingRekap.PemasukanTotal = pemasukan
+        existingRekap.SaldoAkhir = pemasukan - existingRekap.PengeluaranTotal // ✅ Jaga pengeluaran yang ada
+        existingRekap.TerakhirUpdate = time.Now()
+        return ctrl.db.Save(&existingRekap).Error
+    }
+    
+    // Jika tidak ada rekap, buat baru dengan pengeluaran 0
+    rekap := models.RekapSaldo{
+        IDSaldo:          uuid.New().String(),
+        TipeSaldo:        tipeSaldo,
+        Periode:          periode,
+        PemasukanTotal:   pemasukan,
+        PengeluaranTotal: 0,
+        SaldoAkhir:       pemasukan,
+        TerakhirUpdate:   time.Now(),
+    }
+    return ctrl.db.Create(&rekap).Error
+}
+
 // UpdateRekapOtomatis - Dipanggil setelah ada transaksi donasi/syahriah
 func (ctrl *RekapController) UpdateRekapOtomatis(transaksiTime time.Time) error {
-	periode := transaksiTime.Format("2006-01")
-	
-	// Update semua tipe saldo untuk periode tersebut
-	tipes := []models.TipeSaldo{models.SaldoSyahriah, models.SaldoDonasi, models.SaldoTotal}
-	
-	for _, tipe := range tipes {
-		if err := ctrl.updateRekapSaldo(periode, tipe); err != nil {
-			return err
-		}
-	}
-	
-	return nil
+    periode := transaksiTime.Format("2006-01")
+    
+    // Update semua tipe saldo untuk periode tersebut
+    tipes := []models.TipeSaldo{models.SaldoSyahriah, models.SaldoDonasi, models.SaldoTotal}
+    
+    for _, tipe := range tipes {
+        if err := ctrl.updateRekapPemasukan(periode, tipe); err != nil {
+            return err
+        }
+    }
+    
+    return nil
 }
 
 
