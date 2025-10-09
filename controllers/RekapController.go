@@ -658,32 +658,32 @@ func (ctrl *RekapController) SyncAllRekap(c *gin.Context) {
 
 // updateRekapSaldoDenganPengeluaran - Update rekap dengan tambahan pengeluaran
 func (ctrl *RekapController) updateRekapSaldoDenganPengeluaran(periode string, tipeSaldo models.TipeSaldo, pengeluaran float64) error {
-	var existingRekap models.RekapSaldo
-	if err := ctrl.db.Where("tipe_saldo = ? AND periode = ?", tipeSaldo, periode).First(&existingRekap).Error; err != nil {
-		// Jika tidak ada rekap, buat baru dengan data dari transaksi
-		return ctrl.updateRekapSaldo(periode, tipeSaldo)
-	}
-	
-	// Update pengeluaran dan saldo
-	existingRekap.PengeluaranTotal += pengeluaran
-	existingRekap.SaldoAkhir -= pengeluaran
-	existingRekap.TerakhirUpdate = time.Now()
-	
-	return ctrl.db.Save(&existingRekap).Error
+    var existingRekap models.RekapSaldo
+    if err := ctrl.db.Where("tipe_saldo = ? AND periode = ?", tipeSaldo, periode).First(&existingRekap).Error; err != nil {
+        // Jika tidak ada rekap, buat baru dengan data dari transaksi
+        return ctrl.updateRekapSaldo(periode, tipeSaldo)
+    }
+    
+    // Update pengeluaran dan saldo
+    existingRekap.PengeluaranTotal += pengeluaran
+    existingRekap.SaldoAkhir -= pengeluaran
+    existingRekap.TerakhirUpdate = time.Now()
+    
+    return ctrl.db.Save(&existingRekap).Error
 }
 
 // updateRekapSaldoDenganPemasukan - Update rekap dengan tambahan pemasukan (untuk koreksi)
 func (ctrl *RekapController) updateRekapSaldoDenganPemasukan(periode string, tipeSaldo models.TipeSaldo, pemasukan float64) error {
-	var existingRekap models.RekapSaldo
-	if err := ctrl.db.Where("tipe_saldo = ? AND periode = ?", tipeSaldo, periode).First(&existingRekap).Error; err != nil {
-		// Jika tidak ada rekap, buat baru dengan data dari transaksi
-		return ctrl.updateRekapSaldo(periode, tipeSaldo)
-	}
-	
-	// Update pemasukan dan saldo
-	existingRekap.PemasukanTotal += pemasukan
-	existingRekap.SaldoAkhir += pemasukan
-	existingRekap.TerakhirUpdate = time.Now()
-	
-	return ctrl.db.Save(&existingRekap).Error
+    var existingRekap models.RekapSaldo
+    if err := ctrl.db.Where("tipe_saldo = ? AND periode = ?", tipeSaldo, periode).First(&existingRekap).Error; err != nil {
+        // Jika tidak ada rekap, buat baru dengan data dari transaksi
+        return ctrl.updateRekapSaldo(periode, tipeSaldo)
+    }
+    
+    // Update pemasukan dan saldo
+    existingRekap.PemasukanTotal += pemasukan
+    existingRekap.SaldoAkhir += pemasukan
+    existingRekap.TerakhirUpdate = time.Now()
+    
+    return ctrl.db.Save(&existingRekap).Error
 }

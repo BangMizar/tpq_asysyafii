@@ -522,98 +522,169 @@ func (ctrl *PemakaianSaldoController) GetPemakaianSummary(c *gin.Context) {
 
 // cekSaldoTersedia - Cek apakah saldo mencukupi untuk pemakaian
 func (ctrl *PemakaianSaldoController) cekSaldoTersedia(sumberDana models.SumberDana, nominal float64) bool {
-	var saldoTersedia float64
-	
-	// Get latest rekap saldo berdasarkan sumber dana
-	var rekap models.RekapSaldo
-	err := ctrl.db.Where("tipe_saldo = ?", getTipeSaldoFromSumberDana(sumberDana)).
-		Order("periode DESC").
-		First(&rekap).Error
-	
-	if err != nil {
-		fmt.Printf("Gagal mendapatkan saldo: %v\n", err)
-		return false
-	}
-	
-	saldoTersedia = rekap.SaldoAkhir
-	
-	return saldoTersedia >= nominal
+    var saldoTersedia float64
+    
+    // Get latest rekap saldo berdasarkan sumber dana
+    var rekap models.RekapSaldo
+    tipeSaldo := getTipeSaldoFromSumberDana(sumberDana)
+    
+    err := ctrl.db.Where("tipe_saldo = ?", tipeSaldo).
+        Order("periode DESC").
+        First(&rekap).Error
+    
+    if err != nil {
+        fmt.Printf("Gagal mendapatkan saldo: %v\n", err)
+        return false
+    }
+    
+    saldoTersedia = rekap.SaldoAkhir
+    
+    // ✅ PERBAIKAN: Untuk sumber dana campuran, perlu cek apakah total saldo cukup
+    if sumberDana == models.SumberCampuran {
+        // Cek saldo total (syahriah + donasi)
+        var rekapTotal models.RekapSaldo
+        err := ctrl.db.Where("tipe_saldo = ?", models.SaldoTotal).
+            Order("periode DESC").
+            First(&rekapTotal).Error
+            
+        if err != nil {
+            fmt.Printf("Gagal mendapatkan saldo total: %v\n", err)
+            return false
+        }
+        
+        saldoTersedia = rekapTotal.SaldoAkhir
+    }
+    
+    return saldoTersedia >= nominal
 }
 
 // updateRekapSaldoSetelahPemakaian - Update rekap saldo setelah pemakaian
 func (ctrl *PemakaianSaldoController) updateRekapSaldoSetelahPemakaian(pemakaian models.PemakaianSaldo) error {
-	rekapController := NewRekapController(ctrl.db)
-	
-	// Get periode from tanggal pemakaian
-	var periode string
-	if pemakaian.TanggalPemakaian != nil {
-		periode = pemakaian.TanggalPemakaian.Format("2006-01")
-	} else {
-		periode = time.Now().Format("2006-01")
-	}
-	
-	// Update rekap untuk tipe saldo yang sesuai
-	tipeSaldo := getTipeSaldoFromSumberDana(pemakaian.SumberDana)
-	return rekapController.updateRekapSaldoDenganPengeluaran(periode, tipeSaldo, pemakaian.Nominal)
+    rekapController := NewRekapController(ctrl.db)
+    
+    // Get periode from tanggal pemakaian
+    var periode string
+    if pemakaian.TanggalPemakaian != nil {
+        periode = pemakaian.TanggalPemakaian.Format("2006-01")
+    } else {
+        periode = time.Now().Format("2006-01")
+    }
+    
+    // Update rekap untuk tipe saldo yang sesuai
+    tipeSaldo := getTipeSaldoFromSumberDana(pemakaian.SumberDana)
+    err := rekapController.updateRekapSaldoDenganPengeluaran(periode, tipeSaldo, pemakaian.Nominal)
+    if err != nil {
+        return err
+    }
+    
+    // ✅ PERBAIKAN: Selalu update saldo campuran juga
+    if tipeSaldo != models.SaldoTotal {
+        err = rekapController.updateRekapSaldoDenganPengeluaran(periode, models.SaldoTotal, pemakaian.Nominal)
+    }
+    
+    return err
 }
 
 // updateRekapSaldoSetelahUpdate - Update rekap saldo setelah update pemakaian
 func (ctrl *PemakaianSaldoController) updateRekapSaldoSetelahUpdate(pemakaian models.PemakaianSaldo, nominalLama float64, sumberDanaLama models.SumberDana) error {
-	rekapController := NewRekapController(ctrl.db)
-	
-	// Get periode from tanggal pemakaian
-	var periode string
-	if pemakaian.TanggalPemakaian != nil {
-		periode = pemakaian.TanggalPemakaian.Format("2006-01")
-	} else {
-		periode = time.Now().Format("2006-01")
-	}
-	
-	// Jika sumber dana berubah, perlu update kedua sumber dana
-	if sumberDanaLama != pemakaian.SumberDana {
-		// Kembalikan saldo ke sumber dana lama
-		tipeSaldoLama := getTipeSaldoFromSumberDana(sumberDanaLama)
-		if err := rekapController.updateRekapSaldoDenganPemasukan(periode, tipeSaldoLama, nominalLama); err != nil {
-			return err
-		}
-		
-		// Kurangi saldo dari sumber dana baru
-		tipeSaldoBaru := getTipeSaldoFromSumberDana(pemakaian.SumberDana)
-		return rekapController.updateRekapSaldoDenganPengeluaran(periode, tipeSaldoBaru, pemakaian.Nominal)
-	}
-	
-	// Jika hanya nominal berubah
-	if nominalLama != pemakaian.Nominal {
-		selisih := pemakaian.Nominal - nominalLama
-		tipeSaldo := getTipeSaldoFromSumberDana(pemakaian.SumberDana)
-		
-		if selisih > 0 {
-			// Tambahan pengeluaran
-			return rekapController.updateRekapSaldoDenganPengeluaran(periode, tipeSaldo, selisih)
-		} else {
-			// Pengurangan pengeluaran (kembalikan saldo)
-			return rekapController.updateRekapSaldoDenganPemasukan(periode, tipeSaldo, -selisih)
-		}
-	}
-	
-	return nil
+    rekapController := NewRekapController(ctrl.db)
+    
+    // Get periode from tanggal pemakaian
+    var periode string
+    if pemakaian.TanggalPemakaian != nil {
+        periode = pemakaian.TanggalPemakaian.Format("2006-01")
+    } else {
+        periode = time.Now().Format("2006-01")
+    }
+    
+    tipeSaldoLama := getTipeSaldoFromSumberDana(sumberDanaLama)
+    tipeSaldoBaru := getTipeSaldoFromSumberDana(pemakaian.SumberDana)
+    
+    // Jika sumber dana berubah
+    if sumberDanaLama != pemakaian.SumberDana {
+        // Kembalikan saldo ke sumber dana lama
+        if err := rekapController.updateRekapSaldoDenganPemasukan(periode, tipeSaldoLama, nominalLama); err != nil {
+            return err
+        }
+        
+        // ✅ PERBAIKAN: Kembalikan juga ke saldo campuran jika bukan campuran
+        if tipeSaldoLama != models.SaldoTotal {
+            if err := rekapController.updateRekapSaldoDenganPemasukan(periode, models.SaldoTotal, nominalLama); err != nil {
+                return err
+            }
+        }
+        
+        // Kurangi saldo dari sumber dana baru
+        if err := rekapController.updateRekapSaldoDenganPengeluaran(periode, tipeSaldoBaru, pemakaian.Nominal); err != nil {
+            return err
+        }
+        
+        // ✅ PERBAIKAN: Kurangi juga dari saldo campuran jika bukan campuran
+        if tipeSaldoBaru != models.SaldoTotal {
+            return rekapController.updateRekapSaldoDenganPengeluaran(periode, models.SaldoTotal, pemakaian.Nominal)
+        }
+        
+        return nil
+    }
+    
+    // Jika hanya nominal berubah
+    if nominalLama != pemakaian.Nominal {
+        selisih := pemakaian.Nominal - nominalLama
+        tipeSaldo := getTipeSaldoFromSumberDana(pemakaian.SumberDana)
+        
+        if selisih > 0 {
+            // Tambahan pengeluaran
+            err := rekapController.updateRekapSaldoDenganPengeluaran(periode, tipeSaldo, selisih)
+            if err != nil {
+                return err
+            }
+            
+            // ✅ PERBAIKAN: Update saldo campuran juga
+            if tipeSaldo != models.SaldoTotal {
+                return rekapController.updateRekapSaldoDenganPengeluaran(periode, models.SaldoTotal, selisih)
+            }
+        } else {
+            // Pengurangan pengeluaran (kembalikan saldo)
+            err := rekapController.updateRekapSaldoDenganPemasukan(periode, tipeSaldo, -selisih)
+            if err != nil {
+                return err
+            }
+            
+            // ✅ PERBAIKAN: Update saldo campuran juga
+            if tipeSaldo != models.SaldoTotal {
+                return rekapController.updateRekapSaldoDenganPemasukan(periode, models.SaldoTotal, -selisih)
+            }
+        }
+    }
+    
+    return nil
 }
 
 // updateRekapSaldoSetelahHapus - Update rekap saldo setelah hapus pemakaian
 func (ctrl *PemakaianSaldoController) updateRekapSaldoSetelahHapus(pemakaian models.PemakaianSaldo) error {
-	rekapController := NewRekapController(ctrl.db)
-	
-	// Get periode from tanggal pemakaian
-	var periode string
-	if pemakaian.TanggalPemakaian != nil {
-		periode = pemakaian.TanggalPemakaian.Format("2006-01")
-	} else {
-		periode = time.Now().Format("2006-01")
-	}
-	
-	// Kembalikan saldo yang dihapus
-	tipeSaldo := getTipeSaldoFromSumberDana(pemakaian.SumberDana)
-	return rekapController.updateRekapSaldoDenganPemasukan(periode, tipeSaldo, pemakaian.Nominal)
+    rekapController := NewRekapController(ctrl.db)
+    
+    // Get periode from tanggal pemakaian
+    var periode string
+    if pemakaian.TanggalPemakaian != nil {
+        periode = pemakaian.TanggalPemakaian.Format("2006-01")
+    } else {
+        periode = time.Now().Format("2006-01")
+    }
+    
+    // Kembalikan saldo yang dihapus
+    tipeSaldo := getTipeSaldoFromSumberDana(pemakaian.SumberDana)
+    err := rekapController.updateRekapSaldoDenganPemasukan(periode, tipeSaldo, pemakaian.Nominal)
+    if err != nil {
+        return err
+    }
+    
+    // ✅ PERBAIKAN: Kembalikan juga ke saldo campuran
+    if tipeSaldo != models.SaldoTotal {
+        return rekapController.updateRekapSaldoDenganPemasukan(periode, models.SaldoTotal, pemakaian.Nominal)
+    }
+    
+    return nil
 }
 
 // getTipeSaldoFromSumberDana - Map sumber dana ke tipe saldo
