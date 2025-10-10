@@ -158,14 +158,6 @@ const DonasiPage = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  // Reset filter ke bulan ini
-  const handleResetFilter = () => {
-    const currentMonth = getCurrentMonthDates()
-    setStartDate(currentMonth.start)
-    setEndDate(currentMonth.end)
-    setCurrentPage(1)
-  }
-
   // Set filter ke bulan ini
   const handleSetCurrentMonth = () => {
     const currentMonth = getCurrentMonthDates()
@@ -174,9 +166,16 @@ const DonasiPage = () => {
     setCurrentPage(1)
   }
 
+  // Set filter ke semua periode (kosongkan filter tanggal)
+  const handleShowAllPeriod = () => {
+    setStartDate('')
+    setEndDate('')
+    setCurrentPage(1)
+  }
+
   // Skeleton loader
   const SkeletonLoader = () => (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 pt-20">
+    <div className="min-h-screen bg-white pt-20">
       <div className="container mx-auto px-4 py-8">
         <div className="animate-pulse">
           {/* Header Skeleton */}
@@ -228,34 +227,34 @@ const DonasiPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-500 to-emerald-600">
-      {/* Enhanced Header */}
-      <div className="bg-white shadow-sm">
+    <div className="min-h-screen bg-white">
+      {/* Enhanced Header - Hijau */}
+      <div className="bg-gradient-to-r from-green-600 to-emerald-700 shadow-lg">
         <div className="container mx-auto px-4 py-4">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
             <div className="flex items-center space-x-3">
               <Link 
                 to="/"
-                className="inline-flex items-center space-x-2 text-white hover:text-green-600 transition-all duration-300 bg-gradient-to-br from-green-500 to-emerald-600 hover:bg-green-50 px-3 py-2 rounded-lg font-medium text-sm"
+                className="inline-flex items-center space-x-2 text-white hover:text-green-100 transition-all duration-300  px-3 py-2 rounded-lg font-medium text-sm"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
                 <span className="hidden xs:inline">Kembali</span>
               </Link>
-              <div className="hidden lg:block w-px h-6 bg-gray-200"></div>
+              <div className="hidden lg:block w-px h-6 bg-green-500"></div>
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">Catatan Donasi</h1>
-                {/* <p className="text-gray-600 text-sm">Transparansi penuh setiap kebaikan yang diberikan</p> */}
+                <h1 className="text-xl sm:text-2xl font-bold text-white mb-1">Catatan Donasi</h1>
+                <p className="text-green-100 text-sm">Transparansi penuh setiap kebaikan yang diberikan</p>
               </div>
             </div>
             
             {/* Total Donasi Card */}
-            <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl sm:rounded-2xl p-4 text-white shadow-lg w-full lg:w-auto mt-4 lg:mt-0">
+            <div className="bg-gradient-to-r from-emerald-600 to-green-600 rounded-xl sm:rounded-2xl p-4 text-gray-900 shadow-lg w-full lg:w-auto mt-4 lg:mt-0">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-green-100 text-xs sm:text-sm font-medium mb-1">Total Donasi Terkumpul</p>
-                  <p className="text-lg sm:text-xl font-bold">{formatCurrency(totalDonasi)}</p>
+                  <p className="text-white text-xs sm:text-sm font-medium mb-1">Total Donasi Terkumpul</p>
+                  <p className="text-lg sm:text-xl font-bold text-white">{formatCurrency(totalDonasi)}</p>
                 </div>
               </div>
             </div>
@@ -263,7 +262,7 @@ const DonasiPage = () => {
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* Main Content - Background Putih */}
       <div className="container mx-auto px-3 sm:px-4 py-6">
         {error ? (
           <div className="max-w-2xl mx-auto">
@@ -298,15 +297,7 @@ const DonasiPage = () => {
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-2">
                 <h2 className="text-base sm:text-lg font-semibold text-gray-900">Filter Data Donasi</h2>
                 <div className="flex gap-2">
-                  <button
-                    onClick={handleSetCurrentMonth}
-                    className="px-3 py-2 text-xs bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all duration-300 font-medium shadow-sm flex items-center space-x-1"
-                  >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <span>Bulan Ini</span>
-                  </button>
+                  
                 </div>
               </div>
               
@@ -347,22 +338,22 @@ const DonasiPage = () => {
                 
                 <div className="flex gap-2 sm:col-span-2 lg:col-span-1">
                   <button
-                    onClick={handleResetFilter}
-                    className="flex-1 px-3 py-2 text-sm bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-all duration-300 font-medium shadow-sm flex items-center justify-center space-x-1 sm:space-x-2"
+                    onClick={handleSetCurrentMonth}
+                    className="flex-1 px-3 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all duration-300 font-medium shadow-sm flex items-center justify-center space-x-1 sm:space-x-2"
                   >
-                    <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
-                    <span className="text-xs sm:text-sm">Reset</span>
+                    <span>Bulan Ini</span>
                   </button>
                   <button
-                    onClick={() => setCurrentPage(1)}
+                    onClick={handleShowAllPeriod}
                     className="flex-1 px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-300 font-medium shadow-sm flex items-center justify-center space-x-1 sm:space-x-2"
                   >
-                    <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
                     </svg>
-                    <span className="text-xs sm:text-sm">Terapkan</span>
+                    <span>Semua</span>
                   </button>
                 </div>
               </div>
@@ -411,7 +402,7 @@ const DonasiPage = () => {
                   </p>
                   {(startDate || endDate) && (
                     <button
-                      onClick={handleResetFilter}
+                      onClick={handleShowAllPeriod}
                       className="bg-green-600 text-white px-4 py-2 sm:px-6 sm:py-3 rounded-lg hover:bg-green-700 transition-all duration-300 font-medium shadow-sm inline-flex items-center space-x-2 text-xs sm:text-sm"
                     >
                       <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
