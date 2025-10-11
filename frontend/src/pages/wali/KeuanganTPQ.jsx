@@ -1,4 +1,4 @@
-// pages/wali/KeuanganTPQ.jsx - PERBAIKAN LOGIKA REKAP
+// pages/wali/KeuanganTPQ.jsx - PERBAIKAN LOGIKA FILTER
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -73,9 +73,6 @@ const KeuanganTPQ = () => {
       const periods = [...new Set(rekapResult.data.map(item => item.periode))].sort().reverse();
       setAvailablePeriods(periods);
 
-      // Calculate summary data dengan logika yang sama seperti admin
-      calculateSummary(rekapResult.data, pemakaianResult.data, donasiResult.data, syahriahResult.data);
-
     } catch (err) {
       console.error('Error loading data:', err);
       setError(`Gagal memuat data: ${err.message}`);
@@ -84,8 +81,8 @@ const KeuanganTPQ = () => {
     }
   };
 
-  // LOGIKA PENGHITUNGAN YANG SAMA DENGAN ADMIN
-  const calculateSummary = (rekapData, pemakaianData, donasiData, syahriahData) => {
+  // LOGIKA PENGHITUNGAN YANG SAMA DENGAN ADMIN - DIPERBAIKI
+  const calculateSummary = () => {
     // Filter data berdasarkan periode yang dipilih
     const currentPeriod = selectedPeriod === 'semua' ? null : selectedPeriod;
     
@@ -138,10 +135,10 @@ const KeuanganTPQ = () => {
     });
   };
 
-  // Recalculate summary ketika periode berubah
+  // Recalculate summary ketika periode berubah atau data berubah
   useEffect(() => {
     if (rekapData.length > 0 && pemakaianData.length > 0 && donasiData.length > 0 && syahriahData.length > 0) {
-      calculateSummary(rekapData, pemakaianData, donasiData, syahriahData);
+      calculateSummary();
     }
   }, [selectedPeriod, rekapData, pemakaianData, donasiData, syahriahData]);
 
@@ -190,39 +187,30 @@ const KeuanganTPQ = () => {
     }
   };
 
-  // ✅ PERBAIKAN: Get rekap items berdasarkan filter periode
-  const getFilteredRekap = () => {
-    if (selectedPeriod === 'semua') {
-      return rekapData.filter(item => item.tipe_saldo === 'total');
-    }
-    return rekapData.filter(item => item.tipe_saldo === 'total' && item.periode === selectedPeriod);
-  };
-
-  // ✅ PERBAIKAN: Get saldo by type dengan filter periode
+  // FUNGSI BARU: Get saldo berdasarkan type dan periode yang dipilih
   const getSaldoByType = (type) => {
-    const filtered = selectedPeriod === 'semua' 
-      ? rekapData.filter(item => item.tipe_saldo === type)
-      : rekapData.filter(item => item.tipe_saldo === type && item.periode === selectedPeriod);
-    
-    if (filtered.length === 0) return 0;
-    
-    // Untuk periode tertentu, ambil saldo dari periode tersebut
-    if (selectedPeriod !== 'semua') {
-      return filtered[0]?.saldo_akhir || 0;
+    if (selectedPeriod === 'semua') {
+      // Untuk semua periode, ambil saldo terakhir dari setiap type
+      const filteredByType = rekapData.filter(item => item.tipe_saldo === type);
+      if (filteredByType.length === 0) return 0;
+      
+      const latest = filteredByType.reduce((latestItem, currentItem) => {
+        if (!latestItem || currentItem.periode > latestItem.periode) {
+          return currentItem;
+        }
+        return latestItem;
+      }, null);
+      
+      return latest?.saldo_akhir || 0;
+    } else {
+      // Untuk periode tertentu, ambil saldo dari periode tersebut
+      const filtered = rekapData.find(item => 
+        item.tipe_saldo === type && item.periode === selectedPeriod
+      );
+      return filtered?.saldo_akhir || 0;
     }
-    
-    // Untuk semua periode, ambil saldo terakhir dari setiap type
-    const latestByType = filtered.reduce((latest, item) => {
-      if (!latest || item.periode > latest.periode) {
-        return item;
-      }
-      return latest;
-    }, null);
-    
-    return latestByType?.saldo_akhir || 0;
   };
 
-  // ✅ PERBAIKAN: Get current period display text
   const getCurrentPeriodText = () => {
     if (selectedPeriod === 'semua') {
       return 'Semua Periode';
@@ -230,9 +218,12 @@ const KeuanganTPQ = () => {
     return formatPeriod(selectedPeriod);
   };
 
-  // Get rekap items to display in list
+  // Get rekap items to display in table
   const getDisplayRekap = () => {
-    const filtered = getFilteredRekap();
+    const filtered = selectedPeriod === 'semua' 
+      ? rekapData.filter(item => item.tipe_saldo === 'total')
+      : rekapData.filter(item => item.tipe_saldo === 'total' && item.periode === selectedPeriod);
+    
     return filtered.sort((a, b) => b.periode.localeCompare(a.periode));
   };
 
@@ -245,8 +236,8 @@ const KeuanganTPQ = () => {
           <div className="h-4 bg-green-200 rounded w-96 animate-pulse"></div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {[...Array(3)].map((_, i) => (
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+          {[...Array(5)].map((_, i) => (
             <div key={i} className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 animate-pulse">
               <div className="flex items-center">
                 <div className="w-12 h-12 bg-green-200 rounded-xl"></div>
@@ -319,8 +310,40 @@ const KeuanganTPQ = () => {
         </Link>
       </div>
 
-      {/* Summary Cards - MENGGUNAKAN LOGIKA YANG SAMA DENGAN ADMIN */}
+      {/* Summary Cards - URUTAN DIPERBAIKI */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+        {/* Total Syahriah */}
+        <div className="bg-white border border-orange-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center">
+            <div className="bg-orange-500 w-12 h-12 rounded-xl flex items-center justify-center">
+              <span className="text-white text-xl">🎓</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-orange-600">Total Syahriah</p>
+              <p className="text-xl font-bold text-orange-900">
+                {formatCurrencyShort(summaryData?.totalSyahriah || 0)}
+              </p>
+              <p className="text-xs text-orange-500 mt-1">{getCurrentPeriodText()}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Total Donasi */}
+        <div className="bg-white border border-purple-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center">
+            <div className="bg-purple-500 w-12 h-12 rounded-xl flex items-center justify-center">
+              <span className="text-white text-xl">❤️</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-purple-600">Total Donasi</p>
+              <p className="text-xl font-bold text-purple-900">
+                {formatCurrencyShort(summaryData?.totalDonasi || 0)}
+              </p>
+              <p className="text-xs text-purple-500 mt-1">{getCurrentPeriodText()}</p>
+            </div>
+          </div>
+        </div>
+
         {/* Total Pemasukan */}
         <div className="bg-white border border-green-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center">
@@ -368,41 +391,9 @@ const KeuanganTPQ = () => {
             </div>
           </div>
         </div>
-
-        {/* Total Donasi */}
-        <div className="bg-white border border-purple-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center">
-            <div className="bg-purple-500 w-12 h-12 rounded-xl flex items-center justify-center">
-              <span className="text-white text-xl">❤️</span>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-purple-600">Total Donasi</p>
-              <p className="text-xl font-bold text-purple-900">
-                {formatCurrencyShort(summaryData?.totalDonasi || 0)}
-              </p>
-              <p className="text-xs text-purple-500 mt-1">{getCurrentPeriodText()}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Total Syahriah */}
-        <div className="bg-white border border-orange-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center">
-            <div className="bg-orange-500 w-12 h-12 rounded-xl flex items-center justify-center">
-              <span className="text-white text-xl">🎓</span>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-orange-600">Total Syahriah</p>
-              <p className="text-xl font-bold text-orange-900">
-                {formatCurrencyShort(summaryData?.totalSyahriah || 0)}
-              </p>
-              <p className="text-xs text-orange-500 mt-1">{getCurrentPeriodText()}</p>
-            </div>
-          </div>
-        </div>
       </div>
 
-      {/* Breakdown Saldo per Type */}
+      {/* Breakdown Saldo per Type - SEKARANG MENGIKUTI FILTER */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white rounded-xl p-6 shadow-sm border border-purple-200">
           <div className="flex items-center justify-between">
@@ -411,6 +402,7 @@ const KeuanganTPQ = () => {
               <p className="text-xl font-bold text-purple-900">
                 {formatCurrency(getSaldoByType('syahriah'))}
               </p>
+              <p className="text-xs text-purple-500 mt-1">{getCurrentPeriodText()}</p>
             </div>
             <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
               <span className="text-lg">🎓</span>
@@ -425,6 +417,7 @@ const KeuanganTPQ = () => {
               <p className="text-xl font-bold text-orange-900">
                 {formatCurrency(getSaldoByType('donasi'))}
               </p>
+              <p className="text-xs text-orange-500 mt-1">{getCurrentPeriodText()}</p>
             </div>
             <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
               <span className="text-lg">❤️</span>
@@ -439,6 +432,7 @@ const KeuanganTPQ = () => {
               <p className="text-xl font-bold text-green-900">
                 {formatCurrency(getSaldoByType('total'))}
               </p>
+              <p className="text-xs text-green-500 mt-1">{getCurrentPeriodText()}</p>
             </div>
             <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
               <span className="text-lg">📈</span>
@@ -447,7 +441,7 @@ const KeuanganTPQ = () => {
         </div>
       </div>
 
-      {/* Laporan Keuangan */}
+      {/* Laporan Keuangan - TABLE */}
       <div className="bg-white rounded-xl shadow-sm border border-green-200">
         <div className="px-6 py-4 border-b border-green-200">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
@@ -484,61 +478,58 @@ const KeuanganTPQ = () => {
               <p className="text-green-600">Laporan keuangan akan muncul di sini setelah ada transaksi</p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {displayRekap.map((rekap) => (
-                <div 
-                  key={`${rekap.tipe_saldo}-${rekap.periode}-${rekap.id_saldo}`}
-                  className="flex items-center justify-between p-4 rounded-lg border border-green-200 bg-green-50"
-                >
-                  <div className="flex items-center space-x-4">
-                    <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                      <span className="text-lg">📈</span>
-                    </div>
-                    <div>
-                      <div className="font-semibold text-gray-900">
-                        Rekap Keuangan Total
-                      </div>
-                      <div className="text-sm text-green-600">
-                        Periode: {formatPeriod(rekap.periode)}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        Update: {new Date(rekap.terakhir_update).toLocaleDateString('id-ID', {
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-green-50 border-b border-green-200">
+                    <th className="py-3 px-4 text-left font-semibold text-green-900">Periode</th>
+                    <th className="py-3 px-4 text-right font-semibold text-green-900">Pemasukan</th>
+                    <th className="py-3 px-4 text-right font-semibold text-green-900">Pengeluaran</th>
+                    <th className="py-3 px-4 text-right font-semibold text-green-900">Saldo Akhir</th>
+                    <th className="py-3 px-4 text-left font-semibold text-green-900">Update Terakhir</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayRekap.map((rekap) => (
+                    <tr 
+                      key={`${rekap.tipe_saldo}-${rekap.periode}-${rekap.id_saldo}`}
+                      className="border-b border-green-100 hover:bg-green-50 transition-colors"
+                    >
+                      <td className="py-3 px-4">
+                        <div className="font-medium text-gray-900">
+                          {formatPeriod(rekap.periode)}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <span className="font-semibold text-green-800">
+                          {formatCurrency(rekap.pemasukan_total)}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <span className="font-semibold text-red-800">
+                          {formatCurrency(rekap.pengeluaran_total)}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <span className={`font-bold text-lg ${
+                          rekap.saldo_akhir >= 0 ? 'text-green-800' : 'text-red-800'
+                        }`}>
+                          {formatCurrency(rekap.saldo_akhir)}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-sm text-gray-500">
+                        {new Date(rekap.terakhir_update).toLocaleDateString('id-ID', {
                           day: 'numeric',
                           month: 'short',
                           year: 'numeric',
                           hour: '2-digit',
                           minute: '2-digit'
                         })}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="text-right">
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between space-x-4">
-                        <span className="text-sm text-gray-600">Pemasukan:</span>
-                        <span className="font-semibold text-green-800">
-                          {formatCurrency(rekap.pemasukan_total)}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between space-x-4">
-                        <span className="text-sm text-gray-600">Pengeluaran:</span>
-                        <span className="font-semibold text-red-800">
-                          {formatCurrency(rekap.pengeluaran_total)}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between space-x-4 border-t border-green-200 pt-1">
-                        <span className="text-sm font-medium text-gray-700">Saldo Akhir:</span>
-                        <span className={`font-bold text-lg ${
-                          rekap.saldo_akhir >= 0 ? 'text-green-800' : 'text-red-800'
-                        }`}>
-                          {formatCurrency(rekap.saldo_akhir)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
@@ -554,9 +545,8 @@ const KeuanganTPQ = () => {
           </div>
           <div>
             <p className="text-sm text-blue-800">
-              <strong>Informasi:</strong> Data keuangan menggunakan logika penghitungan yang sama dengan halaman admin. 
-              Total pemasukan = Donasi + Syahriah, Total pengeluaran = semua jenis pemakaian dana. 
-              Filter periode akan mempengaruhi semua data yang ditampilkan.
+              <strong>Informasi:</strong> Semua data summary dan saldo sekarang mengikuti filter periode yang dipilih. 
+              Data dihitung berdasarkan transaksi aktual dalam periode tersebut.
             </p>
           </div>
         </div>
