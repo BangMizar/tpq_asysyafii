@@ -41,6 +41,12 @@ func SetupRoutes(r *gin.Engine) {
 			protected.GET("/syahriah/summary", syahriahController.GetSyahriahSummary)
 			protected.GET("/syahriah/:id", syahriahController.GetSyahriahByID)
 
+			donasiController := controllers.NewDonasiController(config.GetDB())
+			protected.GET("/donasi", donasiController.GetAllDonasi)
+			protected.GET("/donasi/summary", donasiController.GetDonasiSummary)
+			protected.GET("/donasi/by-date", donasiController.GetDonasiByDateRange)
+			protected.GET("/donasi/:id", donasiController.GetDonasiByID)
+
 			pengumumanController := controllers.NewPengumumanController(config.DB)
 			protected.GET("/pengumuman", pengumumanController.GetAllPengumuman)
 			protected.GET("/pengumuman/aktif", pengumumanController.GetPengumumanAktif)

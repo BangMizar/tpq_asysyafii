@@ -894,36 +894,7 @@ const exportToDOCX = () => {
     setShowAlertModal(true);
   };
 
-  const handleGenerateRekap = async () => {
-    try {
-      setLoading(true);
-      
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/api/admin/rekap/generate`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Gagal generate rekap otomatis');
-      }
-
-      const result = await response.json();
-      showAlert('Berhasil', 'Rekap berhasil digenerate otomatis!', 'success');
-      await fetchAllData(); // Refresh data
-      
-    } catch (err) {
-      console.error('Error generating rekap:', err);
-      showAlert('Gagal', 'Gagal generate rekap: ' + err.message, 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const formatPeriod = (period) => {
+    const formatPeriod = (period) => {
     try {
       const [year, month] = period.split('-');
       const date = new Date(year, month - 1);
@@ -1524,7 +1495,7 @@ const exportToDOCX = () => {
                 <button
                   onClick={exportToCSV}
                   disabled={exportLoading}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm flex items-center disabled:opacity-50"
+                  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors font-medium text-sm flex items-center disabled:opacity-50"
                 >
                   <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -1534,7 +1505,7 @@ const exportToDOCX = () => {
                 <button
                   onClick={exportToDOCX}
                   disabled={exportLoading}
-                  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors font-medium text-sm flex items-center disabled:opacity-50"
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm flex items-center disabled:opacity-50"
                 >
                   <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -1566,14 +1537,7 @@ const exportToDOCX = () => {
                   {icons.plus}
                   <span className="ml-2">Syahriah</span>
                 </Link>
-                <button
-                  onClick={handleGenerateRekap}
-                  disabled={loading}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm flex items-center disabled:opacity-50"
-                >
-                  {icons.refresh}
-                  <span className="ml-2">Generate Rekap</span>
-                </button>
+                
               </div>
             </div>
           </div>

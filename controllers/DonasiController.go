@@ -182,10 +182,10 @@ func (ctrl *DonasiController) CreateDonasi(c *gin.Context) {
 // GetDonasiByID mendapatkan donasi berdasarkan ID
 func (ctrl *DonasiController) GetDonasiByID(c *gin.Context) {
 	// Check role
-	if !ctrl.checkAdminRole(c) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden: hanya admin dan super_admin yang dapat akses"})
-		return
-	}
+	// if !ctrl.checkAdminRole(c) {
+	// 	c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden: hanya admin dan super_admin yang dapat akses"})
+	// 	return
+	// }
 
 	id := c.Param("id")
 	if id == "" {
@@ -212,10 +212,10 @@ func (ctrl *DonasiController) GetDonasiByID(c *gin.Context) {
 // GetAllDonasi mendapatkan semua data donasi dengan pagination
 func (ctrl *DonasiController) GetAllDonasi(c *gin.Context) {
 	// Check role
-	if !ctrl.checkAdminRole(c) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden: hanya admin dan super_admin yang dapat akses"})
-		return
-	}
+	// if !ctrl.checkAdminRole(c) {
+	// 	c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden: hanya admin dan super_admin yang dapat akses"})
+	// 	return
+	// }
 
 	// Parse query parameters
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
@@ -378,10 +378,10 @@ func (ctrl *DonasiController) DeleteDonasi(c *gin.Context) {
 // GetDonasiSummary mendapatkan summary donasi
 func (ctrl *DonasiController) GetDonasiSummary(c *gin.Context) {
 	// Check role
-	if !ctrl.checkAdminRole(c) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden: hanya admin dan super_admin yang dapat akses"})
-		return
-	}
+	// if !ctrl.checkAdminRole(c) {
+	// 	c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden: hanya admin dan super_admin yang dapat akses"})
+	// 	return
+	// }
 
 	// Parse date filters
 	startDate := c.Query("start_date")
@@ -457,10 +457,10 @@ func (ctrl *DonasiController) GetDonasiSummary(c *gin.Context) {
 // GetDonasiByDateRange mendapatkan donasi berdasarkan rentang tanggal
 func (ctrl *DonasiController) GetDonasiByDateRange(c *gin.Context) {
 	// Check role
-	if !ctrl.checkAdminRole(c) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden: hanya admin dan super_admin yang dapat akses"})
-		return
-	}
+	// if !ctrl.checkAdminRole(c) {
+	// 	c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden: hanya admin dan super_admin yang dapat akses"})
+	// 	return
+	// }
 
 	startDate := c.Query("start_date")
 	endDate := c.Query("end_date")

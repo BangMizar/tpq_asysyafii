@@ -1,4 +1,4 @@
-// pages/wali/KeuanganTPQ.jsx
+// pages/wali/KeuanganTPQ.jsx - PERBAIKAN LOGIKA REKAP
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -8,47 +8,146 @@ const KeuanganTPQ = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [rekapData, setRekapData] = useState([]);
-  const [latestRekap, setLatestRekap] = useState([]);
+  const [pemakaianData, setPemakaianData] = useState([]);
+  const [donasiData, setDonasiData] = useState([]);
+  const [syahriahData, setSyahriahData] = useState([]);
+  const [summaryData, setSummaryData] = useState(null);
   const [selectedPeriod, setSelectedPeriod] = useState('semua');
   const [availablePeriods, setAvailablePeriods] = useState([]);
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
-  // Fetch all rekap data
-  const fetchAllRekap = async () => {
+  // Fetch all data seperti di admin
+  const fetchAllData = async () => {
     try {
       setLoading(true);
       setError('');
 
-      const response = await fetch(`${API_URL}/api/rekap?limit=1000`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      setRekapData(data.data || []);
+      const token = localStorage.getItem('token');
       
-      // Extract unique periods
-      const periods = [...new Set(data.data.map(item => item.periode))].sort().reverse();
+      // Load data secara parallel
+      const [rekapResponse, pemakaianResponse, donasiResponse, syahriahResponse] = await Promise.all([
+        fetch(`${API_URL}/api/rekap?limit=1000`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }),
+        fetch(`${API_URL}/api/pemakaian?limit=1000`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }),
+        fetch(`${API_URL}/api/donasi?limit=1000`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }),
+        fetch(`${API_URL}/api/syahriah?limit=1000`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        })
+      ]);
+
+      // Check responses
+      if (!rekapResponse.ok) throw new Error('Gagal memuat data rekap');
+      if (!pemakaianResponse.ok) throw new Error('Gagal memuat data pemakaian');
+      if (!donasiResponse.ok) throw new Error('Gagal memuat data donasi');
+      if (!syahriahResponse.ok) throw new Error('Gagal memuat data syahriah');
+
+      const rekapResult = await rekapResponse.json();
+      const pemakaianResult = await pemakaianResponse.json();
+      const donasiResult = await donasiResponse.json();
+      const syahriahResult = await syahriahResponse.json();
+
+      setRekapData(rekapResult.data || []);
+      setPemakaianData(pemakaianResult.data || []);
+      setDonasiData(donasiResult.data || []);
+      setSyahriahData(syahriahResult.data || []);
+
+      // Extract unique periods dari data rekap
+      const periods = [...new Set(rekapResult.data.map(item => item.periode))].sort().reverse();
       setAvailablePeriods(periods);
-      
+
+      // Calculate summary data dengan logika yang sama seperti admin
+      calculateSummary(rekapResult.data, pemakaianResult.data, donasiResult.data, syahriahResult.data);
+
     } catch (err) {
-      console.error('Error fetching rekap data:', err);
-      setError(`Gagal memuat data keuangan: ${err.message}`);
+      console.error('Error loading data:', err);
+      setError(`Gagal memuat data: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
 
+  // LOGIKA PENGHITUNGAN YANG SAMA DENGAN ADMIN
+  const calculateSummary = (rekapData, pemakaianData, donasiData, syahriahData) => {
+    // Filter data berdasarkan periode yang dipilih
+    const currentPeriod = selectedPeriod === 'semua' ? null : selectedPeriod;
+    
+    // Filter donasi data berdasarkan periode
+    const filteredDonasi = currentPeriod
+      ? donasiData.filter(item => {
+          const itemPeriod = new Date(item.waktu_catat).toISOString().slice(0, 7);
+          return itemPeriod === currentPeriod;
+        })
+      : donasiData;
+
+    // Filter syahriah data berdasarkan periode (menggunakan bulan dari field bulan)
+    const filteredSyahriah = currentPeriod
+      ? syahriahData.filter(item => {
+          return item.bulan === currentPeriod;
+        })
+      : syahriahData;
+
+    // Filter pemakaian data berdasarkan periode - semua sumber dana dihitung
+    const filteredPemakaian = currentPeriod
+      ? pemakaianData.filter(item => {
+          const itemPeriod = item.tanggal_pemakaian 
+            ? new Date(item.tanggal_pemakaian).toISOString().slice(0, 7)
+            : new Date(item.created_at).toISOString().slice(0, 7);
+          return itemPeriod === currentPeriod;
+        })
+      : pemakaianData;
+
+    // Total Donasi: Sum dari semua donasi dalam periode yang dipilih
+    const totalDonasi = filteredDonasi.reduce((sum, item) => sum + (item.nominal || 0), 0);
+
+    // Total Syahriah: Sum dari semua syahriah dalam periode yang dipilih
+    const totalSyahriah = filteredSyahriah.reduce((sum, item) => sum + (item.nominal || 0), 0);
+
+    // Total Pemasukan: Total Donasi + Total Syahriah
+    const totalPemasukan = totalDonasi + totalSyahriah;
+
+    // Total Pengeluaran: Sum dari semua pemakaian yang difilter - semua sumber dana dihitung
+    const totalPengeluaran = filteredPemakaian.reduce((sum, item) => sum + (item.nominal || 0), 0);
+
+    // Saldo Akhir: Total Pemasukan - Total Pengeluaran
+    const saldoAkhir = totalPemasukan - totalPengeluaran;
+
+    setSummaryData({
+      totalPemasukan,
+      totalPengeluaran,
+      saldoAkhir,
+      totalDonasi,
+      totalSyahriah
+    });
+  };
+
+  // Recalculate summary ketika periode berubah
+  useEffect(() => {
+    if (rekapData.length > 0 && pemakaianData.length > 0 && donasiData.length > 0 && syahriahData.length > 0) {
+      calculateSummary(rekapData, pemakaianData, donasiData, syahriahData);
+    }
+  }, [selectedPeriod, rekapData, pemakaianData, donasiData, syahriahData]);
+
   // Load data
   useEffect(() => {
-    fetchAllRekap();
+    fetchAllData();
   }, [API_URL]);
 
   // Format currency
@@ -58,6 +157,23 @@ const KeuanganTPQ = () => {
       currency: 'IDR',
       minimumFractionDigits: 0,
     }).format(amount || 0);
+  };
+
+  // Format currency untuk summary card dengan singkatan
+  const formatCurrencyShort = (amount) => {
+    if (!amount) return 'Rp 0';
+    
+    const num = Number(amount);
+    
+    if (num >= 1000000000) {
+      return `Rp ${(num / 1000000000).toFixed(1)}M`;
+    } else if (num >= 1000000) {
+      return `Rp ${(num / 1000000).toFixed(1)}jt`;
+    } else if (num >= 1000) {
+      return `Rp ${(num / 1000).toFixed(1)}rb`;
+    } else {
+      return `Rp ${num}`;
+    }
   };
 
   // Format period (YYYY-MM to Month Year)
@@ -74,69 +190,36 @@ const KeuanganTPQ = () => {
     }
   };
 
+  // ✅ PERBAIKAN: Get rekap items berdasarkan filter periode
   const getFilteredRekap = () => {
     if (selectedPeriod === 'semua') {
-      return rekapData;
+      return rekapData.filter(item => item.tipe_saldo === 'total');
     }
-    return rekapData.filter(item => item.periode === selectedPeriod);
+    return rekapData.filter(item => item.tipe_saldo === 'total' && item.periode === selectedPeriod);
   };
 
-  const getLatestFilteredRekap = () => {
-    const filtered = getFilteredRekap();
-    const latestByType = {};
-    
-    filtered.forEach(item => {
-      if (!latestByType[item.tipe_saldo] || item.periode > latestByType[item.tipe_saldo].periode) {
-        latestByType[item.tipe_saldo] = item;
-      }
-    });
-    
-    return Object.values(latestByType);
-  };
-
+  // ✅ PERBAIKAN: Get saldo by type dengan filter periode
   const getSaldoByType = (type) => {
-    const latest = getLatestFilteredRekap().find(item => item.tipe_saldo === type);
-    return latest ? latest.saldo_akhir : 0;
-  };
-
-  // ✅ PERBAIKAN: Get total saldo from filtered data (sum of latest saldo for each type)
-  const getTotalSaldo = () => {
-    return getLatestFilteredRekap().reduce((total, item) => total + item.saldo_akhir, 0);
-  };
-
-  // ✅ PERBAIKAN: Get pemasukan for selected period
-  const getPemasukanPeriod = () => {
-    const filtered = getFilteredRekap();
-    const totalRekap = filtered.find(item => 
-      item.tipe_saldo === 'total' && 
-      (selectedPeriod === 'semua' || item.periode === selectedPeriod)
-    );
+    const filtered = selectedPeriod === 'semua' 
+      ? rekapData.filter(item => item.tipe_saldo === type)
+      : rekapData.filter(item => item.tipe_saldo === type && item.periode === selectedPeriod);
     
-    if (selectedPeriod === 'semua') {
-      // Sum all pemasukan from total rekap
-      return filtered
-        .filter(item => item.tipe_saldo === 'total')
-        .reduce((sum, item) => sum + item.pemasukan_total, 0);
+    if (filtered.length === 0) return 0;
+    
+    // Untuk periode tertentu, ambil saldo dari periode tersebut
+    if (selectedPeriod !== 'semua') {
+      return filtered[0]?.saldo_akhir || 0;
     }
     
-    return totalRekap ? totalRekap.pemasukan_total : 0;
-  };
-
-  // ✅ PERBAIKAN: Get pengeluaran for selected period
-  const getPengeluaranPeriod = () => {
-    const filtered = getFilteredRekap();
+    // Untuk semua periode, ambil saldo terakhir dari setiap type
+    const latestByType = filtered.reduce((latest, item) => {
+      if (!latest || item.periode > latest.periode) {
+        return item;
+      }
+      return latest;
+    }, null);
     
-    if (selectedPeriod === 'semua') {
-      // Sum all pengeluaran from total rekap
-      return filtered
-        .filter(item => item.tipe_saldo === 'total')
-        .reduce((sum, item) => sum + item.pengeluaran_total, 0);
-    }
-    
-    const totalRekap = filtered.find(item => 
-      item.tipe_saldo === 'total' && item.periode === selectedPeriod
-    );
-    return totalRekap ? totalRekap.pengeluaran_total : 0;
+    return latestByType?.saldo_akhir || 0;
   };
 
   // ✅ PERBAIKAN: Get current period display text
@@ -150,20 +233,7 @@ const KeuanganTPQ = () => {
   // Get rekap items to display in list
   const getDisplayRekap = () => {
     const filtered = getFilteredRekap();
-    
-    if (selectedPeriod === 'semua') {
-      // Show latest entry for each period-type combination
-      const latestEntries = {};
-      filtered.forEach(item => {
-        const key = `${item.periode}-${item.tipe_saldo}`;
-        if (!latestEntries[key] || item.terakhir_update > latestEntries[key].terakhir_update) {
-          latestEntries[key] = item;
-        }
-      });
-      return Object.values(latestEntries).sort((a, b) => b.periode.localeCompare(a.periode));
-    }
-    
-    return filtered.sort((a, b) => a.tipe_saldo.localeCompare(b.tipe_saldo));
+    return filtered.sort((a, b) => b.periode.localeCompare(a.periode));
   };
 
   // Loading state
@@ -218,7 +288,7 @@ const KeuanganTPQ = () => {
           <h3 className="text-lg font-semibold text-red-800 mb-2">Terjadi Kesalahan</h3>
           <p className="text-red-600 mb-6">{error}</p>
           <button 
-            onClick={() => window.location.reload()}
+            onClick={fetchAllData}
             className="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-all duration-300 font-medium"
           >
             Coba Lagi
@@ -229,7 +299,6 @@ const KeuanganTPQ = () => {
   }
 
   const displayRekap = getDisplayRekap();
-  const latestFilteredRekap = getLatestFilteredRekap();
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -250,7 +319,90 @@ const KeuanganTPQ = () => {
         </Link>
       </div>
 
-      {/* Breakdown Saldo - NOW FILTERED */}
+      {/* Summary Cards - MENGGUNAKAN LOGIKA YANG SAMA DENGAN ADMIN */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+        {/* Total Pemasukan */}
+        <div className="bg-white border border-green-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center">
+            <div className="bg-green-500 w-12 h-12 rounded-xl flex items-center justify-center">
+              <span className="text-white text-xl">💰</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-green-600">Total Pemasukan</p>
+              <p className="text-xl font-bold text-green-900">
+                {formatCurrencyShort(summaryData?.totalPemasukan || 0)}
+              </p>
+              <p className="text-xs text-green-500 mt-1">{getCurrentPeriodText()}</p>
+            </div>
+          </div>
+        </div>
+        
+        {/* Total Pengeluaran */}
+        <div className="bg-white border border-red-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center">
+            <div className="bg-red-500 w-12 h-12 rounded-xl flex items-center justify-center">
+              <span className="text-white text-xl">💸</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-red-600">Total Pengeluaran</p>
+              <p className="text-xl font-bold text-red-900">
+                {formatCurrencyShort(summaryData?.totalPengeluaran || 0)}
+              </p>
+              <p className="text-xs text-red-500 mt-1">{getCurrentPeriodText()}</p>
+            </div>
+          </div>
+        </div>
+        
+        {/* Saldo Akhir */}
+        <div className="bg-white border border-blue-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center">
+            <div className="bg-blue-500 w-12 h-12 rounded-xl flex items-center justify-center">
+              <span className="text-white text-xl">📊</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-blue-600">Saldo Akhir</p>
+              <p className="text-xl font-bold text-blue-900">
+                {formatCurrencyShort(summaryData?.saldoAkhir || 0)}
+              </p>
+              <p className="text-xs text-blue-500 mt-1">{getCurrentPeriodText()}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Total Donasi */}
+        <div className="bg-white border border-purple-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center">
+            <div className="bg-purple-500 w-12 h-12 rounded-xl flex items-center justify-center">
+              <span className="text-white text-xl">❤️</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-purple-600">Total Donasi</p>
+              <p className="text-xl font-bold text-purple-900">
+                {formatCurrencyShort(summaryData?.totalDonasi || 0)}
+              </p>
+              <p className="text-xs text-purple-500 mt-1">{getCurrentPeriodText()}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Total Syahriah */}
+        <div className="bg-white border border-orange-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center">
+            <div className="bg-orange-500 w-12 h-12 rounded-xl flex items-center justify-center">
+              <span className="text-white text-xl">🎓</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-orange-600">Total Syahriah</p>
+              <p className="text-xl font-bold text-orange-900">
+                {formatCurrencyShort(summaryData?.totalSyahriah || 0)}
+              </p>
+              <p className="text-xs text-orange-500 mt-1">{getCurrentPeriodText()}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Breakdown Saldo per Type */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white rounded-xl p-6 shadow-sm border border-purple-200">
           <div className="flex items-center justify-between">
@@ -283,54 +435,13 @@ const KeuanganTPQ = () => {
         <div className="bg-white rounded-xl p-6 shadow-sm border border-green-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-green-600 font-medium">Total Pemasukan</p>
+              <p className="text-sm text-green-600 font-medium">Saldo Total</p>
               <p className="text-xl font-bold text-green-900">
-                
-                {formatCurrency(getPemasukanPeriod())}
+                {formatCurrency(getSaldoByType('total'))}
               </p>
             </div>
             <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
               <span className="text-lg">📈</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Summary Cards - NOW FILTERED */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-
-        {/* Pengeluaran */}
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-red-200">
-          <div className="flex items-center">
-            <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
-              <span className="text-2xl">💸</span>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm text-red-600 font-medium">Total Pengeluaran</p>
-              <p className="text-2xl font-bold text-red-900">
-                {formatCurrency(getPengeluaranPeriod())}
-              </p>
-              <p className="text-xs text-red-600 mt-1">
-                {getCurrentPeriodText()}
-              </p>
-            </div>
-          </div>
-        </div>
-
-                {/* Pemasukan */}
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-blue-200">
-          <div className="flex items-center">
-            <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-              <span className="text-2xl">📊</span>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm text-blue-600 font-medium">Total Saldo Saat ini</p>
-              <p className="text-2xl font-bold text-blue-900">
-              {formatCurrency(getSaldoByType('total'))}
-              </p>
-              <p className="text-xs text-blue-600 mt-1">
-                {getCurrentPeriodText()}
-              </p>
             </div>
           </div>
         </div>
@@ -369,7 +480,7 @@ const KeuanganTPQ = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-green-800 mb-2">Data Keuangan Tersedia</h3>
+              <h3 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Data Keuangan</h3>
               <p className="text-green-600">Laporan keuangan akan muncul di sini setelah ada transaksi</p>
             </div>
           ) : (
@@ -380,17 +491,12 @@ const KeuanganTPQ = () => {
                   className="flex items-center justify-between p-4 rounded-lg border border-green-200 bg-green-50"
                 >
                   <div className="flex items-center space-x-4">
-                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-                      rekap.tipe_saldo === 'syahriah' ? 'bg-purple-100' :
-                      rekap.tipe_saldo === 'donasi' ? 'bg-orange-100' : 'bg-green-100'
-                    }`}>
-                      {rekap.tipe_saldo === 'syahriah' ? '🎓' :
-                       rekap.tipe_saldo === 'donasi' ? '❤️' : '📈'}
+                    <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                      <span className="text-lg">📈</span>
                     </div>
                     <div>
-                      <div className="font-semibold text-gray-900 capitalize">
-                        {rekap.tipe_saldo === 'syahriah' ? 'Syahriah' :
-                         rekap.tipe_saldo === 'donasi' ? 'Donasi' : 'Total Keuangan'}
+                      <div className="font-semibold text-gray-900">
+                        Rekap Keuangan Total
                       </div>
                       <div className="text-sm text-green-600">
                         Periode: {formatPeriod(rekap.periode)}
@@ -448,8 +554,9 @@ const KeuanganTPQ = () => {
           </div>
           <div>
             <p className="text-sm text-blue-800">
-              <strong>Informasi:</strong> Data keuangan diperbarui secara otomatis setiap ada transaksi syahriah atau donasi. 
-              Saldo syahriah hanya mencakup pembayaran yang sudah lunas. Filter periode akan mempengaruhi semua data yang ditampilkan.
+              <strong>Informasi:</strong> Data keuangan menggunakan logika penghitungan yang sama dengan halaman admin. 
+              Total pemasukan = Donasi + Syahriah, Total pengeluaran = semua jenis pemakaian dana. 
+              Filter periode akan mempengaruhi semua data yang ditampilkan.
             </p>
           </div>
         </div>

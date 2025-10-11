@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import logoCircle from "../../assets/logo-circle.png";
 
 const Sidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -291,8 +292,12 @@ const Sidebar = () => {
       <div className="flex items-center justify-between p-4 border-b border-green-200">
         {!isCollapsed && (
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">TPQ</span>
+            <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center">
+            <img 
+                  src={logoCircle} 
+                  alt="TPQ Asy-Syafi'i Logo" 
+                  className="w-full h-full object-cover rounded-full" 
+                />
             </div>
             <div>
               <h1 className="font-bold text-green-800">System TPQ</h1>
@@ -305,7 +310,11 @@ const Sidebar = () => {
         
         {isCollapsed && (
           <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center mx-auto">
-            <span className="text-white font-bold text-sm">TPQ</span>
+            <img 
+                  src={logoCircle} 
+                  alt="TPQ Asy-Syafi'i Logo" 
+                  className="w-full h-full object-cover rounded-full" 
+                />
           </div>
         )}
 
