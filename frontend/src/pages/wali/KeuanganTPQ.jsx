@@ -74,7 +74,6 @@ const KeuanganTPQ = () => {
     }
   };
 
-  // ✅ PERBAIKAN: Get filtered rekap data based on selected period
   const getFilteredRekap = () => {
     if (selectedPeriod === 'semua') {
       return rekapData;
@@ -82,7 +81,6 @@ const KeuanganTPQ = () => {
     return rekapData.filter(item => item.periode === selectedPeriod);
   };
 
-  // ✅ PERBAIKAN: Get latest rekap for each type from filtered data
   const getLatestFilteredRekap = () => {
     const filtered = getFilteredRekap();
     const latestByType = {};
@@ -96,7 +94,6 @@ const KeuanganTPQ = () => {
     return Object.values(latestByType);
   };
 
-  // ✅ PERBAIKAN: Get saldo by type from filtered data
   const getSaldoByType = (type) => {
     const latest = getLatestFilteredRekap().find(item => item.tipe_saldo === type);
     return latest ? latest.saldo_akhir : 0;
@@ -253,63 +250,6 @@ const KeuanganTPQ = () => {
         </Link>
       </div>
 
-      {/* Summary Cards - NOW FILTERED */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        {/* Total Kas TPQ */}
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-green-200">
-          <div className="flex items-center">
-            <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-              <span className="text-2xl">💰</span>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm text-green-600 font-medium">Total Kas TPQ</p>
-              <p className="text-2xl font-bold text-green-900">
-                {formatCurrency(getTotalSaldo())}
-              </p>
-              <p className="text-xs text-green-600 mt-1">
-                {getCurrentPeriodText()}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Pemasukan */}
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-blue-200">
-          <div className="flex items-center">
-            <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-              <span className="text-2xl">📊</span>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm text-blue-600 font-medium">Total Pemasukan</p>
-              <p className="text-2xl font-bold text-blue-900">
-                {formatCurrency(getPemasukanPeriod())}
-              </p>
-              <p className="text-xs text-blue-600 mt-1">
-                {getCurrentPeriodText()}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Pengeluaran */}
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-red-200">
-          <div className="flex items-center">
-            <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
-              <span className="text-2xl">💸</span>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm text-red-600 font-medium">Total Pengeluaran</p>
-              <p className="text-2xl font-bold text-red-900">
-                {formatCurrency(getPengeluaranPeriod())}
-              </p>
-              <p className="text-xs text-red-600 mt-1">
-                {getCurrentPeriodText()}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Breakdown Saldo - NOW FILTERED */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white rounded-xl p-6 shadow-sm border border-purple-200">
@@ -343,13 +283,54 @@ const KeuanganTPQ = () => {
         <div className="bg-white rounded-xl p-6 shadow-sm border border-green-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-green-600 font-medium">Saldo Total</p>
+              <p className="text-sm text-green-600 font-medium">Total Pemasukan</p>
               <p className="text-xl font-bold text-green-900">
-                {formatCurrency(getSaldoByType('total'))}
+                
+                {formatCurrency(getPemasukanPeriod())}
               </p>
             </div>
             <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
               <span className="text-lg">📈</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Summary Cards - NOW FILTERED */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+
+        {/* Pengeluaran */}
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-red-200">
+          <div className="flex items-center">
+            <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
+              <span className="text-2xl">💸</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm text-red-600 font-medium">Total Pengeluaran</p>
+              <p className="text-2xl font-bold text-red-900">
+                {formatCurrency(getPengeluaranPeriod())}
+              </p>
+              <p className="text-xs text-red-600 mt-1">
+                {getCurrentPeriodText()}
+              </p>
+            </div>
+          </div>
+        </div>
+
+                {/* Pemasukan */}
+                <div className="bg-white rounded-xl p-6 shadow-sm border border-blue-200">
+          <div className="flex items-center">
+            <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+              <span className="text-2xl">📊</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm text-blue-600 font-medium">Total Saldo Saat ini</p>
+              <p className="text-2xl font-bold text-blue-900">
+              {formatCurrency(getSaldoByType('total'))}
+              </p>
+              <p className="text-xs text-blue-600 mt-1">
+                {getCurrentPeriodText()}
+              </p>
             </div>
           </div>
         </div>
