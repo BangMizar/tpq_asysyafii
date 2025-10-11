@@ -363,14 +363,6 @@ const SemuaTagihanWali = () => {
                     {formatCurrency(getTotalNominal('belum'))}
                   </span>
                 </div>
-                <div className="border-t border-green-200 pt-1 mt-1">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-gray-600">Total:</span>
-                    <span className="text-sm font-bold text-green-800">
-                      {formatCurrency(getTotalNominal('semua'))}
-                    </span>
-                  </div>
-                </div>
               </div>
             ) : (
               <p className={`text-lg font-bold mt-1 ${

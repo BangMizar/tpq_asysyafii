@@ -1,4 +1,4 @@
-// pages/wali/KeuanganTPQ.jsx - PERBAIKAN LOGIKA FILTER
+// pages/wali/KeuanganTPQ.jsx - DENGAN SVG ICONS TANPA BACKGROUND
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -14,6 +14,7 @@ const KeuanganTPQ = () => {
   const [summaryData, setSummaryData] = useState(null);
   const [selectedPeriod, setSelectedPeriod] = useState('semua');
   const [availablePeriods, setAvailablePeriods] = useState([]);
+  const [activeTab, setActiveTab] = useState('rekap'); // Tab baru untuk navigasi
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
@@ -156,7 +157,7 @@ const KeuanganTPQ = () => {
     }).format(amount || 0);
   };
 
-  // Format currency untuk summary card dengan singkatan
+  // Format currency untuk summary card dengan singkatan - DIPERBAIKI: hanya miliar ke atas
   const formatCurrencyShort = (amount) => {
     if (!amount) return 'Rp 0';
     
@@ -164,12 +165,13 @@ const KeuanganTPQ = () => {
     
     if (num >= 1000000000) {
       return `Rp ${(num / 1000000000).toFixed(1)}M`;
-    } else if (num >= 1000000) {
-      return `Rp ${(num / 1000000).toFixed(1)}jt`;
-    } else if (num >= 1000) {
-      return `Rp ${(num / 1000).toFixed(1)}rb`;
     } else {
-      return `Rp ${num}`;
+      // Untuk di bawah miliar, tetap tampilkan format normal tanpa penyingkatan
+      return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0,
+      }).format(num);
     }
   };
 
@@ -184,6 +186,34 @@ const KeuanganTPQ = () => {
       });
     } catch (e) {
       return period;
+    }
+  };
+
+  // Format date
+  const formatDate = (dateString) => {
+    try {
+      return new Date(dateString).toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      });
+    } catch (e) {
+      return dateString;
+    }
+  };
+
+  // Format datetime
+  const formatDateTime = (dateString) => {
+    try {
+      return new Date(dateString).toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (e) {
+      return dateString;
     }
   };
 
@@ -218,13 +248,291 @@ const KeuanganTPQ = () => {
     return formatPeriod(selectedPeriod);
   };
 
-  // Get rekap items to display in table
-  const getDisplayRekap = () => {
-    const filtered = selectedPeriod === 'semua' 
-      ? rekapData.filter(item => item.tipe_saldo === 'total')
-      : rekapData.filter(item => item.tipe_saldo === 'total' && item.periode === selectedPeriod);
-    
-    return filtered.sort((a, b) => b.periode.localeCompare(a.periode));
+  // Get filtered data berdasarkan periode
+  const getFilteredRekap = () => {
+    if (selectedPeriod === 'semua') {
+      return rekapData.filter(item => item.tipe_saldo === 'total');
+    }
+    return rekapData.filter(item => item.tipe_saldo === 'total' && item.periode === selectedPeriod);
+  };
+
+  const getFilteredPemakaian = () => {
+    if (selectedPeriod === 'semua') {
+      return pemakaianData;
+    }
+    return pemakaianData.filter(item => {
+      const itemPeriod = item.tanggal_pemakaian 
+        ? new Date(item.tanggal_pemakaian).toISOString().slice(0, 7)
+        : new Date(item.created_at).toISOString().slice(0, 7);
+      return itemPeriod === selectedPeriod;
+    });
+  };
+
+  const getFilteredDonasi = () => {
+    if (selectedPeriod === 'semua') {
+      return donasiData;
+    }
+    return donasiData.filter(item => {
+      const itemPeriod = new Date(item.waktu_catat).toISOString().slice(0, 7);
+      return itemPeriod === selectedPeriod;
+    });
+  };
+
+  const getFilteredSyahriah = () => {
+    if (selectedPeriod === 'semua') {
+      return syahriahData;
+    }
+    return syahriahData.filter(item => {
+      return item.bulan === selectedPeriod;
+    });
+  };
+
+  // Render content berdasarkan active tab
+  const renderContent = () => {
+    const filteredRekap = getFilteredRekap();
+    const filteredPemakaian = getFilteredPemakaian();
+    const filteredDonasi = getFilteredDonasi();
+    const filteredSyahriah = getFilteredSyahriah();
+
+    switch (activeTab) {
+      case 'rekap':
+        return (
+          <div className="overflow-x-auto">
+            {filteredRekap.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Data Rekap</h3>
+                <p className="text-green-600">Data rekap keuangan akan muncul setelah ada transaksi</p>
+              </div>
+            ) : (
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-green-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Periode</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Pemasukan</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Pengeluaran</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Saldo Akhir</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Update Terakhir</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-green-100">
+                  {filteredRekap.map((item, index) => (
+                    <tr key={index} className="hover:bg-green-50 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {formatPeriod(item.periode)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium">
+                        {formatCurrency(item.pemasukan_total)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">
+                        {formatCurrency(item.pengeluaran_total)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-bold">
+                        <span className={item.saldo_akhir >= 0 ? 'text-green-800' : 'text-red-800'}>
+                          {formatCurrency(item.saldo_akhir)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {formatDateTime(item.terakhir_update)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        );
+      
+      case 'pengeluaran':
+        return (
+          <div className="overflow-x-auto">
+            {filteredPemakaian.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Pengeluaran</h3>
+                <p className="text-green-600">Data pengeluaran akan muncul setelah ada pemakaian saldo</p>
+              </div>
+            ) : (
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-green-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Tanggal</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Keterangan</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Tipe</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Sumber Dana</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Jumlah</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Diajukan Oleh</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-green-100">
+                  {filteredPemakaian.map((item, index) => (
+                    <tr key={index} className="hover:bg-green-50 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {item.tanggal_pemakaian ? formatDate(item.tanggal_pemakaian) : formatDate(item.created_at)}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        <div>
+                          <div className="font-medium">{item.judul_pemakaian}</div>
+                          <div className="text-gray-500 text-xs mt-1">{item.deskripsi}</div>
+                          {item.keterangan && (
+                            <div className="text-gray-400 text-xs mt-1">Catatan: {item.keterangan}</div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full capitalize ${
+                          item.tipe_pemakaian === 'operasional' ? 'bg-blue-100 text-blue-800' :
+                          item.tipe_pemakaian === 'investasi' ? 'bg-purple-100 text-purple-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {item.tipe_pemakaian}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">
+                        {item.sumber_dana}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">
+                        {formatCurrency(item.nominal)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {item.pengaju?.nama || 'Admin'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        );
+
+      case 'pemasukan':
+        return (
+          <div className="overflow-x-auto">
+            {filteredDonasi.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Pemasukan Donasi</h3>
+                <p className="text-green-600">Data pemasukan donasi akan muncul setelah ada donasi</p>
+              </div>
+            ) : (
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-green-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Tanggal</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Donatur</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">No. Telp</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Jumlah</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Dicatat Oleh</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-green-100">
+                  {filteredDonasi.map((item, index) => (
+                    <tr key={index} className="hover:bg-green-50 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {formatDateTime(item.waktu_catat)}
+                      </td>
+                      <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                        {item.nama_donatur}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {item.no_telp || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                        {formatCurrency(item.nominal)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {item.admin?.nama || 'Admin'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        );
+
+      case 'syahriah':
+        return (
+          <div className="overflow-x-auto">
+            {filteredSyahriah.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Pemasukan Syahriah</h3>
+                <p className="text-green-600">Data pemasukan syahriah akan muncul setelah ada pembayaran syahriah</p>
+              </div>
+            ) : (
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-green-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Tanggal Bayar</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Wali</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Email</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">No. Telp</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Bulan</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Jumlah</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Dicatat Oleh</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-green-100">
+                  {filteredSyahriah.map((item, index) => (
+                    <tr key={index} className="hover:bg-green-50 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {formatDateTime(item.waktu_catat)}
+                      </td>
+                      <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                        {item.wali?.nama_lengkap || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {item.wali?.email || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {item.wali?.no_telp || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {formatPeriod(item.bulan)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                        {formatCurrency(item.nominal)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          item.status === 'lunas' ? 'bg-green-100 text-green-800' :
+                          'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {item.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {item.admin?.nama_lengkap || 'Admin'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        );
+        
+      default:
+        return null;
+    }
   };
 
   // Loading state
@@ -289,8 +597,6 @@ const KeuanganTPQ = () => {
     );
   }
 
-  const displayRekap = getDisplayRekap();
-
   return (
     <div className="max-w-6xl mx-auto">
       {/* Header */}
@@ -310,13 +616,16 @@ const KeuanganTPQ = () => {
         </Link>
       </div>
 
-      {/* Summary Cards - URUTAN DIPERBAIKI */}
+      {/* Summary Cards - DENGAN SVG ICONS TANPA BACKGROUND */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
         {/* Total Syahriah */}
         <div className="bg-white border border-orange-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center">
-            <div className="bg-orange-500 w-12 h-12 rounded-xl flex items-center justify-center">
-              <span className="text-white text-xl">🎓</span>
+            <div className="text-orange-500">
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5zm0 0l9-5-9-5-9 5 9 5zm0 0l9-5-9-5-9 5 9 5zm0 0l9-5-9-5-9 5 9 5zm0 0l9-5-9-5-9 5 9 5z" />
+              </svg>
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-orange-600">Total Syahriah</p>
@@ -331,8 +640,10 @@ const KeuanganTPQ = () => {
         {/* Total Donasi */}
         <div className="bg-white border border-purple-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center">
-            <div className="bg-purple-500 w-12 h-12 rounded-xl flex items-center justify-center">
-              <span className="text-white text-xl">❤️</span>
+            <div className="text-purple-500">
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-purple-600">Total Donasi</p>
@@ -347,8 +658,10 @@ const KeuanganTPQ = () => {
         {/* Total Pemasukan */}
         <div className="bg-white border border-green-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center">
-            <div className="bg-green-500 w-12 h-12 rounded-xl flex items-center justify-center">
-              <span className="text-white text-xl">💰</span>
+            <div className="text-green-500">
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+              </svg>
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-green-600">Total Pemasukan</p>
@@ -363,8 +676,11 @@ const KeuanganTPQ = () => {
         {/* Total Pengeluaran */}
         <div className="bg-white border border-red-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center">
-            <div className="bg-red-500 w-12 h-12 rounded-xl flex items-center justify-center">
-              <span className="text-white text-xl">💸</span>
+            <div className="text-red-500">
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+              </svg>
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-red-600">Total Pengeluaran</p>
@@ -379,8 +695,10 @@ const KeuanganTPQ = () => {
         {/* Saldo Akhir */}
         <div className="bg-white border border-blue-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center">
-            <div className="bg-blue-500 w-12 h-12 rounded-xl flex items-center justify-center">
-              <span className="text-white text-xl">📊</span>
+            <div className="text-blue-500">
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-blue-600">Saldo Akhir</p>
@@ -393,7 +711,7 @@ const KeuanganTPQ = () => {
         </div>
       </div>
 
-      {/* Breakdown Saldo per Type - SEKARANG MENGIKUTI FILTER */}
+      {/* Breakdown Saldo per Type - DENGAN SVG ICONS TANPA BACKGROUND */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white rounded-xl p-6 shadow-sm border border-purple-200">
           <div className="flex items-center justify-between">
@@ -404,8 +722,11 @@ const KeuanganTPQ = () => {
               </p>
               <p className="text-xs text-purple-500 mt-1">{getCurrentPeriodText()}</p>
             </div>
-            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-              <span className="text-lg">🎓</span>
+            <div className="text-purple-500">
+              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5zm0 0l9-5-9-5-9 5 9 5zm0 0l9-5-9-5-9 5 9 5zm0 0l9-5-9-5-9 5 9 5zm0 0l9-5-9-5-9 5 9 5z" />
+              </svg>
             </div>
           </div>
         </div>
@@ -419,8 +740,10 @@ const KeuanganTPQ = () => {
               </p>
               <p className="text-xs text-orange-500 mt-1">{getCurrentPeriodText()}</p>
             </div>
-            <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-              <span className="text-lg">❤️</span>
+            <div className="text-orange-500">
+              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
             </div>
           </div>
         </div>
@@ -434,14 +757,16 @@ const KeuanganTPQ = () => {
               </p>
               <p className="text-xs text-green-500 mt-1">{getCurrentPeriodText()}</p>
             </div>
-            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-              <span className="text-lg">📈</span>
+            <div className="text-green-500">
+              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Laporan Keuangan - TABLE */}
+      {/* Laporan Keuangan - TABEL LENGKAP DENGAN TABS */}
       <div className="bg-white rounded-xl shadow-sm border border-green-200">
         <div className="px-6 py-4 border-b border-green-200">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
@@ -465,81 +790,39 @@ const KeuanganTPQ = () => {
             </div>
           </div>
         </div>
+
+        {/* Tabs Navigation */}
+        <div className="border-b border-green-200">
+          <nav className="flex -mb-px">
+            {['rekap', 'pengeluaran', 'pemasukan', 'syahriah'].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`py-4 px-6 text-sm font-medium border-b-2 ${
+                  activeTab === tab
+                    ? 'border-green-500 text-green-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                {tab === 'rekap' && 'Rekap Keuangan'}
+                {tab === 'pengeluaran' && 'Pengeluaran'}
+                {tab === 'pemasukan' && 'Pemasukan (Donasi)'}
+                {tab === 'syahriah' && 'Pemasukan (Syahriah)'}
+              </button>
+            ))}
+          </nav>
+        </div>
         
         <div className="p-6">
-          {displayRekap.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Data Keuangan</h3>
-              <p className="text-green-600">Laporan keuangan akan muncul di sini setelah ada transaksi</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-green-50 border-b border-green-200">
-                    <th className="py-3 px-4 text-left font-semibold text-green-900">Periode</th>
-                    <th className="py-3 px-4 text-right font-semibold text-green-900">Pemasukan</th>
-                    <th className="py-3 px-4 text-right font-semibold text-green-900">Pengeluaran</th>
-                    <th className="py-3 px-4 text-right font-semibold text-green-900">Saldo Akhir</th>
-                    <th className="py-3 px-4 text-left font-semibold text-green-900">Update Terakhir</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {displayRekap.map((rekap) => (
-                    <tr 
-                      key={`${rekap.tipe_saldo}-${rekap.periode}-${rekap.id_saldo}`}
-                      className="border-b border-green-100 hover:bg-green-50 transition-colors"
-                    >
-                      <td className="py-3 px-4">
-                        <div className="font-medium text-gray-900">
-                          {formatPeriod(rekap.periode)}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <span className="font-semibold text-green-800">
-                          {formatCurrency(rekap.pemasukan_total)}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <span className="font-semibold text-red-800">
-                          {formatCurrency(rekap.pengeluaran_total)}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <span className={`font-bold text-lg ${
-                          rekap.saldo_akhir >= 0 ? 'text-green-800' : 'text-red-800'
-                        }`}>
-                          {formatCurrency(rekap.saldo_akhir)}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-sm text-gray-500">
-                        {new Date(rekap.terakhir_update).toLocaleDateString('id-ID', {
-                          day: 'numeric',
-                          month: 'short',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          {renderContent()}
         </div>
       </div>
 
       {/* Informasi */}
       <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
         <div className="flex items-start space-x-3">
-          <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-            <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="text-blue-500 mt-0.5">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
