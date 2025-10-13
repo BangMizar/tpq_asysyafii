@@ -20,7 +20,6 @@ func NewKeluargaController(db *gorm.DB) *KeluargaController {
 // Request structs
 type CreateKeluargaRequest struct {
 	IDWali    string `json:"id_wali"` // Opsional, akan diisi otomatis dari token
-	NoKK      string `json:"no_kk" binding:"required"`
 	Alamat    string `json:"alamat" binding:"required"`
 	RTRW      string `json:"rt_rw"`
 	Kelurahan string `json:"kelurahan"`
@@ -31,7 +30,6 @@ type CreateKeluargaRequest struct {
 }
 
 type UpdateKeluargaRequest struct {
-	NoKK      string `json:"no_kk"`
 	Alamat    string `json:"alamat"`
 	RTRW      string `json:"rt_rw"`
 	Kelurahan string `json:"kelurahan"`
@@ -70,13 +68,6 @@ func (ctrl *KeluargaController) CreateKeluarga(c *gin.Context) {
 		req.IDWali = userID
 	}
 
-	// Cek apakah NoKK sudah ada
-	var existingKeluarga models.Keluarga
-	if err := ctrl.db.Where("no_kk = ?", req.NoKK).First(&existingKeluarga).Error; err == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "No KK sudah terdaftar"})
-		return
-	}
-
 	// Cek apakah wali exists
 	var wali models.User
 	if err := ctrl.db.Where("id_user = ?", req.IDWali).First(&wali).Error; err != nil {
@@ -88,7 +79,6 @@ func (ctrl *KeluargaController) CreateKeluarga(c *gin.Context) {
 	keluarga := models.Keluarga{
 		IDKeluarga: uuid.New().String(),
 		IDWali:     req.IDWali,
-		NoKK:       req.NoKK,
 		Alamat:     req.Alamat,
 		RTRW:       req.RTRW,
 		Kelurahan:  req.Kelurahan,
@@ -104,8 +94,8 @@ func (ctrl *KeluargaController) CreateKeluarga(c *gin.Context) {
 		return
 	}
 
-	// Preload relations untuk response
-	ctrl.db.Preload("Wali").Preload("AnggotaKeluarga").First(&keluarga, "id_keluarga = ?", keluarga.IDKeluarga)
+	// // Preload relations untuk response
+	ctrl.db.Preload("Wali").First(&keluarga, "id_keluarga = ?", keluarga.IDKeluarga)
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Data keluarga berhasil dibuat",
@@ -122,7 +112,7 @@ func (ctrl *KeluargaController) GetKeluargaByID(c *gin.Context) {
 	}
 
 	var keluarga models.Keluarga
-	err := ctrl.db.Preload("Wali").Preload("AnggotaKeluarga").Where("id_keluarga = ?", id).First(&keluarga).Error
+	err := ctrl.db.Preload("Wali").Where("id_keluarga = ?", id).First(&keluarga).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Data keluarga tidak ditemukan"})
@@ -146,7 +136,7 @@ func (ctrl *KeluargaController) GetKeluargaByWali(c *gin.Context) {
 	}
 
 	var keluarga models.Keluarga
-	err := ctrl.db.Preload("Wali").Preload("AnggotaKeluarga").
+	err := ctrl.db.Preload("Wali").
 		Where("id_wali = ?", idWali).
 		First(&keluarga).Error
 
@@ -174,7 +164,7 @@ func (ctrl *KeluargaController) GetMyKeluarga(c *gin.Context) {
 	}
 
 	var keluarga models.Keluarga
-	err := ctrl.db.Preload("Wali").Preload("AnggotaKeluarga").
+	err := ctrl.db.Preload("Wali").
 		Where("id_wali = ?", userID).
 		First(&keluarga).Error
 
@@ -196,7 +186,7 @@ func (ctrl *KeluargaController) GetMyKeluarga(c *gin.Context) {
 func (ctrl *KeluargaController) GetAllKeluarga(c *gin.Context) {
 	var keluarga []models.Keluarga
 
-	err := ctrl.db.Preload("Wali").Preload("AnggotaKeluarga").
+	err := ctrl.db.Preload("Wali").
 		Find(&keluarga).Error
 
 	if err != nil {
@@ -251,15 +241,6 @@ func (ctrl *KeluargaController) UpdateKeluarga(c *gin.Context) {
 		return
 	}
 
-	// Cek jika NoKK diubah dan sudah ada
-	if req.NoKK != "" && req.NoKK != existingKeluarga.NoKK {
-		var keluargaWithNoKK models.Keluarga
-		if err := ctrl.db.Where("no_kk = ?", req.NoKK).First(&keluargaWithNoKK).Error; err == nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "No KK sudah digunakan oleh keluarga lain"})
-			return
-		}
-		existingKeluarga.NoKK = req.NoKK
-	}
 
 	// Update fields
 	if req.Alamat != "" {
@@ -291,7 +272,7 @@ func (ctrl *KeluargaController) UpdateKeluarga(c *gin.Context) {
 	}
 
 	// Preload relations untuk response
-	ctrl.db.Preload("Wali").Preload("AnggotaKeluarga").First(&existingKeluarga, "id_keluarga = ?", existingKeluarga.IDKeluarga)
+	ctrl.db.Preload("Wali").First(&existingKeluarga, "id_keluarga = ?", existingKeluarga.IDKeluarga)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Data keluarga berhasil diupdate",
@@ -348,25 +329,8 @@ func (ctrl *KeluargaController) DeleteKeluarga(c *gin.Context) {
 
 // SearchKeluarga mencari keluarga berdasarkan filter
 func (ctrl *KeluargaController) SearchKeluarga(c *gin.Context) {
-	noKK := c.Query("no_kk")
-	kelurahan := c.Query("kelurahan")
-	kecamatan := c.Query("kecamatan")
-	kota := c.Query("kota")
 
-	query := ctrl.db.Preload("Wali").Preload("AnggotaKeluarga")
-
-	if noKK != "" {
-		query = query.Where("no_kk LIKE ?", "%"+noKK+"%")
-	}
-	if kelurahan != "" {
-		query = query.Where("kelurahan LIKE ?", "%"+kelurahan+"%")
-	}
-	if kecamatan != "" {
-		query = query.Where("kecamatan LIKE ?", "%"+kecamatan+"%")
-	}
-	if kota != "" {
-		query = query.Where("kota LIKE ?", "%"+kota+"%")
-	}
+	query := ctrl.db.Preload("Wali")
 
 	var keluarga []models.Keluarga
 	if err := query.Find(&keluarga).Error; err != nil {

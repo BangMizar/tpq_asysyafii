@@ -711,61 +711,6 @@ const KeuanganTPQ = () => {
         </div>
       </div>
 
-      {/* Breakdown Saldo per Type - DENGAN SVG ICONS TANPA BACKGROUND */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-purple-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-purple-600 font-medium">Saldo Syahriah</p>
-              <p className="text-xl font-bold text-purple-900">
-                {formatCurrency(getSaldoByType('syahriah'))}
-              </p>
-              <p className="text-xs text-purple-500 mt-1">{getCurrentPeriodText()}</p>
-            </div>
-            <div className="text-purple-500">
-              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5zm0 0l9-5-9-5-9 5 9 5zm0 0l9-5-9-5-9 5 9 5zm0 0l9-5-9-5-9 5 9 5zm0 0l9-5-9-5-9 5 9 5z" />
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-orange-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-orange-600 font-medium">Saldo Donasi</p>
-              <p className="text-xl font-bold text-orange-900">
-                {formatCurrency(getSaldoByType('donasi'))}
-              </p>
-              <p className="text-xs text-orange-500 mt-1">{getCurrentPeriodText()}</p>
-            </div>
-            <div className="text-orange-500">
-              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-green-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-green-600 font-medium">Saldo Total</p>
-              <p className="text-xl font-bold text-green-900">
-                {formatCurrency(getSaldoByType('total'))}
-              </p>
-              <p className="text-xs text-green-500 mt-1">{getCurrentPeriodText()}</p>
-            </div>
-            <div className="text-green-500">
-              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Laporan Keuangan - TABEL LENGKAP DENGAN TABS */}
       <div className="bg-white rounded-xl shadow-sm border border-green-200">
         <div className="px-6 py-4 border-b border-green-200">

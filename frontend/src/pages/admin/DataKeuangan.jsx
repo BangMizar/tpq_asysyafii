@@ -194,20 +194,29 @@ const DataKeuangan = () => {
   };
 
   // Format currency untuk summary card dengan singkatan
-  const formatCurrencyShort = (amount) => {
-    if (!amount) return 'Rp 0';
-    
-    const num = Number(amount);
-    
-    if (num >= 1000000000) {
-      return `Rp ${(num / 1000000000).toFixed(1)}M`;
-    } else if (num >= 1000000) {
-      return `Rp ${(num / 1000000).toFixed(1)}jt`;
-    } else if (num >= 1000) {
-      return `Rp ${(num / 1000).toFixed(1)}rb`;
-    } else {
-      return `Rp ${num}`;
+  const formatCurrencyShort = (amount, threshold = 1000000000) => {
+    // Jika amount di bawah threshold, tampilkan format normal
+    if (Math.abs(amount) < threshold) {
+      return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      }).format(amount);
     }
+  
+    // Format singkatan hanya untuk angka di atas threshold (miliar)
+    const units = [
+      { value: 1e12, symbol: 'T' },
+      { value: 1e9, symbol: 'M' },
+      { value: 1e6, symbol: 'Jt' },
+    ];
+  
+    const unit = units.find(unit => Math.abs(amount) >= unit.value) || { value: 1, symbol: '' };
+    
+    const formatted = (amount / unit.value).toFixed(1).replace(/\.0$/, '');
+    
+    return `Rp ${formatted}${unit.symbol}`;
   };
 
   // ========== EXPORT FUNCTIONS ==========
@@ -1357,92 +1366,93 @@ const exportToDOCX = () => {
   
     return (
       <AuthDashboardLayout title="Data Keuangan - Admin">
-        {/* Statistics dengan format singkatan untuk nominal besar */}
+        {/* Statistics dengan format singkatan untuk nominal besar (hanya di atas miliar) */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
-          {/* Total Pemasukan */}
-          <div className="bg-white border border-green-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-center">
-              <div className="bg-green-500 w-12 h-12 rounded-xl flex items-center justify-center">
-                <span className="text-white">{icons.money}</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-green-600">Total Pemasukan</p>
-                <p className="text-2xl font-bold text-green-900">
-                  {/* PERBAIKAN: Gunakan format singkatan */}
-                  {formatCurrencyShort(summaryData?.totalPemasukan || 0)}
-                </p>
-                <p className="text-xs text-green-500 mt-1">{getCurrentPeriodText()}</p>
-              </div>
+
+        {/* Total Donasi */}
+        <div className="bg-white border border-purple-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center">
+            <div className="bg-purple-500 w-12 h-12 rounded-xl flex items-center justify-center">
+              <span className="text-white">{icons.money}</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-purple-600">Total Donasi</p>
+              <p className="text-2xl font-bold text-purple-900">
+                {/* PERBAIKAN: Format singkatan hanya untuk di atas miliar */}
+                {formatCurrencyShort(summaryData?.totalDonasi || 0, 1000000000)}
+              </p>
+              <p className="text-xs text-purple-500 mt-1">{getCurrentPeriodText()}</p>
             </div>
           </div>
-          
-          {/* Total Pengeluaran */}
-          <div className="bg-white border border-red-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-center">
-              <div className="bg-red-500 w-12 h-12 rounded-xl flex items-center justify-center">
-                <span className="text-white">{icons.chart}</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-red-600">Total Pengeluaran</p>
-                <p className="text-2xl font-bold text-red-900">
-                  {/* PERBAIKAN: Gunakan format singkatan */}
-                  {formatCurrencyShort(summaryData?.totalPengeluaran || 0)}
-                </p>
-                <p className="text-xs text-red-500 mt-1">{getCurrentPeriodText()}</p>
-              </div>
+        </div>
+
+        {/* Total Syahriah */}
+        <div className="bg-white border border-orange-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center">
+            <div className="bg-orange-500 w-12 h-12 rounded-xl flex items-center justify-center">
+              <span className="text-white">{icons.money}</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-orange-600">Total Syahriah</p>
+              <p className="text-2xl font-bold text-orange-900">
+                {/* PERBAIKAN: Format singkatan hanya untuk di atas miliar */}
+                {formatCurrencyShort(summaryData?.totalSyahriah || 0, 1000000000)}
+              </p>
+              <p className="text-xs text-orange-500 mt-1">{getCurrentPeriodText()}</p>
             </div>
           </div>
-          
-          {/* Saldo Akhir */}
-          <div className="bg-white border border-blue-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-center">
-              <div className="bg-blue-500 w-12 h-12 rounded-xl flex items-center justify-center">
-                <span className="text-white">{icons.money}</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-blue-600">Saldo Akhir</p>
-                <p className="text-2xl font-bold text-blue-900">
-                  {/* PERBAIKAN: Gunakan format singkatan */}
-                  {formatCurrencyShort(summaryData?.saldoAkhir || 0)}
-                </p>
-                <p className="text-xs text-blue-500 mt-1">{getCurrentPeriodText()}</p>
-              </div>
+        </div>
+
+        {/* Total Pemasukan */}
+        <div className="bg-white border border-green-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center">
+            <div className="bg-green-500 w-12 h-12 rounded-xl flex items-center justify-center">
+              <span className="text-white">{icons.money}</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-green-600">Total Pemasukan</p>
+              <p className="text-2xl font-bold text-green-900">
+                {/* PERBAIKAN: Format singkatan hanya untuk di atas miliar */}
+                {formatCurrencyShort(summaryData?.totalPemasukan || 0, 1000000000)}
+              </p>
+              <p className="text-xs text-green-500 mt-1">{getCurrentPeriodText()}</p>
             </div>
           </div>
-  
-          {/* Total Donasi */}
-          <div className="bg-white border border-purple-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-center">
-              <div className="bg-purple-500 w-12 h-12 rounded-xl flex items-center justify-center">
-                <span className="text-white">{icons.money}</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-purple-600">Total Donasi</p>
-                <p className="text-2xl font-bold text-purple-900">
-                  {/* PERBAIKAN: Gunakan format singkatan */}
-                  {formatCurrencyShort(summaryData?.totalDonasi || 0)}
-                </p>
-                <p className="text-xs text-purple-500 mt-1">{getCurrentPeriodText()}</p>
-              </div>
+        </div>
+
+        {/* Total Pengeluaran */}
+        <div className="bg-white border border-red-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center">
+            <div className="bg-red-500 w-12 h-12 rounded-xl flex items-center justify-center">
+              <span className="text-white">{icons.chart}</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-red-600">Total Pengeluaran</p>
+              <p className="text-2xl font-bold text-red-900">
+                {/* PERBAIKAN: Format singkatan hanya untuk di atas miliar */}
+                {formatCurrencyShort(summaryData?.totalPengeluaran || 0, 1000000000)}
+              </p>
+              <p className="text-xs text-red-500 mt-1">{getCurrentPeriodText()}</p>
             </div>
           </div>
-  
-          {/* Total Syahriah */}
-          <div className="bg-white border border-orange-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-center">
-              <div className="bg-orange-500 w-12 h-12 rounded-xl flex items-center justify-center">
-                <span className="text-white">{icons.money}</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-orange-600">Total Syahriah</p>
-                <p className="text-2xl font-bold text-orange-900">
-                  {/* PERBAIKAN: Gunakan format singkatan */}
-                  {formatCurrencyShort(summaryData?.totalSyahriah || 0)}
-                </p>
-                <p className="text-xs text-orange-500 mt-1">{getCurrentPeriodText()}</p>
-              </div>
+        </div>
+
+        {/* Saldo Akhir */}
+        <div className="bg-white border border-blue-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center">
+            <div className="bg-blue-500 w-12 h-12 rounded-xl flex items-center justify-center">
+              <span className="text-white">{icons.money}</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-blue-600">Saldo Akhir</p>
+              <p className="text-2xl font-bold text-blue-900">
+                {/* PERBAIKAN: Format singkatan hanya untuk di atas miliar */}
+                {formatCurrencyShort(summaryData?.saldoAkhir || 0, 1000000000)}
+              </p>
+              <p className="text-xs text-blue-500 mt-1">{getCurrentPeriodText()}</p>
             </div>
           </div>
+        </div>
         </div>
   
         {/* Main Content dengan tombol export */}
