@@ -13,9 +13,16 @@ func SetupRoutes(r *gin.Engine) {
 	{
 		api.POST("/register", controllers.RegisterUser)
 		api.POST("/login", controllers.LoginUser)
+		
 		donasiController := controllers.NewDonasiController(config.GetDB())
 		api.GET("/donasi-public", donasiController.GetDonasiPublic)
     	api.GET("/donasi-public/summary", donasiController.GetDonasiSummaryPublic)
+
+		// Public routes untuk berita (bisa diakses tanpa login)
+		beritaController := controllers.NewBeritaController(config.DB)
+		api.GET("/berita", beritaController.GetBeritaPublic)           // Untuk dashboard website
+		api.GET("/berita/:slug", beritaController.GetBeritaBySlug)     // Detail berita by slug
+		api.GET("/berita/id/:id", beritaController.GetBeritaByID)      // Detail berita by ID (jika diperlukan)
 
 		protected := api.Group("/")
 		protected.Use(middlewares.AuthMiddleware())
@@ -125,7 +132,7 @@ func SetupRoutes(r *gin.Engine) {
 			admin.GET("/pemakaian/:id", pemakaianController.GetPemakaianByID)
 		}
 
-		// Hanya untuk super-admin (opsional, jika ada route khusus super-admin)
+		// Hanya untuk super-admin
 		superAdmin := api.Group("/super-admin")
 		superAdmin.Use(middlewares.AuthMiddleware(), middlewares.SuperAdminMiddleware())
 		{
@@ -141,6 +148,13 @@ func SetupRoutes(r *gin.Engine) {
 			superAdmin.PUT("/santri/:id", santriController.UpdateSantri) 
 			superAdmin.DELETE("/santri/:id", santriController.DeleteSantri)
 			superAdmin.PUT("/santri/:id/status", santriController.UpdateStatusSantri)
+
+			// Hanya super-admin yang bisa CRUD berita
+			superAdmin.POST("/berita", beritaController.CreateBerita)
+			superAdmin.GET("/berita/all", beritaController.GetAllBerita) // Get semua berita termasuk draft (hanya super-admin)
+			superAdmin.PUT("/berita/:id", beritaController.UpdateBerita)
+			superAdmin.PUT("/berita/:id/publish", beritaController.PublishBerita)
+			superAdmin.DELETE("/berita/:id", beritaController.DeleteBerita)
 		}
 	}
 }

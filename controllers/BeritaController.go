@@ -294,7 +294,6 @@ func (ctrl *BeritaController) GetAllBerita(c *gin.Context) {
 	})
 }
 
-// GetBeritaByID mendapatkan berita berdasarkan ID
 func (ctrl *BeritaController) GetBeritaByID(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
@@ -313,9 +312,9 @@ func (ctrl *BeritaController) GetBeritaByID(c *gin.Context) {
 		return
 	}
 
-	// Untuk user non-admin, hanya bisa lihat yang published
-	if !ctrl.isAdmin(c) && berita.Status != models.StatusPublished {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden: Anda tidak memiliki akses ke berita ini"})
+	// Untuk public access, hanya tampilkan yang published
+	if berita.Status != models.StatusPublished {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Berita tidak ditemukan"})
 		return
 	}
 
