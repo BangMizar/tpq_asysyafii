@@ -1,5 +1,7 @@
-// pages/super-admin/PengumumanManagement.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import AuthDashboardLayout from '../../components/layout/AuthDashboardLayout';
+import { useAuth } from '../../context/AuthContext';
+import { Link, useNavigate } from 'react-router-dom';
 
 const PengumumanManagement = () => {
   const [pengumuman] = useState([
@@ -20,6 +22,7 @@ const PengumumanManagement = () => {
   ]);
 
   return (
+    <AuthDashboardLayout>
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Manajemen Pengumuman</h1>
@@ -68,6 +71,7 @@ const PengumumanManagement = () => {
         </div>
       </div>
     </div>
+    </AuthDashboardLayout>
   );
 };
 

@@ -75,16 +75,6 @@ func SetupRoutes(r *gin.Engine) {
 			admin.GET("/wali",controllers.GetWali)
 			admin.POST("/users", controllers.RegisterUser)
 
-			santriController := controllers.NewSantriController(config.DB)
-			admin.POST("/santri", santriController.CreateSantri)
-			admin.GET("/santri", santriController.GetAllSantri)
-			admin.GET("/santri/wali/:id_wali", santriController.GetSantriByWali)
-			admin.GET("/santri/search", santriController.SearchSantri) 
-			admin.GET("/santri/:id", santriController.GetSantriByID) 
-			admin.PUT("/santri/:id", santriController.UpdateSantri) 
-			admin.DELETE("/santri/:id", santriController.DeleteSantri) 
-			admin.PUT("/santri/:id/status", santriController.UpdateStatusSantri)
-
 			donasiController := controllers.NewDonasiController(config.GetDB())
 			admin.POST("/donasi", donasiController.CreateDonasi)
 			admin.GET("/donasi", donasiController.GetAllDonasi)
@@ -139,9 +129,18 @@ func SetupRoutes(r *gin.Engine) {
 		superAdmin := api.Group("/super-admin")
 		superAdmin.Use(middlewares.AuthMiddleware(), middlewares.SuperAdminMiddleware())
 		{
-			// Hanya route yang benar-benar khusus super-admin
 			superAdmin.DELETE("/users/:id", controllers.DeleteUser)
-			// Tambahkan route khusus super-admin lainnya di sini
+			superAdmin.PUT("/users/:id", controllers.UpdateUser)
+			
+			santriController := controllers.NewSantriController(config.DB)
+			superAdmin.POST("/santri", santriController.CreateSantri)
+			superAdmin.GET("/santri", santriController.GetAllSantri)
+			superAdmin.GET("/santri/wali/:id_wali", santriController.GetSantriByWali)
+			superAdmin.GET("/santri/search", santriController.SearchSantri) 
+			superAdmin.GET("/santri/:id", santriController.GetSantriByID) 
+			superAdmin.PUT("/santri/:id", santriController.UpdateSantri) 
+			superAdmin.DELETE("/santri/:id", santriController.DeleteSantri)
+			superAdmin.PUT("/santri/:id/status", santriController.UpdateStatusSantri)
 		}
 	}
 }
