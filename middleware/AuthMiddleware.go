@@ -68,3 +68,15 @@ func SuperAdminMiddleware() gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+func AdminOrSuperAdminMiddleware() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        role, exists := c.Get("role")
+        if !exists || (role != "admin" && role != "super_admin") {
+            c.JSON(http.StatusForbidden, gin.H{"error": "Hanya admin atau super admin yang bisa mengakses"})
+            c.Abort()
+            return
+        }
+        c.Next()
+    }
+}

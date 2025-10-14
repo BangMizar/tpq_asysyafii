@@ -23,7 +23,6 @@ func SetupRoutes(r *gin.Engine) {
 			protected.GET("/users", controllers.GetUsers)
 			protected.GET("/users/:id", controllers.GetUserByID)
 			protected.PUT("/users/:id", controllers.UpdateUser)
-			protected.DELETE("/users/:id", controllers.DeleteUser)
 
 			keluargaController := controllers.NewKeluargaController(config.DB)
 			protected.POST("/keluarga", keluargaController.CreateKeluarga)
@@ -68,8 +67,9 @@ func SetupRoutes(r *gin.Engine) {
 			protected.GET("/pemakaian/:id", pemakaianController.GetPemakaianByID)
 		}
 
+		// Group untuk admin DAN super-admin
 		admin := api.Group("/admin")
-		admin.Use(middlewares.AuthMiddleware(), middlewares.AdminMiddleware())
+		admin.Use(middlewares.AuthMiddleware(), middlewares.AdminOrSuperAdminMiddleware())
 		{
 			admin.GET("/users", controllers.GetUsers)
 			admin.GET("/wali",controllers.GetWali)
@@ -135,13 +135,13 @@ func SetupRoutes(r *gin.Engine) {
 			admin.GET("/pemakaian/:id", pemakaianController.GetPemakaianByID)
 		}
 
+		// Hanya untuk super-admin (opsional, jika ada route khusus super-admin)
 		superAdmin := api.Group("/super-admin")
 		superAdmin.Use(middlewares.AuthMiddleware(), middlewares.SuperAdminMiddleware())
 		{
-			// Routes khusus super admin
-			// superAdmin.POST("/admin", controllers.CreateAdmin)
-			// superAdmin.DELETE("/users/:id/hard", controllers.HardDeleteUser)
-			// Tambahan routes khusus super admin lainnya
+			// Hanya route yang benar-benar khusus super-admin
+			superAdmin.DELETE("/users/:id", controllers.DeleteUser)
+			// Tambahkan route khusus super-admin lainnya di sini
 		}
 	}
 }
