@@ -1,4 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import AuthDashboardLayout from '../../components/layout/AuthDashboardLayout';
+import { useAuth } from '../../context/AuthContext';
+import { Link, useNavigate } from 'react-router-dom';
 
 const SystemManagement = () => {
   const [activeTab, setActiveTab] = useState('logs');
@@ -136,6 +139,7 @@ const SystemManagement = () => {
   };
 
   return (
+    <AuthDashboardLayout>
     <div className="p-6">
       <h1 className="text-2xl font-bold text-gray-800 mb-6">System Management</h1>
       
@@ -165,6 +169,7 @@ const SystemManagement = () => {
         </div>
       </div>
     </div>
+    </AuthDashboardLayout>
   );
 };
 
