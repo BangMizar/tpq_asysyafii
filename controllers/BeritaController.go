@@ -23,25 +23,25 @@ func NewBeritaController(db *gorm.DB) *BeritaController {
 	return &BeritaController{db: db}
 }
 
-// Request structs
-type CreateBeritaRequest struct {
-	Judul           string                  `json:"judul" binding:"required"`
-	Konten          string                  `json:"konten" binding:"required"`
-	Kategori        models.KategoriBerita   `json:"kategori" binding:"required"`
-	Status          models.StatusBerita     `json:"status"`
-	GambarCover     *string                 `json:"gambar_cover,omitempty"`
-	TanggalPublikasi *time.Time             `json:"tanggal_publikasi,omitempty"`
-}
+// // CreateBeritaRequest struct untuk form-data
+// type CreateBeritaRequest struct {
+// 	Judul           string      `form:"judul"`
+// 	Konten          string      `form:"konten"`
+// 	Kategori        string      `form:"kategori"`  // Ubah dari models.KategoriBerita ke string
+// 	Status          string      `form:"status"`    // Ubah dari models.StatusBerita ke string
+// 	GambarCover     *string     `form:"gambar_cover,omitempty"`
+// 	TanggalPublikasi *time.Time `form:"tanggal_publikasi,omitempty"`
+// }
 
-type UpdateBeritaRequest struct {
-	Judul           string                  `json:"judul"`
-	Konten          string                  `json:"konten"`
-	Kategori        models.KategoriBerita   `json:"kategori"`
-	Status          models.StatusBerita     `json:"status"`
-	GambarCover     *string                 `json:"gambar_cover,omitempty"`
-	TanggalPublikasi *time.Time             `json:"tanggal_publikasi,omitempty"`
-}
-
+// // UpdateBeritaRequest struct untuk form-data
+// type UpdateBeritaRequest struct {
+// 	Judul           string      `form:"judul"`
+// 	Konten          string      `form:"konten"`
+// 	Kategori        string      `form:"kategori"`  // Ubah dari models.KategoriBerita ke string
+// 	Status          string      `form:"status"`    // Ubah dari models.StatusBerita ke string
+// 	GambarCover     *string     `form:"gambar_cover,omitempty"`
+// 	TanggalPublikasi *time.Time `form:"tanggal_publikasi,omitempty"`
+// }
 // Helper function untuk check role admin
 func (ctrl *BeritaController) isAdmin(c *gin.Context) bool {
 	userRole, exists := c.Get("role")
@@ -146,50 +146,75 @@ func (ctrl *BeritaController) CreateBerita(c *gin.Context) {
 		return
 	}
 
-	// Handle form data (karena ada file upload)
-	var req CreateBeritaRequest
-	if err := c.ShouldBind(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	// Manual parsing form data
+	judul := c.PostForm("judul")
+	konten := c.PostForm("konten")
+	kategori := c.PostForm("kategori")
+	status := c.PostForm("status")
+
+	// Validasi field required
+	if judul == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Judul harus diisi"})
+		return
+	}
+	if konten == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Konten harus diisi"})
+		return
+	}
+	if kategori == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Kategori harus diisi"})
 		return
 	}
 
 	// Upload gambar jika ada
 	var gambarCover *string
-	if c.GetHeader("Content-Type") == "multipart/form-data" {
-		filename, err := ctrl.uploadGambar(c)
-		if err != nil && err.Error() != "http: no such file" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		if filename != "" {
-			gambarCover = &filename
-		}
+	filename, err := ctrl.uploadGambar(c)
+	if err != nil && err.Error() != "http: no such file" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if filename != "" {
+		gambarCover = &filename
 	}
 
 	// Generate slug dari judul
-	slug := generateSlug(req.Judul)
+	slug := generateSlug(judul)
 
-	// Validasi kategori
-	if req.Kategori != models.KategoriUmum && req.Kategori != models.KategoriPengumuman && req.Kategori != models.KategoriAcara {
+	// Convert string ke custom type dan validasi kategori
+	var kategoriEnum models.KategoriBerita
+	switch kategori {
+	case "umum":
+		kategoriEnum = models.KategoriUmum
+	case "pengumuman":
+		kategoriEnum = models.KategoriPengumuman
+	case "acara":
+		kategoriEnum = models.KategoriAcara
+	default:
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Kategori tidak valid. Gunakan 'umum', 'pengumuman', atau 'acara'"})
 		return
 	}
 
-	// Validasi status
-	var status models.StatusBerita
-	if req.Status != "" {
-		status = req.Status
-		if status != models.StatusDraft && status != models.StatusPublished && status != models.StatusArsip {
+	// Convert string ke custom type dan validasi status
+	var statusEnum models.StatusBerita
+	if status != "" {
+		switch status {
+		case "draft":
+			statusEnum = models.StatusDraft
+		case "published":
+			statusEnum = models.StatusPublished
+		case "arsip":
+			statusEnum = models.StatusArsip
+		default:
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Status tidak valid. Gunakan 'draft', 'published', atau 'arsip'"})
 			return
 		}
 	} else {
-		status = models.StatusDraft // default
+		statusEnum = models.StatusDraft // default
 	}
 
-	// Set tanggal publikasi jika status published dan tidak diset manual
-	tanggalPublikasi := req.TanggalPublikasi
-	if status == models.StatusPublished && tanggalPublikasi == nil {
+	// Set tanggal publikasi jika status published
+	var tanggalPublikasi *time.Time
+	if statusEnum == models.StatusPublished {
 		now := time.Now()
 		tanggalPublikasi = &now
 	}
@@ -197,11 +222,11 @@ func (ctrl *BeritaController) CreateBerita(c *gin.Context) {
 	// Buat berita
 	berita := models.Berita{
 		IDBerita:        uuid.New().String(),
-		Judul:           req.Judul,
+		Judul:           judul,
 		Slug:            slug,
-		Konten:          req.Konten,
-		Kategori:        req.Kategori,
-		Status:          status,
+		Konten:          konten,
+		Kategori:        kategoriEnum,
+		Status:          statusEnum,
 		GambarCover:     gambarCover,
 		PenulisID:       adminID,
 		TanggalPublikasi: tanggalPublikasi,
@@ -226,74 +251,7 @@ func (ctrl *BeritaController) CreateBerita(c *gin.Context) {
 	})
 }
 
-// GetAllBerita mendapatkan semua berita dengan filter dan pagination
-func (ctrl *BeritaController) GetAllBerita(c *gin.Context) {
-	// Parse query parameters
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-	kategori := c.Query("kategori")
-	status := c.Query("status")
-	search := c.Query("search")
-
-	if page < 1 {
-		page = 1
-	}
-	if limit < 1 || limit > 100 {
-		limit = 10
-	}
-
-	var berita []models.Berita
-	var total int64
-
-	// Build query
-	query := ctrl.db.Preload("Penulis")
-
-	// Apply filters
-	if kategori != "" {
-		query = query.Where("kategori = ?", kategori)
-	}
-	if status != "" {
-		query = query.Where("status = ?", status)
-	}
-	if search != "" {
-		searchTerm := "%" + search + "%"
-		query = query.Where("judul LIKE ? OR konten LIKE ?", searchTerm, searchTerm)
-	}
-
-	// Untuk user non-admin, hanya tampilkan yang published
-	if !ctrl.isAdmin(c) {
-		query = query.Where("status = ?", models.StatusPublished)
-	}
-
-	// Hitung total records
-	if err := query.Model(&models.Berita{}).Count(&total).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung total data: " + err.Error()})
-		return
-	}
-
-	// Apply pagination
-	offset := (page - 1) * limit
-	err := query.Order("dibuat_pada DESC").
-		Offset(offset).
-		Limit(limit).
-		Find(&berita).Error
-
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data berita: " + err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"data": berita,
-		"meta": gin.H{
-			"page":      page,
-			"limit":     limit,
-			"total":     total,
-			"total_page": (int(total) + limit - 1) / limit,
-		},
-	})
-}
-
+// GetBeritaByID mendapatkan berita berdasarkan ID (public access)
 func (ctrl *BeritaController) GetBeritaByID(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
@@ -353,7 +311,7 @@ func (ctrl *BeritaController) GetBeritaBySlug(c *gin.Context) {
 	})
 }
 
-// UpdateBerita mengupdate berita (hanya admin)
+/// UpdateBerita mengupdate berita (hanya admin)
 func (ctrl *BeritaController) UpdateBerita(c *gin.Context) {
 	// Hanya admin yang bisa update
 	if !ctrl.isAdmin(c) {
@@ -379,64 +337,69 @@ func (ctrl *BeritaController) UpdateBerita(c *gin.Context) {
 		return
 	}
 
-	// Handle form data
-	var req UpdateBeritaRequest
-	if err := c.ShouldBind(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
+	// Manual parsing form data
+	judul := c.PostForm("judul")
+	konten := c.PostForm("konten")
+	kategori := c.PostForm("kategori")
+	status := c.PostForm("status")
 
 	// Upload gambar baru jika ada
 	var newGambarCover *string
 	oldGambarCover := existingBerita.GambarCover
 
-	if c.GetHeader("Content-Type") == "multipart/form-data" {
-		filename, err := ctrl.uploadGambar(c)
-		if err != nil && err.Error() != "http: no such file" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		if filename != "" {
-			newGambarCover = &filename
-		}
+	filename, err := ctrl.uploadGambar(c)
+	if err != nil && err.Error() != "http: no such file" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if filename != "" {
+		newGambarCover = &filename
 	}
 
 	// Update fields
-	if req.Judul != "" {
-		existingBerita.Judul = req.Judul
+	if judul != "" {
+		existingBerita.Judul = judul
 		// Generate slug baru jika judul berubah
-		existingBerita.Slug = generateSlug(req.Judul)
+		existingBerita.Slug = generateSlug(judul)
 	}
-	if req.Konten != "" {
-		existingBerita.Konten = req.Konten
+	if konten != "" {
+		existingBerita.Konten = konten
 	}
-	if req.Kategori != "" {
-		// Validasi kategori
-		if req.Kategori != models.KategoriUmum && req.Kategori != models.KategoriPengumuman && req.Kategori != models.KategoriAcara {
+	if kategori != "" {
+		// Convert dan validasi kategori
+		switch kategori {
+		case "umum":
+			existingBerita.Kategori = models.KategoriUmum
+		case "pengumuman":
+			existingBerita.Kategori = models.KategoriPengumuman
+		case "acara":
+			existingBerita.Kategori = models.KategoriAcara
+		default:
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Kategori tidak valid. Gunakan 'umum', 'pengumuman', atau 'acara'"})
 			return
 		}
-		existingBerita.Kategori = req.Kategori
 	}
-	if req.Status != "" {
-		// Validasi status
-		if req.Status != models.StatusDraft && req.Status != models.StatusPublished && req.Status != models.StatusArsip {
+	if status != "" {
+		// Convert dan validasi status
+		switch status {
+		case "draft":
+			existingBerita.Status = models.StatusDraft
+		case "published":
+			existingBerita.Status = models.StatusPublished
+			// Set tanggal publikasi jika status berubah menjadi published
+			if existingBerita.TanggalPublikasi == nil {
+				now := time.Now()
+				existingBerita.TanggalPublikasi = &now
+			}
+		case "arsip":
+			existingBerita.Status = models.StatusArsip
+		default:
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Status tidak valid. Gunakan 'draft', 'published', atau 'arsip'"})
 			return
-		}
-		existingBerita.Status = req.Status
-
-		// Set tanggal publikasi jika status berubah menjadi published
-		if req.Status == models.StatusPublished && existingBerita.TanggalPublikasi == nil {
-			now := time.Now()
-			existingBerita.TanggalPublikasi = &now
 		}
 	}
 	if newGambarCover != nil {
 		existingBerita.GambarCover = newGambarCover
-	}
-	if req.TanggalPublikasi != nil {
-		existingBerita.TanggalPublikasi = req.TanggalPublikasi
 	}
 
 	// Simpan perubahan
@@ -548,6 +511,75 @@ func (ctrl *BeritaController) PublishBerita(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Berita berhasil dipublish",
 		"data":    berita,
+	})
+}
+
+// GetAllBerita mendapatkan semua berita dengan filter (untuk super-admin)
+func (ctrl *BeritaController) GetAllBerita(c *gin.Context) {
+	// Hanya super-admin yang bisa akses
+	if !ctrl.isAdmin(c) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden: hanya admin yang dapat mengakses semua berita"})
+		return
+	}
+
+	// Parse query parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	kategori := c.Query("kategori")
+	status := c.Query("status")
+	search := c.Query("search")
+
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 10
+	}
+
+	var berita []models.Berita
+	var total int64
+
+	// Build query
+	query := ctrl.db.Preload("Penulis")
+
+	// Apply filters
+	if kategori != "" {
+		query = query.Where("kategori = ?", kategori)
+	}
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+	if search != "" {
+		searchTerm := "%" + search + "%"
+		query = query.Where("judul LIKE ? OR konten LIKE ?", searchTerm, searchTerm)
+	}
+
+	// Hitung total records
+	if err := query.Model(&models.Berita{}).Count(&total).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung total data: " + err.Error()})
+		return
+	}
+
+	// Apply pagination
+	offset := (page - 1) * limit
+	err := query.Order("dibuat_pada DESC").
+		Offset(offset).
+		Limit(limit).
+		Find(&berita).Error
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data berita: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": berita,
+		"meta": gin.H{
+			"page":      page,
+			"limit":     limit,
+			"total":     total,
+			"total_page": (int(total) + limit - 1) / limit,
+		},
 	})
 }
 

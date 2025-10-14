@@ -151,7 +151,7 @@ func SetupRoutes(r *gin.Engine) {
 
 			// Hanya super-admin yang bisa CRUD berita
 			superAdmin.POST("/berita", beritaController.CreateBerita)
-			superAdmin.GET("/berita/all", beritaController.GetAllBerita) // Get semua berita termasuk draft (hanya super-admin)
+			superAdmin.GET("/berita/all", beritaController.GetAllBerita)
 			superAdmin.PUT("/berita/:id", beritaController.UpdateBerita)
 			superAdmin.PUT("/berita/:id/publish", beritaController.PublishBerita)
 			superAdmin.DELETE("/berita/:id", beritaController.DeleteBerita)
