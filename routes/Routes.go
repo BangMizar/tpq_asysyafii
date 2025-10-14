@@ -35,6 +35,9 @@ func SetupRoutes(r *gin.Engine) {
 			protected.PUT("/keluarga/:id", keluargaController.UpdateKeluarga)
 			protected.DELETE("/keluarga/:id", keluargaController.DeleteKeluarga)
 
+			santriController := controllers.NewSantriController(config.DB)
+			protected.GET("/santri/my", santriController.GetMySantri) 
+
 			syahriahController := controllers.NewSyahriahController(config.DB)
 			protected.GET("/syahriah", syahriahController.GetAllSyahriah)
 			protected.GET("/syahriah/my", syahriahController.GetMySyahriah)	
@@ -71,6 +74,16 @@ func SetupRoutes(r *gin.Engine) {
 			admin.GET("/users", controllers.GetUsers)
 			admin.GET("/wali",controllers.GetWali)
 			admin.POST("/users", controllers.RegisterUser)
+
+			santriController := controllers.NewSantriController(config.DB)
+			admin.POST("/santri", santriController.CreateSantri)
+			admin.GET("/santri", santriController.GetAllSantri)
+			admin.GET("/santri/wali/:id_wali", santriController.GetSantriByWali)
+			admin.GET("/santri/search", santriController.SearchSantri) 
+			admin.GET("/santri/:id", santriController.GetSantriByID) 
+			admin.PUT("/santri/:id", santriController.UpdateSantri) 
+			admin.DELETE("/santri/:id", santriController.DeleteSantri) 
+			admin.PUT("/santri/:id/status", santriController.UpdateStatusSantri)
 
 			donasiController := controllers.NewDonasiController(config.GetDB())
 			admin.POST("/donasi", donasiController.CreateDonasi)

@@ -5,8 +5,11 @@ import { useAuth } from '../../context/AuthContext';
 const Keluarga = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [santriLoading, setSantriLoading] = useState(false);
   const [error, setError] = useState('');
+  const [santriError, setSantriError] = useState('');
   const [keluargaData, setKeluargaData] = useState(null);
+  const [santriData, setSantriData] = useState([]);
   const [showEditModal, setShowEditModal] = useState(false);
   const [formData, setFormData] = useState({});
   const [actionLoading, setActionLoading] = useState(false);
@@ -78,8 +81,47 @@ const Keluarga = () => {
     }
   };
 
+  // Fetch data santri
+  const fetchSantriData = async () => {
+    try {
+      setSantriLoading(true);
+      setSantriError('');
+
+      const response = await fetch(`${API_URL}/api/santri/my`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          setSantriData([]);
+          return;
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error('Server returned non-JSON response');
+      }
+
+      const data = await response.json();
+      setSantriData(data.data || []);
+
+    } catch (err) {
+      console.error('Error fetching santri data:', err);
+      setSantriError(err.message);
+      setSantriData([]);
+    } finally {
+      setSantriLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchKeluargaData();
+    fetchSantriData();
   }, [API_URL]);
 
   // Handle Edit Keluarga
@@ -128,6 +170,44 @@ const Keluarga = () => {
     }
   };
 
+  // Format tanggal
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('id-ID', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  // Format jenis kelamin
+  const formatJenisKelamin = (jk) => {
+    return jk === 'L' ? 'Laki-laki' : 'Perempuan';
+  };
+
+  // Format status santri
+  const formatStatusSantri = (status) => {
+    const statusMap = {
+      'aktif': 'Aktif',
+      'lulus': 'Lulus',
+      'pindah': 'Pindah',
+      'berhenti': 'Berhenti'
+    };
+    return statusMap[status] || status;
+  };
+
+  // Get status color
+  const getStatusColor = (status) => {
+    const colorMap = {
+      'aktif': 'bg-green-100 text-green-800',
+      'lulus': 'bg-blue-100 text-blue-800',
+      'pindah': 'bg-yellow-100 text-yellow-800',
+      'berhenti': 'bg-red-100 text-red-800'
+    };
+    return colorMap[status] || 'bg-gray-100 text-gray-800';
+  };
+
   // Skeleton Loader
   const SkeletonLoader = () => (
     <div className="animate-pulse space-y-6">
@@ -140,6 +220,24 @@ const Keluarga = () => {
       <div className="bg-white rounded-xl p-6 shadow-sm border border-green-200">
         <div className="h-64 bg-green-200 rounded"></div>
       </div>
+    </div>
+  );
+
+  // Skeleton Loader untuk Santri
+  const SantriSkeletonLoader = () => (
+    <div className="animate-pulse space-y-4">
+      {[1, 2, 3].map((item) => (
+        <div key={item} className="bg-white rounded-xl p-6 shadow-sm border border-green-200">
+          <div className="flex items-center space-x-4">
+            <div className="w-16 h-16 bg-green-200 rounded-full"></div>
+            <div className="flex-1 space-y-2">
+              <div className="h-4 bg-green-200 rounded w-48"></div>
+              <div className="h-3 bg-green-200 rounded w-32"></div>
+              <div className="h-3 bg-green-200 rounded w-24"></div>
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 
@@ -260,6 +358,95 @@ const Keluarga = () => {
         </div>
       )}
 
+      {/* Data Santri */}
+      <div className="bg-white rounded-xl p-6 shadow-sm border border-green-200">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h3 className="text-lg font-semibold text-green-900">Data Santri</h3>
+            <p className="text-green-600 text-sm">Daftar santri dalam keluarga</p>
+          </div>
+          <div className="text-sm text-green-700">
+            Total: {santriData.length} santri
+          </div>
+        </div>
+
+        {santriLoading ? (
+          <SantriSkeletonLoader />
+        ) : santriError ? (
+          <div className="text-center py-8">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+            <p className="text-red-600 mb-4">{santriError}</p>
+            <button 
+              onClick={fetchSantriData}
+              className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200"
+            >
+              Coba Lagi
+            </button>
+          </div>
+        ) : santriData.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+              </svg>
+            </div>
+            <h4 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Data Santri</h4>
+            <p className="text-green-600 mb-4">Data santri akan ditampilkan di sini setelah didaftarkan oleh admin.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {santriData.map((santri) => (
+              <div key={santri.id_santri} className="bg-green-50 rounded-lg p-4 border border-green-200 hover:shadow-md transition-shadow duration-200">
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0">
+                    <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center text-white font-semibold text-lg">
+                      {santri.nama_lengkap?.charAt(0) || 'S'}
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-semibold text-green-900 truncate">{santri.nama_lengkap}</h4>
+                    <div className="flex items-center space-x-2 mt-1">
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(santri.status)}`}>
+                        {formatStatusSantri(santri.status)}
+                      </span>
+                      <span className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded">
+                        {formatJenisKelamin(santri.jenis_kelamin)}
+                      </span>
+                    </div>
+                    <div className="mt-2 space-y-1 text-xs text-green-700">
+                      <div className="flex items-center space-x-1">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span>Lahir: {formatDate(santri.tanggal_lahir)}</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span>Masuk: {formatDate(santri.tanggal_masuk)}</span>
+                      </div>
+                      {santri.tanggal_keluar && (
+                        <div className="flex items-center space-x-1">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <span>Keluar: {formatDate(santri.tanggal_keluar)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Modal Edit Keluarga */}
       {showEditModal && (
         <div className="fixed inset-0 backdrop-blur drop-shadow-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -355,7 +542,44 @@ const Keluarga = () => {
         </div>
       )}
 
-      
+      {/* Modal Notifikasi */}
+      {showNotificationModal && (
+        <div className="fixed inset-0 backdrop-blur bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl max-w-sm w-full">
+            <div className="p-6 text-center">
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
+                notificationData.type === 'success' ? 'bg-green-100' : 'bg-red-100'
+              }`}>
+                {notificationData.type === 'success' ? (
+                  <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                )}
+              </div>
+              <h3 className={`text-lg font-semibold mb-2 ${
+                notificationData.type === 'success' ? 'text-green-800' : 'text-red-800'
+              }`}>
+                {notificationData.title}
+              </h3>
+              <p className="text-gray-600 mb-4">{notificationData.message}</p>
+              <button
+                onClick={closeNotification}
+                className={`w-full py-2 rounded-lg font-medium ${
+                  notificationData.type === 'success' 
+                    ? 'bg-green-600 text-white hover:bg-green-700' 
+                    : 'bg-red-600 text-white hover:bg-red-700'
+                } transition-colors duration-200`}
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
