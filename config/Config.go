@@ -40,6 +40,7 @@ func InitDB() {
 		&models.PemakaianSaldo{},
 		&models.RekapSaldo{},
 		&models.Pengumuman{},
+		&models.Berita{},
 		&models.LogAktivitas{},
 	)
 	if err != nil {
