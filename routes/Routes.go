@@ -136,6 +136,9 @@ func SetupRoutes(r *gin.Engine) {
 		superAdmin := api.Group("/super-admin")
 		superAdmin.Use(middlewares.AuthMiddleware(), middlewares.SuperAdminMiddleware())
 		{
+			superAdmin.GET("/users", controllers.GetUsers)
+			superAdmin.GET("/wali",controllers.GetWali)
+			superAdmin.POST("/users", controllers.RegisterUser)
 			superAdmin.DELETE("/users/:id", controllers.DeleteUser)
 			superAdmin.PUT("/users/:id", controllers.UpdateUser)
 			

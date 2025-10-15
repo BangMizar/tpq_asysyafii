@@ -335,6 +335,59 @@ const UserManagement = () => {
     }
   };
 
+  const handleToggleStatus = async () => {
+    if (!selectedUser) return;
+
+    try {
+      setActionLoading(true);
+      
+      const newStatus = !selectedUser.statusAktif;
+      
+      // Gunakan endpoint yang sesuai berdasarkan role current user
+      let endpoint;
+      if (currentUser?.role === 'super_admin') {
+        endpoint = `/api/super-admin/users/${selectedUser.id}`;
+      } else {
+        endpoint = `/api/admin/users/${selectedUser.id}`;
+      }
+
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          status_aktif: newStatus
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || `HTTP error! status: ${response.status}`);
+      }
+
+      setUsers(users.map(user => 
+        user.id === selectedUser.id 
+          ? { 
+              ...user, 
+              status: newStatus ? 'Aktif' : 'Nonaktif',
+              statusAktif: newStatus
+            }
+          : user
+      ));
+      
+      closeModals();
+      showAlert('Berhasil', `Status user ${selectedUser.nama} berhasil diubah`, 'success');
+      
+    } catch (error) {
+      console.error('Error updating user status:', error);
+      showAlert('Gagal', `Gagal mengubah status user: ${error.message}`, 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // Handler untuk edit user
   const handleEditUser = async (e) => {
     e.preventDefault();
