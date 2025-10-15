@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import AuthDashboardLayout from '../../components/layout/AuthDashboardLayout';
 import { useAuth } from '../../context/AuthContext';
 import { Link } from 'react-router-dom';
@@ -12,14 +12,22 @@ const UserManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
-  // State untuk modal
+  // State untuk modal - SEDERHANAKAN seperti di DataDonasi
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [showAlertModal, setShowAlertModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
+
+  // State untuk alert
+  const [alertMessage, setAlertMessage] = useState({
+    title: '',
+    message: '',
+    type: 'success'
+  });
 
   // State untuk form
   const [formData, setFormData] = useState({
@@ -34,8 +42,8 @@ const UserManagement = () => {
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
-  // Function hasPermission lokal
-  const hasPermission = useCallback((permission) => {
+  // Function hasPermission - BUAT SIMPLE
+  const hasPermission = (permission) => {
     if (!currentUser) return false;
     
     if (currentUser.role === 'super_admin' || currentUser.role === 'admin') {
@@ -48,10 +56,16 @@ const UserManagement = () => {
     };
 
     return permissions[currentUser.role]?.includes(permission) || false;
-  }, [currentUser]);
+  };
+
+  // Show alert modal - SIMPLE
+  const showAlert = (title, message, type = 'success') => {
+    setAlertMessage({ title, message, type });
+    setShowAlertModal(true);
+  };
 
   // Fetch users dari API
-  const fetchUsers = useCallback(async () => {
+  const fetchUsers = async () => {
     try {
       setLoading(true);
       setError('');
@@ -99,7 +113,7 @@ const UserManagement = () => {
     } finally {
       setLoading(false);
     }
-  }, [API_URL, currentUser]);
+  };
 
   // Check if current user has permission to access this page
   useEffect(() => {
@@ -111,20 +125,20 @@ const UserManagement = () => {
     }
 
     fetchUsers();
-  }, [currentUser, hasPermission, fetchUsers]);
+  }, [currentUser]); // HAPUS dependency yang tidak perlu
 
-  // Modal handlers
-  const openDeleteModal = useCallback((user) => {
+  // Modal handlers - BUAT SIMPLE seperti di DataDonasi
+  const openDeleteModal = (user) => {
     setSelectedUser(user);
     setShowDeleteModal(true);
-  }, []);
+  };
 
-  const openStatusModal = useCallback((user) => {
+  const openStatusModal = (user) => {
     setSelectedUser(user);
     setShowStatusModal(true);
-  }, []);
+  };
 
-  const openCreateModal = useCallback(() => {
+  const openCreateModal = () => {
     setFormData({
       nama_lengkap: '',
       email: '',
@@ -135,9 +149,9 @@ const UserManagement = () => {
     });
     setFormErrors({});
     setShowCreateModal(true);
-  }, []);
+  };
 
-  const openEditModal = useCallback((user) => {
+  const openEditModal = (user) => {
     setSelectedUser(user);
     setFormData({
       nama_lengkap: user.nama,
@@ -149,25 +163,45 @@ const UserManagement = () => {
     });
     setFormErrors({});
     setShowEditModal(true);
-  }, []);
+  };
 
-  const openViewModal = useCallback((user) => {
+  const openViewModal = (user) => {
     setSelectedUser(user);
     setShowViewModal(true);
-  }, []);
+  };
 
-  const closeModals = useCallback(() => {
+  const closeModals = () => {
     setShowDeleteModal(false);
     setShowStatusModal(false);
     setShowCreateModal(false);
     setShowEditModal(false);
     setShowViewModal(false);
+    setShowAlertModal(false);
     setSelectedUser(null);
     setFormErrors({});
     setActionLoading(false);
-  }, []);
+  };
 
-  // Handler untuk menghapus user dengan modal
+  // Handler untuk form input changes - INI YANG PERLU DIPERBAIKI
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    
+    // GUNAKAN FUNCTION UPDATE untuk menghindari stale state
+    setFormData(prevFormData => ({
+      ...prevFormData,
+      [name]: value
+    }));
+    
+    // Clear error when user starts typing
+    if (formErrors[name]) {
+      setFormErrors(prevErrors => ({
+        ...prevErrors,
+        [name]: ''
+      }));
+    }
+  };
+
+  // Handler untuk menghapus user
   const handleDeleteUser = async () => {
     if (!selectedUser) return;
 
@@ -193,87 +227,19 @@ const UserManagement = () => {
 
       setUsers(users.filter(user => user.id !== selectedUser.id));
       closeModals();
+      showAlert('Berhasil', `User ${selectedUser.nama} berhasil dihapus`, 'success');
       
     } catch (error) {
       console.error('Error deleting user:', error);
-      alert(`Gagal menghapus user: ${error.message}`);
+      showAlert('Gagal', `Gagal menghapus user: ${error.message}`, 'error');
     } finally {
       setActionLoading(false);
     }
   };
-
-  // Handler untuk mengubah status user dengan modal
-  const handleToggleStatus = async () => {
-    if (!selectedUser) return;
-
-    try {
-      setActionLoading(true);
-      
-      const newStatus = !selectedUser.statusAktif;
-      
-      // Gunakan endpoint yang sesuai berdasarkan role current user
-      let endpoint;
-      if (currentUser?.role === 'super_admin') {
-        endpoint = `/api/super-admin/users/${selectedUser.id}`;
-      } else {
-        endpoint = `/api/admin/users/${selectedUser.id}`;
-      }
-
-      const response = await fetch(`${API_URL}${endpoint}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          status_aktif: newStatus
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.error || `HTTP error! status: ${response.status}`);
-      }
-
-      setUsers(users.map(user => 
-        user.id === selectedUser.id 
-          ? { 
-              ...user, 
-              status: newStatus ? 'Aktif' : 'Nonaktif',
-              statusAktif: newStatus
-            }
-          : user
-      ));
-      
-      closeModals();
-      
-    } catch (error) {
-      console.error('Error updating user status:', error);
-      alert(`Gagal mengubah status user: ${error.message}`);
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Handler untuk form input changes - FIXED: menggunakan useCallback
-  const handleInputChange = useCallback((e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    
-    // Clear error when user starts typing
-    if (formErrors[name]) {
-      setFormErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
-    }
-  }, [formErrors]);
 
   // Validasi form
-  const validateForm = useCallback((isEdit = false) => {
+
+  const validateForm = (isEdit = false) => {
     const errors = {};
 
     if (!formData.nama_lengkap.trim()) {
@@ -303,10 +269,11 @@ const UserManagement = () => {
     }
 
     return errors;
-  }, [formData]);
+  };
 
   // Handler untuk create user
-  const handleCreateUser = async () => {
+  const handleCreateUser = async (e) => {
+    e.preventDefault();
     const errors = validateForm(false);
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
@@ -358,17 +325,19 @@ const UserManagement = () => {
 
       setUsers(prev => [transformedUser, ...prev]);
       closeModals();
+      showAlert('Berhasil', `User ${formData.nama_lengkap} berhasil dibuat`, 'success');
       
     } catch (error) {
       console.error('Error creating user:', error);
-      alert(`Gagal membuat user: ${error.message}`);
+      showAlert('Gagal', `Gagal membuat user: ${error.message}`, 'error');
     } finally {
       setActionLoading(false);
     }
   };
 
   // Handler untuk edit user
-  const handleEditUser = async () => {
+  const handleEditUser = async (e) => {
+    e.preventDefault();
     const errors = validateForm(true);
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
@@ -436,19 +405,20 @@ const UserManagement = () => {
       ));
       
       closeModals();
+      showAlert('Berhasil', `User ${formData.nama_lengkap} berhasil diupdate`, 'success');
       
     } catch (error) {
       console.error('Error updating user:', error);
-      alert(`Gagal mengupdate user: ${error.message}`);
+      showAlert('Gagal', `Gagal mengupdate user: ${error.message}`, 'error');
     } finally {
       setActionLoading(false);
     }
   };
 
   // Cek jika user saat ini
-  const isCurrentUser = useCallback((userId) => {
+  const isCurrentUser = (userId) => {
     return currentUser && currentUser.id_user === userId;
-  }, [currentUser]);
+  };
 
   // Filter users
   const filteredUsers = users.filter(user => {
@@ -468,7 +438,7 @@ const UserManagement = () => {
   };
 
   // Format tanggal
-  const formatDate = useCallback((dateString) => {
+  const formatDate = (dateString) => {
     if (!dateString || dateString === '-') return '-';
     
     try {
@@ -481,10 +451,10 @@ const UserManagement = () => {
     } catch (error) {
       return dateString;
     }
-  }, []);
+  };
 
-  // Modal Components - FIXED: menggunakan React.memo
-  const DeleteModal = React.memo(() => (
+  // Modal Components
+  const DeleteModal = () => (
     <div className="fixed inset-0 backdrop-blur drop-shadow-2xl bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
         <div className="flex items-center mb-4">
@@ -538,9 +508,9 @@ const UserManagement = () => {
         </div>
       </div>
     </div>
-  ));
+  );
 
-  const StatusModal = React.memo(() => (
+  const StatusModal = () => (
     <div className="fixed inset-0 backdrop-blur drop-shadow-2xl bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
         <div className="flex items-center mb-4">
@@ -612,9 +582,9 @@ const UserManagement = () => {
         </div>
       </div>
     </div>
-  ));
+  );
 
-  const CreateModal = React.memo(() => (
+  const CreateModal = () => (
     <div className="fixed inset-0 backdrop-blur drop-shadow-2xl bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
@@ -639,142 +609,145 @@ const UserManagement = () => {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Nama Lengkap *</label>
-            <input
-              type="text"
-              name="nama_lengkap"
-              value={formData.nama_lengkap}
-              onChange={handleInputChange}
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                formErrors.nama_lengkap ? 'border-red-500' : 'border-gray-300'
-              }`}
-              placeholder="Masukkan nama lengkap"
-            />
-            {formErrors.nama_lengkap && (
-              <p className="text-red-500 text-xs mt-1">{formErrors.nama_lengkap}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                formErrors.email ? 'border-red-500' : 'border-gray-300'
-              }`}
-              placeholder="Masukkan email"
-            />
-            {formErrors.email && (
-              <p className="text-red-500 text-xs mt-1">{formErrors.email}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Nomor Telepon *</label>
-            <input
-              type="tel"
-              name="no_telp"
-              value={formData.no_telp}
-              onChange={handleInputChange}
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                formErrors.no_telp ? 'border-red-500' : 'border-gray-300'
-              }`}
-              placeholder="Masukkan nomor telepon"
-            />
-            {formErrors.no_telp && (
-              <p className="text-red-500 text-xs mt-1">{formErrors.no_telp}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Role *</label>
-            <select
-              name="role"
-              value={formData.role}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="wali">Wali Santri</option>
-              <option value="admin">Admin</option>
-              {currentUser?.role === 'super_admin' && (
-                <option value="super_admin">Super Admin</option>
+        <form onSubmit={handleCreateUser}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Nama Lengkap *</label>
+              <input
+                type="text"
+                name="nama_lengkap"
+                value={formData.nama_lengkap}
+                onChange={handleInputChange}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  formErrors.nama_lengkap ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="Masukkan nama lengkap"
+              />
+              {formErrors.nama_lengkap && (
+                <p className="text-red-500 text-xs mt-1">{formErrors.nama_lengkap}</p>
               )}
-            </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  formErrors.email ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="Masukkan email"
+              />
+              {formErrors.email && (
+                <p className="text-red-500 text-xs mt-1">{formErrors.email}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Nomor Telepon *</label>
+              <input
+                type="tel"
+                name="no_telp"
+                value={formData.no_telp}
+                onChange={handleInputChange}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  formErrors.no_telp ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="Masukkan nomor telepon"
+              />
+              {formErrors.no_telp && (
+                <p className="text-red-500 text-xs mt-1">{formErrors.no_telp}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Role *</label>
+              <select
+                name="role"
+                value={formData.role}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="wali">Wali Santri</option>
+                <option value="admin">Admin</option>
+                {currentUser?.role === 'super_admin' && (
+                  <option value="super_admin">Super Admin</option>
+                )}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Password *</label>
+              <input
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleInputChange}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  formErrors.password ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="Masukkan password"
+              />
+              {formErrors.password && (
+                <p className="text-red-500 text-xs mt-1">{formErrors.password}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Konfirmasi Password *</label>
+              <input
+                type="password"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleInputChange}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  formErrors.confirmPassword ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="Konfirmasi password"
+              />
+              {formErrors.confirmPassword && (
+                <p className="text-red-500 text-xs mt-1">{formErrors.confirmPassword}</p>
+              )}
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Password *</label>
-            <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleInputChange}
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                formErrors.password ? 'border-red-500' : 'border-gray-300'
-              }`}
-              placeholder="Masukkan password"
-            />
-            {formErrors.password && (
-              <p className="text-red-500 text-xs mt-1">{formErrors.password}</p>
-            )}
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={closeModals}
+              disabled={actionLoading}
+              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              disabled={actionLoading}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+            >
+              {actionLoading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  Membuat...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Buat User
+                </>
+              )}
+            </button>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Konfirmasi Password *</label>
-            <input
-              type="password"
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleInputChange}
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                formErrors.confirmPassword ? 'border-red-500' : 'border-gray-300'
-              }`}
-              placeholder="Konfirmasi password"
-            />
-            {formErrors.confirmPassword && (
-              <p className="text-red-500 text-xs mt-1">{formErrors.confirmPassword}</p>
-            )}
-          </div>
-        </div>
-
-        <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-          <button
-            onClick={closeModals}
-            disabled={actionLoading}
-            className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-          >
-            Batal
-          </button>
-          <button
-            onClick={handleCreateUser}
-            disabled={actionLoading}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
-          >
-            {actionLoading ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                Membuat...
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                Buat User
-              </>
-            )}
-          </button>
-        </div>
+        </form>
       </div>
     </div>
-  ));
+  );
 
-  const EditModal = React.memo(() => (
+  const EditModal = () => (
     <div className="fixed inset-0 backdrop-blur drop-shadow-2xl bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
@@ -799,142 +772,145 @@ const UserManagement = () => {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Nama Lengkap *</label>
-            <input
-              type="text"
-              name="nama_lengkap"
-              value={formData.nama_lengkap}
-              onChange={handleInputChange}
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                formErrors.nama_lengkap ? 'border-red-500' : 'border-gray-300'
-              }`}
-              placeholder="Masukkan nama lengkap"
-            />
-            {formErrors.nama_lengkap && (
-              <p className="text-red-500 text-xs mt-1">{formErrors.nama_lengkap}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                formErrors.email ? 'border-red-500' : 'border-gray-300'
-              }`}
-              placeholder="Masukkan email"
-            />
-            {formErrors.email && (
-              <p className="text-red-500 text-xs mt-1">{formErrors.email}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Nomor Telepon *</label>
-            <input
-              type="tel"
-              name="no_telp"
-              value={formData.no_telp}
-              onChange={handleInputChange}
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                formErrors.no_telp ? 'border-red-500' : 'border-gray-300'
-              }`}
-              placeholder="Masukkan nomor telepon"
-            />
-            {formErrors.no_telp && (
-              <p className="text-red-500 text-xs mt-1">{formErrors.no_telp}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Role *</label>
-            <select
-              name="role"
-              value={formData.role}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="wali">Wali Santri</option>
-              <option value="admin">Admin</option>
-              {currentUser?.role === 'super_admin' && (
-                <option value="super_admin">Super Admin</option>
+        <form onSubmit={handleEditUser}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Nama Lengkap *</label>
+              <input
+                type="text"
+                name="nama_lengkap"
+                value={formData.nama_lengkap}
+                onChange={handleInputChange}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  formErrors.nama_lengkap ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="Masukkan nama lengkap"
+              />
+              {formErrors.nama_lengkap && (
+                <p className="text-red-500 text-xs mt-1">{formErrors.nama_lengkap}</p>
               )}
-            </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  formErrors.email ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="Masukkan email"
+              />
+              {formErrors.email && (
+                <p className="text-red-500 text-xs mt-1">{formErrors.email}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Nomor Telepon *</label>
+              <input
+                type="tel"
+                name="no_telp"
+                value={formData.no_telp}
+                onChange={handleInputChange}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  formErrors.no_telp ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="Masukkan nomor telepon"
+              />
+              {formErrors.no_telp && (
+                <p className="text-red-500 text-xs mt-1">{formErrors.no_telp}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Role *</label>
+              <select
+                name="role"
+                value={formData.role}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="wali">Wali Santri</option>
+                <option value="admin">Admin</option>
+                {currentUser?.role === 'super_admin' && (
+                  <option value="super_admin">Super Admin</option>
+                )}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Password Baru (Opsional)</label>
+              <input
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleInputChange}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  formErrors.password ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="Kosongkan jika tidak ingin mengubah"
+              />
+              {formErrors.password && (
+                <p className="text-red-500 text-xs mt-1">{formErrors.password}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Konfirmasi Password Baru</label>
+              <input
+                type="password"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleInputChange}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  formErrors.confirmPassword ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="Konfirmasi password baru"
+              />
+              {formErrors.confirmPassword && (
+                <p className="text-red-500 text-xs mt-1">{formErrors.confirmPassword}</p>
+              )}
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Password Baru (Opsional)</label>
-            <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleInputChange}
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                formErrors.password ? 'border-red-500' : 'border-gray-300'
-              }`}
-              placeholder="Kosongkan jika tidak ingin mengubah"
-            />
-            {formErrors.password && (
-              <p className="text-red-500 text-xs mt-1">{formErrors.password}</p>
-            )}
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={closeModals}
+              disabled={actionLoading}
+              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              disabled={actionLoading}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+            >
+              {actionLoading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  Menyimpan...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Simpan Perubahan
+                </>
+              )}
+            </button>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Konfirmasi Password Baru</label>
-            <input
-              type="password"
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleInputChange}
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                formErrors.confirmPassword ? 'border-red-500' : 'border-gray-300'
-              }`}
-              placeholder="Konfirmasi password baru"
-            />
-            {formErrors.confirmPassword && (
-              <p className="text-red-500 text-xs mt-1">{formErrors.confirmPassword}</p>
-            )}
-          </div>
-        </div>
-
-        <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-          <button
-            onClick={closeModals}
-            disabled={actionLoading}
-            className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-          >
-            Batal
-          </button>
-          <button
-            onClick={handleEditUser}
-            disabled={actionLoading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
-          >
-            {actionLoading ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                Menyimpan...
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                Simpan Perubahan
-              </>
-            )}
-          </button>
-        </div>
+        </form>
       </div>
     </div>
-  ));
+  );
 
-  const ViewModal = React.memo(() => (
+  const ViewModal = () => (
     <div className="fixed inset-0 backdrop-blur drop-shadow-2xl bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
         <div className="flex items-center justify-between mb-6">
@@ -1006,7 +982,58 @@ const UserManagement = () => {
         </div>
       </div>
     </div>
-  ));
+  );
+
+  const AlertModal = () => (
+    <div className="fixed inset-0 backdrop-blur drop-shadow-2xl bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-xl p-6 w-full max-w-md">
+        <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
+          alertMessage.type === 'success' ? 'bg-green-100' : 
+          alertMessage.type === 'error' ? 'bg-red-100' : 'bg-blue-100'
+        }`}>
+          {alertMessage.type === 'success' ? (
+            <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          ) : alertMessage.type === 'error' ? (
+            <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          ) : (
+            <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )}
+        </div>
+        <h3 className={`text-xl font-bold text-center mb-2 ${
+          alertMessage.type === 'success' ? 'text-green-800' : 
+          alertMessage.type === 'error' ? 'text-red-800' : 'text-blue-800'
+        }`}>
+          {alertMessage.title}
+        </h3>
+        <p className={`text-center mb-6 ${
+          alertMessage.type === 'success' ? 'text-green-600' : 
+          alertMessage.type === 'error' ? 'text-red-600' : 'text-blue-600'
+        }`}>
+          {alertMessage.message}
+        </p>
+        <div className="flex justify-center">
+          <button
+            onClick={() => setShowAlertModal(false)}
+            className={`px-6 py-2 rounded-lg text-white ${
+              alertMessage.type === 'success' 
+                ? 'bg-green-600 hover:bg-green-700' 
+                : alertMessage.type === 'error'
+                ? 'bg-red-600 hover:bg-red-700'
+                : 'bg-blue-600 hover:bg-blue-700'
+            } transition-colors`}
+          >
+            Tutup
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   if (loading) {
     return (
@@ -1341,6 +1368,7 @@ const UserManagement = () => {
         {showCreateModal && <CreateModal />}
         {showEditModal && <EditModal />}
         {showViewModal && <ViewModal />}
+        {showAlertModal && <AlertModal />}
       </div>
     </AuthDashboardLayout>
   );
