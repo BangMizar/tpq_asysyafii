@@ -10,6 +10,7 @@ import SuperAdminDashboard from './pages/super-admin/SuperAdminDashboard';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import WaliDashboard from './pages/wali/WaliDashboard';
 import DonasiPage from './pages/Donasi';
+import BeritaDetail from './components/BeritaDetail';
 
 import WaliLayout from './components/layout/WaliLayout';
 import KeuanganTPQ from './pages/wali/KeuanganTPQ';
@@ -52,6 +53,7 @@ const AppContent = () => {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/donasi" element={<DonasiPage />} />
+      <Route path="/berita/:slug" element={<BeritaDetail />} />
       
       {/* Super Admin Routes */}
       <Route 

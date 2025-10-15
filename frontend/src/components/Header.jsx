@@ -74,6 +74,11 @@ const Header = () => {
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
       </svg>
     ),
+    news: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9m0 0v3m0-3a2 2 0 012-2h2a2 2 0 012 2m-6 5v6m4-3H9" />
+      </svg>
+    ),
     user: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -166,6 +171,7 @@ const Header = () => {
           }`}>
             {[
               { name: 'Beranda', href: '#beranda' },
+              { name: 'Berita', href: '#berita' },
               { name: 'Program', href: '#program' },
               { name: 'Fasilitas', href: '#fasilitas' },
               { name: 'Testimoni', href: '#testimoni' },
@@ -279,6 +285,7 @@ const Header = () => {
             <div className="flex flex-col p-6 space-y-2">
               {[
                 { name: 'Beranda', href: '#beranda', icon: icons.home },
+                { name: 'Berita', href: '#berita', icon: icons.news },
                 { name: 'Program', href: '#program', icon: icons.book },
                 { name: 'Fasilitas', href: '#fasilitas', icon: icons.star },
                 { name: 'Testimoni', href: '#testimoni', icon: icons.chat },
