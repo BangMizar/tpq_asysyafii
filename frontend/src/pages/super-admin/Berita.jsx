@@ -14,23 +14,24 @@ const BeritaManagement = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [kategoriFilter, setKategoriFilter] = useState('all');
 
-  // State untuk modal
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showPublishModal, setShowPublishModal] = useState(false);
+  // State untuk modal - SEPERTI DI DATADONASI
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showPublishModal, setShowPublishModal] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
+  const [showAlertModal, setShowAlertModal] = useState(false);
+  const [alertMessage, setAlertMessage] = useState({ title: '', message: '', type: '' });
   const [selectedBerita, setSelectedBerita] = useState(null);
-  const [actionLoading, setActionLoading] = useState(false);
-
-  // State untuk form
+  
+  // State untuk form - SEPERTI DI DATADONASI (sederhana, tidak pakai object kompleks)
   const [formData, setFormData] = useState({
     judul: '',
     kategori: 'umum',
     konten: '',
-    gambar_cover: null,
     status: 'draft'
   });
+  const [gambarCover, setGambarCover] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
@@ -80,7 +81,7 @@ const BeritaManagement = () => {
         gambar_cover: item.gambar_cover,
         dibuat_pada: item.dibuat_pada,
         diperbarui_pada: item.diperbarui_pada,
-        views: 0 // Tambahkan jika ada field views di API
+        views: 0
       }));
       
       setBerita(transformedBerita);
@@ -109,7 +110,43 @@ const BeritaManagement = () => {
     fetchBerita();
   }, [currentUser, navigate]);
 
-  // Modal handlers
+  // Show alert modal - SEPERTI DI DATADONASI
+  const showAlert = (title, message, type = 'success') => {
+    setAlertMessage({ title, message, type });
+    setShowAlertModal(true);
+  };
+
+  // Reset form - SEPERTI DI DATADONASI
+  const resetForm = () => {
+    setFormData({
+      judul: '',
+      kategori: 'umum',
+      konten: '',
+      status: 'draft'
+    });
+    setGambarCover(null);
+    setImagePreview(null);
+  };
+
+  // Modal handlers - SEPERTI DI DATADONASI
+  const openCreateModal = () => {
+    resetForm();
+    setShowCreateModal(true);
+  };
+
+  const openEditModal = (berita) => {
+    setSelectedBerita(berita);
+    setFormData({
+      judul: berita.judul,
+      kategori: berita.kategori,
+      konten: berita.konten,
+      status: berita.status
+    });
+    setGambarCover(null);
+    setImagePreview(berita.gambar_cover ? `${API_URL}${berita.gambar_cover}` : null);
+    setShowEditModal(true);
+  };
+
   const openDeleteModal = (berita) => {
     setSelectedBerita(berita);
     setShowDeleteModal(true);
@@ -120,85 +157,24 @@ const BeritaManagement = () => {
     setShowPublishModal(true);
   };
 
-  const openCreateModal = () => {
-    setFormData({
-      judul: '',
-      kategori: 'umum',
-      konten: '',
-      gambar_cover: null,
-      status: 'draft'
-    });
-    setImagePreview(null);
-    setShowCreateModal(true);
-  };
-
-  const openEditModal = (berita) => {
-    setSelectedBerita(berita);
-    setFormData({
-      judul: berita.judul,
-      kategori: berita.kategori,
-      konten: berita.konten,
-      gambar_cover: null,
-      status: berita.status
-    });
-    setImagePreview(berita.gambar_cover ? `${API_URL}${berita.gambar_cover}` : null);
-    setShowEditModal(true);
-  };
-
   const openImageModal = (berita) => {
     setSelectedBerita(berita);
     setShowImageModal(true);
   };
 
-  const closeModals = () => {
-    setShowDeleteModal(false);
-    setShowPublishModal(false);
-    setShowCreateModal(false);
-    setShowEditModal(false);
-    setShowImageModal(false);
-    setSelectedBerita(null);
-    setActionLoading(false);
-    setImagePreview(null);
-  };
-
-  // Form handlers
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setFormData(prev => ({
-        ...prev,
-        gambar_cover: file
-      }));
-      
-      // Create preview
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setImagePreview(e.target.result);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  // Handler untuk create berita
-  const handleCreateBerita = async () => {
+  // Handler untuk create berita - SEPERTI DI DATADONASI
+  const handleCreateBerita = async (e) => {
+    e.preventDefault();
     try {
-      setActionLoading(true);
+      setLoading(true);
 
       const formDataToSend = new FormData();
       formDataToSend.append('judul', formData.judul);
       formDataToSend.append('kategori', formData.kategori);
       formDataToSend.append('konten', formData.konten);
       formDataToSend.append('status', formData.status);
-      if (formData.gambar_cover) {
-        formDataToSend.append('gambar_cover', formData.gambar_cover);
+      if (gambarCover) {
+        formDataToSend.append('gambar_cover', gambarCover);
       }
 
       const response = await fetch(`${API_URL}/api/super-admin/berita`, {
@@ -214,31 +190,33 @@ const BeritaManagement = () => {
         throw new Error(errorData?.error || `HTTP error! status: ${response.status}`);
       }
 
-      await fetchBerita(); // Refresh data
-      closeModals();
-      
+      await fetchBerita();
+      setShowCreateModal(false);
+      resetForm();
+      showAlert('Berhasil', 'Berita berhasil dibuat', 'success');
     } catch (error) {
       console.error('Error creating berita:', error);
-      alert(`Gagal membuat berita: ${error.message}`);
+      showAlert('Gagal', error.message || 'Gagal membuat berita', 'error');
     } finally {
-      setActionLoading(false);
+      setLoading(false);
     }
   };
 
-  // Handler untuk update berita
-  const handleUpdateBerita = async () => {
+  // Handler untuk update berita - SEPERTI DI DATADONASI
+  const handleUpdateBerita = async (e) => {
+    e.preventDefault();
     if (!selectedBerita) return;
 
     try {
-      setActionLoading(true);
+      setLoading(true);
 
       const formDataToSend = new FormData();
       formDataToSend.append('judul', formData.judul);
       formDataToSend.append('kategori', formData.kategori);
       formDataToSend.append('konten', formData.konten);
       formDataToSend.append('status', formData.status);
-      if (formData.gambar_cover) {
-        formDataToSend.append('gambar_cover', formData.gambar_cover);
+      if (gambarCover) {
+        formDataToSend.append('gambar_cover', gambarCover);
       }
 
       const response = await fetch(`${API_URL}/api/super-admin/berita/${selectedBerita.id}`, {
@@ -254,23 +232,25 @@ const BeritaManagement = () => {
         throw new Error(errorData?.error || `HTTP error! status: ${response.status}`);
       }
 
-      await fetchBerita(); // Refresh data
-      closeModals();
-      
+      await fetchBerita();
+      setShowEditModal(false);
+      resetForm();
+      setSelectedBerita(null);
+      showAlert('Berhasil', 'Berita berhasil diupdate', 'success');
     } catch (error) {
       console.error('Error updating berita:', error);
-      alert(`Gagal mengupdate berita: ${error.message}`);
+      showAlert('Gagal', error.message || 'Gagal mengupdate berita', 'error');
     } finally {
-      setActionLoading(false);
+      setLoading(false);
     }
   };
 
-  // Handler untuk menghapus berita
+  // Handler untuk menghapus berita - SEPERTI DI DATADONASI
   const handleDeleteBerita = async () => {
     if (!selectedBerita) return;
 
     try {
-      setActionLoading(true);
+      setLoading(true);
 
       const response = await fetch(`${API_URL}/api/super-admin/berita/${selectedBerita.id}`, {
         method: 'DELETE',
@@ -286,22 +266,23 @@ const BeritaManagement = () => {
       }
 
       setBerita(berita.filter(item => item.id !== selectedBerita.id));
-      closeModals();
-      
+      setShowDeleteModal(false);
+      setSelectedBerita(null);
+      showAlert('Berhasil', 'Berita berhasil dihapus', 'success');
     } catch (error) {
       console.error('Error deleting berita:', error);
-      alert(`Gagal menghapus berita: ${error.message}`);
+      showAlert('Gagal', error.message || 'Gagal menghapus berita', 'error');
     } finally {
-      setActionLoading(false);
+      setLoading(false);
     }
   };
 
-  // Handler untuk publish berita
+  // Handler untuk publish berita - SEPERTI DI DATADONASI
   const handlePublishBerita = async () => {
     if (!selectedBerita) return;
 
     try {
-      setActionLoading(true);
+      setLoading(true);
 
       const response = await fetch(`${API_URL}/api/super-admin/berita/${selectedBerita.id}/publish`, {
         method: 'PUT',
@@ -327,19 +308,35 @@ const BeritaManagement = () => {
           : item
       ));
       
-      closeModals();
-      
+      setShowPublishModal(false);
+      setSelectedBerita(null);
+      showAlert('Berhasil', 'Berita berhasil dipublish', 'success');
     } catch (error) {
       console.error('Error publishing berita:', error);
-      alert(`Gagal mempublish berita: ${error.message}`);
+      showAlert('Gagal', error.message || 'Gagal mempublish berita', 'error');
     } finally {
-      setActionLoading(false);
+      setLoading(false);
     }
   };
 
   // Handler untuk preview berita
   const handlePreviewBerita = (beritaSlug) => {
     window.open(`${window.location.origin}/berita/${beritaSlug}`, '_blank');
+  };
+
+  // Handler untuk gambar - SEPERTI DI DATADONASI (sederhana)
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setGambarCover(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   // Filter berita
@@ -400,456 +397,42 @@ const BeritaManagement = () => {
     return kategoriMap[kategori] || kategori;
   };
 
-  // Modal Components
-  const DeleteModal = () => (
-    <div className="fixed inset-0 backdrop-blur drop-shadow-2xl bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-        <div className="flex items-center mb-4">
-          <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mr-4">
-            <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">Hapus Berita</h3>
-            <p className="text-sm text-gray-600">Konfirmasi penghapusan berita</p>
-          </div>
-        </div>
-        
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-          <p className="text-red-800 text-sm">
-            Apakah Anda yakin ingin menghapus berita <strong>"{selectedBerita?.judul}"</strong>?
-          </p>
-          <p className="text-red-600 text-xs mt-1">
-            Tindakan ini tidak dapat dibatalkan. Berita akan dihapus permanen dari sistem.
-          </p>
-        </div>
+  // Icons - SEPERTI DI DATADONASI
+  const icons = {
+    plus: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+      </svg>
+    ),
+    edit: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+      </svg>
+    ),
+    delete: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+      </svg>
+    ),
+    preview: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+      </svg>
+    ),
+    publish: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+      </svg>
+    ),
+    image: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg>
+    )
+  };
 
-        <div className="flex justify-end space-x-3">
-          <button
-            onClick={closeModals}
-            disabled={actionLoading}
-            className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-          >
-            Batal
-          </button>
-          <button
-            onClick={handleDeleteBerita}
-            disabled={actionLoading}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
-          >
-            {actionLoading ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                Menghapus...
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-                Hapus
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  const PublishModal = () => (
-    <div className="fixed inset-0 backdrop-blur drop-shadow-2xl bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-        <div className="flex items-center mb-4">
-          <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mr-4">
-            <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-            </svg>
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">Publish Berita</h3>
-            <p className="text-sm text-gray-600">Konfirmasi publish berita</p>
-          </div>
-        </div>
-        
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-          <p className="text-green-800 text-sm">
-            Apakah Anda yakin ingin mempublish berita <strong>"{selectedBerita?.judul}"</strong>?
-          </p>
-          <p className="text-green-600 text-xs mt-1">
-            Berita akan ditampilkan ke publik dan dapat dilihat oleh semua pengunjung website.
-          </p>
-        </div>
-
-        <div className="flex justify-end space-x-3">
-          <button
-            onClick={closeModals}
-            disabled={actionLoading}
-            className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-          >
-            Batal
-          </button>
-          <button
-            onClick={handlePublishBerita}
-            disabled={actionLoading}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
-          >
-            {actionLoading ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                Memproses...
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                </svg>
-                Publish
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  const CreateModal = () => (
-    <div className="fixed inset-0 backdrop-blur drop-shadow-2xl bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-4">
-                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Tambah Berita Baru</h3>
-                <p className="text-sm text-gray-600">Isi form untuk membuat berita baru</p>
-              </div>
-            </div>
-            <button
-              onClick={closeModals}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Judul Berita</label>
-              <input
-                type="text"
-                name="judul"
-                value={formData.judul}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Masukkan judul berita"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Kategori</label>
-              <select
-                name="kategori"
-                value={formData.kategori}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="umum">Umum</option>
-                <option value="pengumuman">Pengumuman</option>
-                <option value="acara">Acara</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Gambar Cover</label>
-            <div className="flex items-center gap-4">
-              <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500">
-                {imagePreview ? (
-                  <img src={imagePreview} alt="Preview" className="w-full h-full object-cover rounded-lg" />
-                ) : (
-                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <p className="text-xs text-gray-500 mt-2">Upload Gambar</p>
-                  </div>
-                )}
-                <input 
-                  type="file" 
-                  className="hidden" 
-                  accept="image/*"
-                  onChange={handleImageChange}
-                />
-              </label>
-              <div className="flex-1">
-                <p className="text-sm text-gray-600">
-                  Upload gambar cover untuk berita. Format yang didukung: JPG, PNG, GIF.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Konten Berita</label>
-            <textarea
-              name="konten"
-              value={formData.konten}
-              onChange={handleInputChange}
-              rows={8}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Tulis konten berita di sini..."
-            />
-          </div>
-
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-            <select
-              name="status"
-              value={formData.status}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="draft">Draft</option>
-              <option value="published">Published</option>
-              <option value="arsip">Arsip</option>
-            </select>
-          </div>
-
-          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-            <button
-              onClick={closeModals}
-              disabled={actionLoading}
-              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-            >
-              Batal
-            </button>
-            <button
-              onClick={handleCreateBerita}
-              disabled={actionLoading || !formData.judul || !formData.konten}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
-            >
-              {actionLoading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  Menyimpan...
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  Simpan Berita
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const EditModal = () => (
-    <div className="fixed inset-0 backdrop-blur drop-shadow-2xl bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center mr-4">
-                <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Edit Berita</h3>
-                <p className="text-sm text-gray-600">Edit informasi berita</p>
-              </div>
-            </div>
-            <button
-              onClick={closeModals}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Judul Berita</label>
-              <input
-                type="text"
-                name="judul"
-                value={formData.judul}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Masukkan judul berita"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Kategori</label>
-              <select
-                name="kategori"
-                value={formData.kategori}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="umum">Umum</option>
-                <option value="pengumuman">Pengumuman</option>
-                <option value="acara">Acara</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Gambar Cover</label>
-            <div className="flex items-center gap-4">
-              <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500">
-                {imagePreview ? (
-                  <img src={imagePreview} alt="Preview" className="w-full h-full object-cover rounded-lg" />
-                ) : (
-                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <p className="text-xs text-gray-500 mt-2">Upload Gambar</p>
-                  </div>
-                )}
-                <input 
-                  type="file" 
-                  className="hidden" 
-                  accept="image/*"
-                  onChange={handleImageChange}
-                />
-              </label>
-              <div className="flex-1">
-                <p className="text-sm text-gray-600">
-                  {selectedBerita?.gambar_cover ? 'Gambar saat ini akan diganti dengan yang baru.' : 'Upload gambar cover untuk berita.'}
-                </p>
-                {selectedBerita?.gambar_cover && !imagePreview?.startsWith('blob:') && (
-                  <button
-                    type="button"
-                    onClick={() => openImageModal(selectedBerita)}
-                    className="mt-2 text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                    Lihat Gambar Saat Ini
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Konten Berita</label>
-            <textarea
-              name="konten"
-              value={formData.konten}
-              onChange={handleInputChange}
-              rows={8}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Tulis konten berita di sini..."
-            />
-          </div>
-
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-            <select
-              name="status"
-              value={formData.status}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="draft">Draft</option>
-              <option value="published">Published</option>
-              <option value="arsip">Arsip</option>
-            </select>
-          </div>
-
-          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-            <button
-              onClick={closeModals}
-              disabled={actionLoading}
-              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-            >
-              Batal
-            </button>
-            <button
-              onClick={handleUpdateBerita}
-              disabled={actionLoading || !formData.judul || !formData.konten}
-              className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50 flex items-center gap-2"
-            >
-              {actionLoading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  Menyimpan...
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  Update Berita
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const ImageModal = () => (
-    <div className="fixed inset-0 backdrop-blur drop-shadow-2xl bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg w-full max-w-2xl">
-        <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-          <h3 className="text-lg font-semibold text-gray-900">Gambar Cover Berita</h3>
-          <button
-            onClick={closeModals}
-            className="text-gray-400 hover:text-gray-600"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <div className="p-6">
-          {selectedBerita?.gambar_cover ? (
-            <img 
-              src={`${API_URL}${selectedBerita.gambar_cover}`} 
-              alt={selectedBerita.judul}
-              className="w-full h-auto max-h-96 object-contain rounded-lg"
-              onError={(e) => {
-                e.target.src = 'https://via.placeholder.com/400x200?text=Gambar+Tidak+Tersedia';
-              }}
-            />
-          ) : (
-            <div className="text-center py-8">
-              <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              <p className="text-gray-500">Tidak ada gambar cover untuk berita ini</p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-
-  if (loading) {
+  if (loading && berita.length === 0) {
     return (
       <AuthDashboardLayout>
         <div className="p-6">
@@ -871,7 +454,7 @@ const BeritaManagement = () => {
     );
   }
 
-  if (error) {
+  if (error && berita.length === 0) {
     return (
       <AuthDashboardLayout>
         <div className="p-6">
@@ -907,9 +490,7 @@ const BeritaManagement = () => {
             onClick={openCreateModal}
             className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
+            {icons.plus}
             Tambah Berita
           </button>
         </div>
@@ -1033,9 +614,7 @@ const BeritaManagement = () => {
                               onClick={() => openImageModal(item)}
                               className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
                             >
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                              </svg>
+                              {icons.image}
                               Lihat Gambar
                             </button>
                           )}
@@ -1073,9 +652,7 @@ const BeritaManagement = () => {
                             className="text-blue-600 hover:text-blue-900 flex items-center gap-1 transition-colors"
                             title="Edit Berita"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
+                            {icons.edit}
                             Edit
                           </button>
                           <button 
@@ -1083,10 +660,7 @@ const BeritaManagement = () => {
                             className="text-green-600 hover:text-green-900 flex items-center gap-1 transition-colors"
                             title="Preview Berita"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
+                            {icons.preview}
                             Preview
                           </button>
                           {item.status === 'draft' && (
@@ -1095,9 +669,7 @@ const BeritaManagement = () => {
                               className="text-purple-600 hover:text-purple-900 flex items-center gap-1 transition-colors"
                               title="Publish Berita"
                             >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                              </svg>
+                              {icons.publish}
                               Publish
                             </button>
                           )}
@@ -1106,9 +678,7 @@ const BeritaManagement = () => {
                             className="text-red-600 hover:text-red-900 flex items-center gap-1 transition-colors"
                             title="Hapus Berita"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
+                            {icons.delete}
                             Hapus
                           </button>
                         </div>
@@ -1134,12 +704,395 @@ const BeritaManagement = () => {
           </Link>
         </div>
 
-        {/* Modals */}
-        {showDeleteModal && <DeleteModal />}
-        {showPublishModal && <PublishModal />}
-        {showCreateModal && <CreateModal />}
-        {showEditModal && <EditModal />}
-        {showImageModal && <ImageModal />}
+        {/* CREATE MODAL - SEPERTI DI DATADONASI */}
+        {showCreateModal && (
+          <div className="fixed inset-0 backdrop-blur drop-shadow-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">Tambah Berita Baru</h3>
+              <form onSubmit={handleCreateBerita}>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Judul Berita
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.judul}
+                        onChange={(e) => setFormData({...formData, judul: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                        placeholder="Masukkan judul berita"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Kategori
+                      </label>
+                      <select
+                        value={formData.kategori}
+                        onChange={(e) => setFormData({...formData, kategori: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      >
+                        <option value="umum">Umum</option>
+                        <option value="pengumuman">Pengumuman</option>
+                        <option value="acara">Acara</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Gambar Cover
+                    </label>
+                    <div className="flex items-center gap-4">
+                      <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500">
+                        {imagePreview ? (
+                          <img src={imagePreview} alt="Preview" className="w-full h-full object-cover rounded-lg" />
+                        ) : (
+                          <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <p className="text-xs text-gray-500 mt-2">Upload Gambar</p>
+                          </div>
+                        )}
+                        <input 
+                          type="file" 
+                          className="hidden" 
+                          accept="image/*"
+                          onChange={handleImageChange}
+                        />
+                      </label>
+                      <div className="flex-1">
+                        <p className="text-sm text-gray-600">
+                          Upload gambar cover untuk berita. Format yang didukung: JPG, PNG, GIF.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Konten Berita
+                    </label>
+                    <textarea
+                      required
+                      value={formData.konten}
+                      onChange={(e) => setFormData({...formData, konten: e.target.value})}
+                      rows={8}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="Tulis konten berita di sini..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Status
+                    </label>
+                    <select
+                      value={formData.status}
+                      onChange={(e) => setFormData({...formData, status: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    >
+                      <option value="draft">Draft</option>
+                      <option value="published">Published</option>
+                      <option value="arsip">Arsip</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex justify-end space-x-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateModal(false)}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                  >
+                    {loading ? 'Menyimpan...' : 'Simpan'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* EDIT MODAL - SEPERTI DI DATADONASI */}
+        {showEditModal && selectedBerita && (
+          <div className="fixed inset-0 backdrop-blur drop-shadow-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">Edit Berita</h3>
+              <form onSubmit={handleUpdateBerita}>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Judul Berita
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.judul}
+                        onChange={(e) => setFormData({...formData, judul: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                        placeholder="Masukkan judul berita"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Kategori
+                      </label>
+                      <select
+                        value={formData.kategori}
+                        onChange={(e) => setFormData({...formData, kategori: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      >
+                        <option value="umum">Umum</option>
+                        <option value="pengumuman">Pengumuman</option>
+                        <option value="acara">Acara</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Gambar Cover
+                    </label>
+                    <div className="flex items-center gap-4">
+                      <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500">
+                        {imagePreview ? (
+                          <img src={imagePreview} alt="Preview" className="w-full h-full object-cover rounded-lg" />
+                        ) : (
+                          <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <p className="text-xs text-gray-500 mt-2">Upload Gambar</p>
+                          </div>
+                        )}
+                        <input 
+                          type="file" 
+                          className="hidden" 
+                          accept="image/*"
+                          onChange={handleImageChange}
+                        />
+                      </label>
+                      <div className="flex-1">
+                        <p className="text-sm text-gray-600">
+                          {selectedBerita.gambar_cover ? 'Gambar saat ini akan diganti dengan yang baru.' : 'Upload gambar cover untuk berita.'}
+                        </p>
+                        {selectedBerita.gambar_cover && !imagePreview?.startsWith('blob:') && (
+                          <button
+                            type="button"
+                            onClick={() => openImageModal(selectedBerita)}
+                            className="mt-2 text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
+                          >
+                            {icons.preview}
+                            Lihat Gambar Saat Ini
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Konten Berita
+                    </label>
+                    <textarea
+                      required
+                      value={formData.konten}
+                      onChange={(e) => setFormData({...formData, konten: e.target.value})}
+                      rows={8}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="Tulis konten berita di sini..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Status
+                    </label>
+                    <select
+                      value={formData.status}
+                      onChange={(e) => setFormData({...formData, status: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    >
+                      <option value="draft">Draft</option>
+                      <option value="published">Published</option>
+                      <option value="arsip">Arsip</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex justify-end space-x-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditModal(false)}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                  >
+                    {loading ? 'Menyimpan...' : 'Simpan'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* DELETE MODAL - SEPERTI DI DATADONASI */}
+        {showDeleteModal && selectedBerita && (
+          <div className="fixed inset-0 backdrop-blur drop-shadow-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl p-6 w-full max-w-md">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">Hapus Berita</h3>
+              <p className="text-gray-600 mb-6">
+                Apakah Anda yakin ingin menghapus berita <strong>"{selectedBerita.judul}"</strong>?
+                Tindakan ini tidak dapat dibatalkan.
+              </p>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowDeleteModal(false)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={handleDeleteBerita}
+                  disabled={loading}
+                  className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                >
+                  {loading ? 'Menghapus...' : 'Hapus'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* PUBLISH MODAL - SEPERTI DI DATADONASI */}
+        {showPublishModal && selectedBerita && (
+          <div className="fixed inset-0 backdrop-blur drop-shadow-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl p-6 w-full max-w-md">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">Publish Berita</h3>
+              <p className="text-gray-600 mb-6">
+                Apakah Anda yakin ingin mempublish berita <strong>"{selectedBerita.judul}"</strong>?
+                Berita akan ditampilkan ke publik.
+              </p>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowPublishModal(false)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={handlePublishBerita}
+                  disabled={loading}
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                >
+                  {loading ? 'Memproses...' : 'Publish'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* IMAGE MODAL - SEPERTI DI DATADONASI */}
+        {showImageModal && selectedBerita && (
+          <div className="fixed inset-0 backdrop-blur drop-shadow-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl p-6 w-full max-w-2xl">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold text-gray-800">Gambar Cover Berita</h3>
+                <button
+                  onClick={() => setShowImageModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              {selectedBerita.gambar_cover ? (
+                <img 
+                  src={`${API_URL}${selectedBerita.gambar_cover}`} 
+                  alt={selectedBerita.judul}
+                  className="w-full h-auto max-h-96 object-contain rounded-lg"
+                  onError={(e) => {
+                    e.target.src = 'https://via.placeholder.com/400x200?text=Gambar+Tidak+Tersedia';
+                  }}
+                />
+              ) : (
+                <div className="text-center py-8">
+                  <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <p className="text-gray-500">Tidak ada gambar cover untuk berita ini</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ALERT MODAL - SEPERTI DI DATADONASI */}
+        {showAlertModal && (
+          <div className="fixed inset-0 backdrop-blur drop-shadow-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl p-6 w-full max-w-md">
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
+                alertMessage.type === 'success' ? 'bg-green-100' : 
+                alertMessage.type === 'error' ? 'bg-red-100' : 'bg-blue-100'
+              }`}>
+                {alertMessage.type === 'success' ? (
+                  <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : alertMessage.type === 'error' ? (
+                  <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                ) : (
+                  <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                )}
+              </div>
+              <h3 className={`text-xl font-bold text-center mb-2 ${
+                alertMessage.type === 'success' ? 'text-green-800' : 
+                alertMessage.type === 'error' ? 'text-red-800' : 'text-blue-800'
+              }`}>
+                {alertMessage.title}
+              </h3>
+              <p className={`text-center mb-6 ${
+                alertMessage.type === 'success' ? 'text-green-600' : 
+                alertMessage.type === 'error' ? 'text-red-600' : 'text-blue-600'
+              }`}>
+                {alertMessage.message}
+              </p>
+              <div className="flex justify-center">
+                <button
+                  onClick={() => setShowAlertModal(false)}
+                  className={`px-6 py-2 rounded-lg text-white ${
+                    alertMessage.type === 'success' 
+                      ? 'bg-green-600 hover:bg-green-700' 
+                      : alertMessage.type === 'error'
+                      ? 'bg-red-600 hover:bg-red-700'
+                      : 'bg-blue-600 hover:bg-blue-700'
+                  } transition-colors`}
+                >
+                  Tutup
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </AuthDashboardLayout>
   );
