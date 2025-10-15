@@ -157,17 +157,15 @@ const BeritaDetail = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50">
-      <Header />
-      
       {/* Breadcrumb */}
-      <section className="pt-32 pb-8">
+      <section className="pt-8 pb-8 bg-gradient-to-r from-green-600 to-green-700 text-white">
         <div className="container mx-auto px-4">
-          <nav className="flex items-center space-x-2 text-sm text-gray-600">
+          <nav className="flex items-center space-x-2 text-sm text-gray-300">
             <Link to="/" className="hover:text-green-600 transition-colors">Beranda</Link>
             <span>/</span>
             <Link to="/#berita" className="hover:text-green-600 transition-colors">Berita</Link>
             <span>/</span>
-            <span className="text-gray-400 truncate max-w-xs md:max-w-md">{berita.judul}</span>
+            <span className="text-white truncate max-w-xs md:max-w-md">{berita.judul}</span>
           </nav>
         </div>
       </section>
@@ -259,7 +257,7 @@ const BeritaDetail = () => {
               </button>
               
               <Link 
-                to="/#berita"
+                to="/berita"
                 className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold flex items-center space-x-2"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

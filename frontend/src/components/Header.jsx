@@ -5,6 +5,7 @@ import logoCircle from "../assets/logo-circle.png";
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
+  const [isProgramDropdownOpen, setIsProgramDropdownOpen] = useState(false)
 
   // Effect untuk handle scroll behavior
   useEffect(() => {
@@ -23,11 +24,14 @@ const Header = () => {
       if (isMenuOpen && !event.target.closest('.mobile-menu-container')) {
         setIsMenuOpen(false)
       }
+      if (isProgramDropdownOpen && !event.target.closest('.program-dropdown-container')) {
+        setIsProgramDropdownOpen(false)
+      }
     }
 
     document.addEventListener('click', handleClickOutside)
     return () => document.removeEventListener('click', handleClickOutside)
-  }, [isMenuOpen])
+  }, [isMenuOpen, isProgramDropdownOpen])
 
   // Prevent body scroll when mobile menu is open
   useEffect(() => {
@@ -92,6 +96,11 @@ const Header = () => {
     academic: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+      </svg>
+    ),
+    chevronDown: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
       </svg>
     )
   }
@@ -172,13 +181,75 @@ const Header = () => {
             {[
               { name: 'Beranda', href: '#beranda' },
               { name: 'Berita', href: '#berita' },
-              { name: 'Program', href: '#program' },
-              { name: 'Fasilitas', href: '#fasilitas' },
-              { name: 'Testimoni', href: '#testimoni' },
               { name: 'Kontak', href: '#kontak' },
-              { name: 'Catatan Donasi', href: '/donasi' }
-            ].map((item, index) => (
-              item.href.startsWith('#') ? (
+              { name: 'Donasi', href: '/donasi' },
+              { 
+                name: 'Program & Layanan', 
+                type: 'dropdown',
+                items: [
+                  { name: 'Program Unggulan', href: '#program' },
+                  { name: 'Fasilitas', href: '#fasilitas' },
+                  { name: 'Testimoni', href: '#testimoni' }
+                ]
+              }
+            ].map((item, index) => {
+              if (item.type === 'dropdown') {
+                return (
+                  <div key={item.name} className="program-dropdown-container relative">
+                    <button
+                      onClick={() => setIsProgramDropdownOpen(!isProgramDropdownOpen)}
+                      className={`relative px-6 py-3 font-semibold rounded-2xl transition-all duration-300 group/nav flex items-center space-x-1 ${
+                        isScrolled
+                          ? 'text-green-100 hover:text-white'
+                          : 'text-green-800 hover:text-green-600'
+                      }`}
+                    >
+                      <span>{item.name}</span>
+                      <span className={`transform transition-transform duration-300 ${
+                        isProgramDropdownOpen ? 'rotate-180' : ''
+                      }`}>
+                        {icons.chevronDown}
+                      </span>
+                      <span className={`absolute bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-0.5 rounded-full group-hover/nav:w-3/4 transition-all duration-300 ${
+                        isScrolled
+                          ? 'bg-gradient-to-r from-green-200 to-white'
+                          : 'bg-gradient-to-r from-green-400 to-green-600'
+                      }`}></span>
+                    </button>
+
+                    {/* Dropdown Menu */}
+                    {isProgramDropdownOpen && (
+                      <div className="absolute top-full left-0 mt-2 w-64 bg-white/95 backdrop-blur-md rounded-xl shadow-2xl border border-green-200 py-2 z-50">
+                        {item.items.map((dropdownItem, idx) => (
+                          dropdownItem.href.startsWith('#') ? (
+                            <a
+                              key={dropdownItem.name}
+                              href={dropdownItem.href}
+                              className="flex items-center space-x-3 px-4 py-3 text-green-800 hover:text-green-600 hover:bg-green-50 transition duration-300 group/dropdown"
+                              onClick={() => setIsProgramDropdownOpen(false)}
+                            >
+                              <span className="w-1 h-1 bg-green-400 rounded-full group-hover/dropdown:scale-150 transition-transform duration-300"></span>
+                              <span className="font-medium">{dropdownItem.name}</span>
+                            </a>
+                          ) : (
+                            <Link
+                              key={dropdownItem.name}
+                              to={dropdownItem.href}
+                              className="flex items-center space-x-3 px-4 py-3 text-green-800 hover:text-green-600 hover:bg-green-50 transition duration-300 group/dropdown"
+                              onClick={() => setIsProgramDropdownOpen(false)}
+                            >
+                              <span className="w-1 h-1 bg-green-400 rounded-full group-hover/dropdown:scale-150 transition-transform duration-300"></span>
+                              <span className="font-medium">{dropdownItem.name}</span>
+                            </Link>
+                          )
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              return item.href.startsWith('#') ? (
                 <a 
                   key={item.name}
                   href={item.href}
@@ -212,8 +283,8 @@ const Header = () => {
                       : 'bg-gradient-to-r from-green-400 to-green-600'
                   }`}></span>
                 </Link>
-              )
-            ))}
+              );
+            })}
           </nav>
 
           {/* CTA Buttons */}
@@ -286,11 +357,11 @@ const Header = () => {
               {[
                 { name: 'Beranda', href: '#beranda', icon: icons.home },
                 { name: 'Berita', href: '#berita', icon: icons.news },
-                { name: 'Program', href: '#program', icon: icons.book },
+                { name: 'Program Unggulan', href: '#program', icon: icons.book },
                 { name: 'Fasilitas', href: '#fasilitas', icon: icons.star },
                 { name: 'Testimoni', href: '#testimoni', icon: icons.chat },
                 { name: 'Kontak', href: '#kontak', icon: icons.phone },
-                { name: 'Catatan Donasi', href: '/donasi', icon: icons.heart }
+                { name: 'Donasi', href: '/donasi', icon: icons.heart }
               ].map((item) => (
                 item.href.startsWith('#') ? (
                   <a 
