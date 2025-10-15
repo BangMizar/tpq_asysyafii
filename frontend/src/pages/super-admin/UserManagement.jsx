@@ -1362,13 +1362,423 @@ const UserManagement = () => {
           </Link>
         </div>
 
-        {/* Modals */}
-        {showDeleteModal && <DeleteModal />}
-        {showStatusModal && <StatusModal />}
-        {showCreateModal && <CreateModal />}
-        {showEditModal && <EditModal />}
-        {showViewModal && <ViewModal />}
-        {showAlertModal && <AlertModal />}
+        {showCreateModal && (
+          <div className="fixed inset-0 backdrop-blur drop-shadow-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">Tambah User Baru</h3>
+              <form onSubmit={handleCreateUser}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Nama Lengkap *
+                    </label>
+                    <input
+                      type="text"
+                      name="nama_lengkap"
+                      value={formData.nama_lengkap}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="Masukkan nama lengkap"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Email *
+                    </label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="Masukkan email"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Nomor Telepon *
+                    </label>
+                    <input
+                      type="tel"
+                      name="no_telp"
+                      value={formData.no_telp}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="Masukkan nomor telepon"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Role *
+                    </label>
+                    <select
+                      name="role"
+                      value={formData.role}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    >
+                      <option value="wali">Wali Santri</option>
+                      <option value="admin">Admin</option>
+                      {currentUser?.role === 'super_admin' && (
+                        <option value="super_admin">Super Admin</option>
+                      )}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Password *
+                    </label>
+                    <input
+                      type="password"
+                      name="password"
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="Masukkan password"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Konfirmasi Password *
+                    </label>
+                    <input
+                      type="password"
+                      name="confirmPassword"
+                      value={formData.confirmPassword}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="Konfirmasi password"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateModal(false)}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                  >
+                    {loading ? 'Membuat...' : 'Buat User'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* EDIT MODAL - SEPERTI DI DATADONASI */}
+        {showEditModal && selectedUser && (
+          <div className="fixed inset-0 backdrop-blur drop-shadow-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">Edit User</h3>
+              <form onSubmit={handleEditUser}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Nama Lengkap *
+                    </label>
+                    <input
+                      type="text"
+                      name="nama_lengkap"
+                      value={formData.nama_lengkap}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="Masukkan nama lengkap"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Email *
+                    </label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="Masukkan email"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Nomor Telepon *
+                    </label>
+                    <input
+                      type="tel"
+                      name="no_telp"
+                      value={formData.no_telp}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="Masukkan nomor telepon"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Role *
+                    </label>
+                    <select
+                      name="role"
+                      value={formData.role}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    >
+                      <option value="wali">Wali Santri</option>
+                      <option value="admin">Admin</option>
+                      {currentUser?.role === 'super_admin' && (
+                        <option value="super_admin">Super Admin</option>
+                      )}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Password Baru (Opsional)
+                    </label>
+                    <input
+                      type="password"
+                      name="password"
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="Kosongkan jika tidak ingin mengubah"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Konfirmasi Password Baru
+                    </label>
+                    <input
+                      type="password"
+                      name="confirmPassword"
+                      value={formData.confirmPassword}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="Konfirmasi password baru"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditModal(false)}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                  >
+                    {loading ? 'Menyimpan...' : 'Simpan Perubahan'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* DELETE MODAL - SEPERTI DI DATADONASI */}
+        {showDeleteModal && selectedUser && (
+          <div className="fixed inset-0 backdrop-blur drop-shadow-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl p-6 w-full max-w-md">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">Hapus User</h3>
+              <p className="text-gray-600 mb-6">
+                Apakah Anda yakin ingin menghapus user <strong>"{selectedUser.nama}"</strong>?
+                Tindakan ini tidak dapat dibatalkan.
+              </p>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowDeleteModal(false)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={handleDeleteUser}
+                  disabled={loading}
+                  className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                >
+                  {loading ? 'Menghapus...' : 'Hapus'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* STATUS MODAL - SEPERTI DI DATADONASI */}
+        {showStatusModal && selectedUser && (
+          <div className="fixed inset-0 backdrop-blur drop-shadow-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl p-6 w-full max-w-md">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">
+                {selectedUser.statusAktif ? 'Nonaktifkan User' : 'Aktifkan User'}
+              </h3>
+              <p className="text-gray-600 mb-6">
+                Apakah Anda yakin ingin {selectedUser.statusAktif ? 'menonaktifkan' : 'mengaktifkan'} user{' '}
+                <strong>"{selectedUser.nama}"</strong>?
+              </p>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowStatusModal(false)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={handleToggleStatus}
+                  disabled={loading}
+                  className={`px-4 py-2 ${
+                    selectedUser.statusAktif ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'
+                  } text-white rounded-lg disabled:opacity-50`}
+                >
+                  {loading ? 'Memproses...' : (selectedUser.statusAktif ? 'Nonaktifkan' : 'Aktifkan')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* VIEW MODAL - SEPERTI DI DATADONASI */}
+        {showViewModal && selectedUser && (
+          <div className="fixed inset-0 backdrop-blur drop-shadow-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl p-6 w-full max-w-md">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-gray-800">Detail User</h3>
+                <button
+                  onClick={() => setShowViewModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="text-sm font-medium text-gray-500">Nama Lengkap</span>
+                  <span className="text-sm text-gray-900">{selectedUser.nama}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="text-sm font-medium text-gray-500">Email</span>
+                  <span className="text-sm text-gray-900">{selectedUser.email}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="text-sm font-medium text-gray-500">Nomor Telepon</span>
+                  <span className="text-sm text-gray-900">{selectedUser.no_telp}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="text-sm font-medium text-gray-500">Role</span>
+                  <span className="text-sm text-gray-900 capitalize">{selectedUser.role}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="text-sm font-medium text-gray-500">Status</span>
+                  <span className={`text-sm font-medium ${
+                    selectedUser.status === 'Aktif' ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {selectedUser.status}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="text-sm font-medium text-gray-500">Tanggal Daftar</span>
+                  <span className="text-sm text-gray-900">{formatDate(selectedUser.tanggalDaftar)}</span>
+                </div>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm font-medium text-gray-500">Terakhir Login</span>
+                  <span className="text-sm text-gray-900">
+                    {selectedUser.lastLogin === '-' ? '-' : formatDate(selectedUser.lastLogin)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-6 mt-6 border-t border-gray-200">
+                <button
+                  onClick={() => setShowViewModal(false)}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Tutup
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ALERT MODAL - SEPERTI DI DATADONASI */}
+        {showAlertModal && (
+          <div className="fixed inset-0 backdrop-blur drop-shadow-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl p-6 w-full max-w-md">
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
+                alertMessage.type === 'success' ? 'bg-green-100' : 
+                alertMessage.type === 'error' ? 'bg-red-100' : 'bg-blue-100'
+              }`}>
+                {alertMessage.type === 'success' ? (
+                  <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : alertMessage.type === 'error' ? (
+                  <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                ) : (
+                  <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                )}
+              </div>
+              <h3 className={`text-xl font-bold text-center mb-2 ${
+                alertMessage.type === 'success' ? 'text-green-800' : 
+                alertMessage.type === 'error' ? 'text-red-800' : 'text-blue-800'
+              }`}>
+                {alertMessage.title}
+              </h3>
+              <p className={`text-center mb-6 ${
+                alertMessage.type === 'success' ? 'text-green-600' : 
+                alertMessage.type === 'error' ? 'text-red-600' : 'text-blue-600'
+              }`}>
+                {alertMessage.message}
+              </p>
+              <div className="flex justify-center">
+                <button
+                  onClick={() => setShowAlertModal(false)}
+                  className={`px-6 py-2 rounded-lg text-white ${
+                    alertMessage.type === 'success' 
+                      ? 'bg-green-600 hover:bg-green-700' 
+                      : alertMessage.type === 'error'
+                      ? 'bg-red-600 hover:bg-red-700'
+                      : 'bg-blue-600 hover:bg-blue-700'
+                  } transition-colors`}
+                >
+                  Tutup
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </AuthDashboardLayout>
   );
