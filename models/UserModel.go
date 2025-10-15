@@ -17,7 +17,7 @@ type User struct {
 	NoTelp         string    `json:"no_telp,omitempty" gorm:"type:varchar(20)"`
 	Password       string    `json:"password" gorm:"type:varchar(255);not null"`
 	Role           UserRole  `json:"role" gorm:"type:enum('super_admin','admin','wali');default:'wali'"`
-	StatusAktif    bool      `json:"status_aktif" gorm:"default:true"`
+	StatusAktif    bool      `json:"status_aktif" gorm:"default:false"`
 	DibuatPada     time.Time `json:"dibuat_pada" gorm:"autoCreateTime"`
 	DiperbaruiPada time.Time `json:"diperbarui_pada" gorm:"autoUpdateTime"`
 }

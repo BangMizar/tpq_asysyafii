@@ -98,7 +98,7 @@ func RegisterUser(c *gin.Context) {
 		NoTelp:        input.NoTelp,
 		Password:      string(hashedPass),
 		Role:          role,
-		StatusAktif:   true,
+		StatusAktif:   false,
 		DibuatPada:    time.Now(),
 		DiperbaruiPada: time.Now(),
 	}
@@ -149,7 +149,7 @@ func LoginUser(c *gin.Context) {
 
 	// Periksa status aktif user
 	if !user.StatusAktif {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "akun tidak aktif"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "akun anda tidak aktif, hubungi pengurus TPQ untuk aktivasi akun"})
 		return
 	}
 
