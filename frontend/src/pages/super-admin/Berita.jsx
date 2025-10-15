@@ -78,7 +78,7 @@ const BeritaManagement = () => {
         status: item.status,
         kategori: item.kategori,
         konten: item.konten,
-        gambar_cover: item.gambar_cover,
+        gambar_cover: item.gambar_cover ? `/image/berita/${item.gambar_cover}` : null,
         dibuat_pada: item.dibuat_pada,
         diperbarui_pada: item.diperbarui_pada,
         views: 0
@@ -324,10 +324,23 @@ const BeritaManagement = () => {
     window.open(`${window.location.origin}/berita/${beritaSlug}`, '_blank');
   };
 
-  // Handler untuk gambar - SEPERTI DI DATADONASI (sederhana)
+  // Handler untuk gambar
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Validasi tipe file
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        showAlert('Error', 'Format file tidak didukung. Gunakan JPEG, PNG, GIF, atau WebP.', 'error');
+        return;
+      }
+  
+      // Validasi ukuran file (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        showAlert('Error', 'Ukuran file terlalu besar. Maksimal 5MB.', 'error');
+        return;
+      }
+  
       setGambarCover(file);
       
       // Create preview
@@ -605,21 +618,21 @@ const BeritaManagement = () => {
                   filteredBerita.map((item) => (
                     <tr key={item.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-gray-900 max-w-xs truncate">
-                          {item.judul}
-                        </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          {item.gambar_cover && (
-                            <button 
-                              onClick={() => openImageModal(item)}
-                              className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                            >
-                              {icons.image}
-                              Lihat Gambar
-                            </button>
-                          )}
-                        </div>
-                      </td>
+                      <div className="text-sm font-medium text-gray-900 max-w-xs truncate">
+                            {item.judul}
+                          </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            {item.gambar_cover && (
+                              <button 
+                                onClick={() => openImageModal(item)}
+                                className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                              >
+                                {icons.image}
+                                Lihat Gambar
+                              </button>
+                            )}
+                          </div>
+                        </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-500">{item.penulis}</div>
                       </td>
@@ -1022,14 +1035,20 @@ const BeritaManagement = () => {
                 </button>
               </div>
               {selectedBerita.gambar_cover ? (
-                <img 
-                  src={`${API_URL}${selectedBerita.gambar_cover}`} 
-                  alt={selectedBerita.judul}
-                  className="w-full h-auto max-h-96 object-contain rounded-lg"
-                  onError={(e) => {
-                    e.target.src = 'https://via.placeholder.com/400x200?text=Gambar+Tidak+Tersedia';
-                  }}
-                />
+                <div>
+                  <img 
+                    src={`${API_URL}${selectedBerita.gambar_cover}`}
+                    alt={selectedBerita.judul}
+                    className="w-full h-auto max-h-96 object-contain rounded-lg mb-2"
+                    onError={(e) => {
+                      console.error('Gagal memuat gambar:', `${API_URL}/image/berita/${selectedBerita.gambar_cover}`);
+                      e.target.src = 'https://via.placeholder.com/400x200?text=Gambar+Tidak+Tersedia';
+                    }}
+                  />
+                  <p className="text-xs text-gray-500 text-center break-all">
+                    Path: {`${API_URL}/image/berita/${selectedBerita.gambar_cover}`}
+                  </p>
+                </div>
               ) : (
                 <div className="text-center py-8">
                   <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

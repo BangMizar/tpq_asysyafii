@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"tpq_asysyafii/config"
@@ -22,6 +23,11 @@ func main() {
 
 	// Setup router
 	r := gin.Default()
+
+	r.Static("/image/berita", "./image/berita")
+	workDir, _ := os.Getwd()
+    log.Printf("Working directory: %s", workDir)
+    log.Printf("Image path: %s", filepath.Join(workDir, "image", "berita"))
 
 	// CORS setup
 	allowedOrigins := getOriginsFromEnv()
