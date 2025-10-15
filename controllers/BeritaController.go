@@ -79,56 +79,66 @@ func generateSlug(judul string) string {
 
 // Helper function untuk upload gambar
 func (ctrl *BeritaController) uploadGambar(c *gin.Context) (string, error) {
-	file, err := c.FormFile("gambar_cover")
-	if err != nil {
-		return "", err // Tidak ada file yang diupload, bukan error
-	}
+    file, err := c.FormFile("gambar_cover")
+    if err != nil {
+        return "", err
+    }
 
-	// Validasi tipe file
-	allowedTypes := map[string]bool{
-		"image/jpeg": true,
-		"image/jpg":  true,
-		"image/png":  true,
-		"image/gif":  true,
-		"image/webp": true,
-	}
+    // Validasi tipe file
+    allowedTypes := map[string]bool{
+        "image/jpeg": true,
+        "image/jpg":  true,
+        "image/png":  true,
+        "image/gif":  true,
+        "image/webp": true,
+    }
 
-	fileHeader, _ := file.Open()
-	defer fileHeader.Close()
+    fileHeader, _ := file.Open()
+    defer fileHeader.Close()
 
-	buffer := make([]byte, 512)
-	_, err = fileHeader.Read(buffer)
-	if err != nil {
-		return "", fmt.Errorf("gagal membaca file: %v", err)
-	}
+    buffer := make([]byte, 512)
+    _, err = fileHeader.Read(buffer)
+    if err != nil {
+        return "", fmt.Errorf("gagal membaca file: %v", err)
+    }
 
-	contentType := http.DetectContentType(buffer)
-	if !allowedTypes[contentType] {
-		return "", fmt.Errorf("tipe file tidak diizinkan. Gunakan JPEG, PNG, GIF, atau WebP")
-	}
+    contentType := http.DetectContentType(buffer)
+    if !allowedTypes[contentType] {
+        return "", fmt.Errorf("tipe file tidak diizinkan. Gunakan JPEG, PNG, GIF, atau WebP")
+    }
 
-	// Validasi ukuran file (max 5MB)
-	if file.Size > 5<<20 {
-		return "", fmt.Errorf("ukuran file terlalu besar. Maksimal 5MB")
-	}
+    // Validasi ukuran file (max 5MB)
+    if file.Size > 5<<20 {
+        return "", fmt.Errorf("ukuran file terlalu besar. Maksimal 5MB")
+    }
 
-	// Buat nama file unik
-	ext := filepath.Ext(file.Filename)
-	filename := uuid.New().String() + ext
-	uploadPath := "../image/berita/"
+    // Buat nama file unik
+    ext := filepath.Ext(file.Filename)
+    filename := uuid.New().String() + ext
+    
+    // Gunakan path yang lebih reliable
+    uploadPath := "./image/berita/"
+    
+    // Pastikan folder exists
+    if err := os.MkdirAll(uploadPath, 0755); err != nil {
+        return "", fmt.Errorf("gagal membuat folder: %v", err)
+    }
 
-	// Pastikan folder exists
-	if err := os.MkdirAll(uploadPath, 0755); err != nil {
-		return "", fmt.Errorf("gagal membuat folder: %v", err)
-	}
+    // Debug: print path
+    fmt.Printf("Menyimpan gambar ke: %s\n", uploadPath+filename)
 
-	// Simpan file
-	fullPath := filepath.Join(uploadPath, filename)
-	if err := c.SaveUploadedFile(file, fullPath); err != nil {
-		return "", fmt.Errorf("gagal menyimpan file: %v", err)
-	}
+    // Simpan file
+    fullPath := filepath.Join(uploadPath, filename)
+    if err := c.SaveUploadedFile(file, fullPath); err != nil {
+        return "", fmt.Errorf("gagal menyimpan file: %v", err)
+    }
 
-	return filename, nil
+    // Verifikasi file tersimpan
+    if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+        return "", fmt.Errorf("file gagal disimpan: %v", err)
+    }
+
+    return filename, nil
 }
 
 // CreateBerita membuat berita baru
@@ -168,14 +178,16 @@ func (ctrl *BeritaController) CreateBerita(c *gin.Context) {
 
 	// Upload gambar jika ada
 	var gambarCover *string
-	filename, err := ctrl.uploadGambar(c)
-	if err != nil && err.Error() != "http: no such file" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	if filename != "" {
-		gambarCover = &filename
-	}
+    filename, err := ctrl.uploadGambar(c)
+    if err != nil && err.Error() != "http: no such file" {
+        fmt.Printf("Error upload gambar: %v\n", err) // Debug
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+    if filename != "" {
+        gambarCover = &filename
+        fmt.Printf("Gambar berhasil diupload: %s\n", filename) // Debug
+    }
 
 	// Generate slug dari judul
 	slug := generateSlug(judul)
@@ -250,6 +262,27 @@ func (ctrl *BeritaController) CreateBerita(c *gin.Context) {
 		"data":    berita,
 	})
 }
+
+// func (ctrl *BeritaController) getUploadPath() string {
+//     // Coba beberapa kemungkinan path
+//     possiblePaths := []string{
+//         "./image/berita/",
+//         "../image/berita/",
+//         "./uploads/berita/",
+//         "image/berita/",
+//     }
+    
+//     for _, path := range possiblePaths {
+//         if _, err := os.Stat(path); !os.IsNotExist(err) {
+//             return path
+//         }
+//     }
+    
+//     // Buat folder default jika tidak ada
+//     defaultPath := "./image/berita/"
+//     os.MkdirAll(defaultPath, 0755)
+//     return defaultPath
+// }
 
 // GetBeritaByID mendapatkan berita berdasarkan ID (public access)
 func (ctrl *BeritaController) GetBeritaByID(c *gin.Context) {
