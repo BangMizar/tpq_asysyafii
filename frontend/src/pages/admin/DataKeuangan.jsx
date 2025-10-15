@@ -273,7 +273,7 @@ const DataKeuangan = () => {
           'Sumber Dana': item.sumber_dana,
           'Nominal': item.nominal,
           'Keterangan': item.keterangan || '-',
-          'Diajukan Oleh': item.pengaju?.nama || 'Admin'
+          'Diajukan Oleh': item.pengaju?.nama_lengkap || 'Admin'
         }));
         const wsPemakaian = XLSX.utils.json_to_sheet(pemakaianDataToExport);
         XLSX.utils.book_append_sheet(wb, wsPemakaian, 'Pengeluaran');
@@ -399,7 +399,7 @@ const exportToCSV = () => {
           item.sumber_dana,
           item.nominal,
           `"${item.keterangan || '-'}"`,
-          item.pengaju?.nama || 'Admin'
+          item.pengaju?.nama_lengkap || 'Admin'
         ].join(','));
       });
       allData.push('');
@@ -643,7 +643,7 @@ const exportToDOCX = () => {
                       <td>${item.tipe_pemakaian}</td>
                       <td>${item.sumber_dana}</td>
                       <td class="currency negative">${formatCurrency(item.nominal)}</td>
-                      <td>${item.pengaju?.nama || 'Admin'}</td>
+                      <td>${item.pengaju?.nama_lengkap || 'Admin'}</td>
                     </tr>
                   `).join('')}
                 </tbody>
@@ -1214,7 +1214,7 @@ const exportToDOCX = () => {
                         {formatCurrency(item.nominal)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {item.pengaju?.nama || 'Admin'}
+                        {item.pengaju?.nama_lengkap || 'Admin'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex space-x-2">
@@ -1282,7 +1282,7 @@ const exportToDOCX = () => {
                         {formatCurrency(item.nominal)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {item.admin?.nama || 'Admin'}
+                        {item.admin?.nama_lengkap || 'Admin'}
                       </td>
                     </tr>
                   ))}
