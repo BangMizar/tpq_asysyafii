@@ -1410,7 +1410,7 @@ const exportToDOCX = () => {
               <span className="text-white">{icons.money}</span>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-green-600">Total Pemasukan</p>
+              <p className="text-sm font-medium text-green-600">Total Pemasukan (Donasi + Syahriah)</p>
               <p className="text-2xl font-bold text-green-900">
                 {/* PERBAIKAN: Format singkatan hanya untuk di atas miliar */}
                 {formatCurrencyShort(summaryData?.totalPemasukan || 0, 1000000000)}
@@ -1444,7 +1444,7 @@ const exportToDOCX = () => {
               <span className="text-white">{icons.money}</span>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-blue-600">Saldo Akhir</p>
+              <p className="text-sm font-medium text-blue-600">Saldo Saat ini <span className='size'>(Pemasukan - Pengeluaran)</span></p>
               <p className="text-2xl font-bold text-blue-900">
                 {/* PERBAIKAN: Format singkatan hanya untuk di atas miliar */}
                 {formatCurrencyShort(summaryData?.saldoAkhir || 0, 1000000000)}

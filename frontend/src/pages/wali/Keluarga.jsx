@@ -11,6 +11,7 @@ const Keluarga = () => {
   const [keluargaData, setKeluargaData] = useState(null);
   const [santriData, setSantriData] = useState([]);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
   const [formData, setFormData] = useState({});
   const [actionLoading, setActionLoading] = useState(false);
   
@@ -59,7 +60,8 @@ const Keluarga = () => {
 
       if (!response.ok) {
         if (response.status === 404) {
-          throw new Error('Data keluarga belum terdaftar.');
+          setKeluargaData(null);
+          return;
         }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -124,10 +126,55 @@ const Keluarga = () => {
     fetchSantriData();
   }, [API_URL]);
 
+  // Handle Tambah Keluarga
+  const handleTambahKeluarga = () => {
+    setFormData({
+      alamat: '',
+      rt_rw: '',
+      kelurahan: '',
+      kecamatan: '',
+      kota: '',
+      provinsi: '',
+      kode_pos: ''
+    });
+    setShowAddModal(true);
+  };
+
+  const handleAddKeluarga = async (e) => {
+    e.preventDefault();
+    try {
+      setActionLoading(true);
+
+      const response = await fetch(`${API_URL}/api/keluarga`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setKeluargaData(data.data);
+      setShowAddModal(false);
+      showNotification('success', 'Berhasil!', 'Data keluarga berhasil ditambahkan!');
+
+    } catch (err) {
+      console.error('Error adding keluarga:', err);
+      showNotification('error', 'Gagal!', `Gagal menambahkan data keluarga: ${err.message}`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // Handle Edit Keluarga
   const handleEditKeluarga = () => {
     setFormData({
-      no_kk: keluargaData?.no_kk || '',
       alamat: keluargaData?.alamat || '',
       rt_rw: keluargaData?.rt_rw || '',
       kelurahan: keluargaData?.kelurahan || '',
@@ -154,7 +201,8 @@ const Keluarga = () => {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
@@ -173,17 +221,25 @@ const Keluarga = () => {
   // Format tanggal
   const formatDate = (dateString) => {
     if (!dateString) return '-';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('id-ID', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('id-ID', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch (error) {
+      return dateString;
+    }
   };
 
   // Format jenis kelamin
   const formatJenisKelamin = (jk) => {
-    return jk === 'L' ? 'Laki-laki' : 'Perempuan';
+    const jkMap = {
+      'L': 'Laki-laki',
+      'P': 'Perempuan'
+    };
+    return jkMap[jk] || jk;
   };
 
   // Format status santri
@@ -249,36 +305,6 @@ const Keluarga = () => {
     );
   }
 
-  if (error && !keluargaData) {
-    return (
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center py-12">
-          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <svg className="w-10 h-10 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
-          </div>
-          <h3 className="text-xl font-semibold text-red-800 mb-2">Data Keluarga Tidak Ditemukan</h3>
-          <p className="text-red-600 mb-6 max-w-md mx-auto">{error}</p>
-          <div className="flex gap-3 justify-center">
-            <button 
-              onClick={() => window.location.reload()}
-              className="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-all duration-300 font-medium shadow-sm"
-            >
-              Coba Lagi
-            </button>
-            <button 
-              onClick={() => window.location.href = '/wali'}
-              className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-all duration-300 font-medium shadow-sm"
-            >
-              Kembali ke Dashboard
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="max-w-6xl mx-auto">
       {/* Header */}
@@ -288,7 +314,7 @@ const Keluarga = () => {
       </div>
 
       {/* Informasi Keluarga */}
-      {keluargaData && (
+      {keluargaData ? (
         <div className="bg-white rounded-xl p-6 shadow-sm border border-green-200 mb-8">
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between">
             <div className="flex-1">
@@ -356,6 +382,66 @@ const Keluarga = () => {
             </div>
           </div>
         </div>
+      ) : (
+        // Tampilan ketika tidak ada data keluarga
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-green-200 mb-8">
+          <div className="text-center py-12">
+            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-semibold text-green-800 mb-2">Data Keluarga Belum Tersedia</h3>
+            <p className="text-green-600 mb-6 max-w-md mx-auto">
+              {error || 'Silakan tambahkan data keluarga untuk mengakses fitur ini.'}
+            </p>
+            
+            {/* Tabel Kosong */}
+            <div className="bg-green-50 rounded-lg border border-green-200 mb-6 overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-green-100 border-b border-green-200">
+                    <th className="py-3 px-4 text-left text-green-700 font-semibold">Alamat</th>
+                    <th className="py-3 px-4 text-left text-green-700 font-semibold">RT/RW</th>
+                    <th className="py-3 px-4 text-left text-green-700 font-semibold">Kelurahan</th>
+                    <th className="py-3 px-4 text-left text-green-700 font-semibold">Kecamatan</th>
+                    <th className="py-3 px-4 text-left text-green-700 font-semibold">Kota</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td colSpan="6" className="py-8 text-center text-green-500">
+                      <div className="flex flex-col items-center">
+                        <svg className="w-12 h-12 mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2M4 13h2m8-8V4a1 1 0 00-1-1h-2a1 1 0 00-1 1v1M9 7h6" />
+                        </svg>
+                        <span>Belum ada data keluarga</span>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex gap-3 justify-center">
+              <button 
+                onClick={handleTambahKeluarga}
+                className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-all duration-300 font-medium shadow-sm flex items-center space-x-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                <span>Tambah Data Keluarga</span>
+              </button>
+              <button 
+                onClick={() => window.location.reload()}
+                className="bg-green-100 text-green-700 px-6 py-3 rounded-lg hover:bg-green-200 transition-all duration-300 font-medium border border-green-200"
+              >
+                Refresh Halaman
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Data Santri */}
@@ -395,7 +481,11 @@ const Keluarga = () => {
               </svg>
             </div>
             <h4 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Data Santri</h4>
-            <p className="text-green-600 mb-4">Data santri akan ditampilkan di sini setelah didaftarkan oleh admin.</p>
+            <p className="text-green-600 mb-4">
+              {keluargaData 
+                ? "Data santri akan ditampilkan di sini setelah didaftarkan oleh admin."
+                : "Silakan tambahkan data keluarga terlebih dahulu untuk melihat data santri."}
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -447,15 +537,117 @@ const Keluarga = () => {
         )}
       </div>
 
+      {/* Modal Tambah Keluarga */}
+      {showAddModal && (
+        <div className="fixed inset-0 backdrop-blur bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-green-900 mb-4">Tambah Data Keluarga</h3>
+              <form onSubmit={handleAddKeluarga} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-green-700 mb-1">Alamat *</label>
+                  <textarea
+                    value={formData.alamat}
+                    onChange={(e) => setFormData({...formData, alamat: e.target.value})}
+                    className="w-full px-3 py-2 border border-green-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    rows="3"
+                    required
+                    placeholder="Masukkan alamat lengkap"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-green-700 mb-1">RT/RW</label>
+                    <input
+                      type="text"
+                      value={formData.rt_rw}
+                      onChange={(e) => setFormData({...formData, rt_rw: e.target.value})}
+                      className="w-full px-3 py-2 border border-green-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="001/002"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-green-700 mb-1">Kode Pos</label>
+                    <input
+                      type="text"
+                      value={formData.kode_pos}
+                      onChange={(e) => setFormData({...formData, kode_pos: e.target.value})}
+                      className="w-full px-3 py-2 border border-green-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="12345"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-green-700 mb-1">Kelurahan</label>
+                  <input
+                    type="text"
+                    value={formData.kelurahan}
+                    onChange={(e) => setFormData({...formData, kelurahan: e.target.value})}
+                    className="w-full px-3 py-2 border border-green-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="Nama kelurahan"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-green-700 mb-1">Kecamatan</label>
+                  <input
+                    type="text"
+                    value={formData.kecamatan}
+                    onChange={(e) => setFormData({...formData, kecamatan: e.target.value})}
+                    className="w-full px-3 py-2 border border-green-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="Nama kecamatan"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-green-700 mb-1">Kota/Kabupaten</label>
+                  <input
+                    type="text"
+                    value={formData.kota}
+                    onChange={(e) => setFormData({...formData, kota: e.target.value})}
+                    className="w-full px-3 py-2 border border-green-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="Nama kota atau kabupaten"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-green-700 mb-1">Provinsi</label>
+                  <input
+                    type="text"
+                    value={formData.provinsi}
+                    onChange={(e) => setFormData({...formData, provinsi: e.target.value})}
+                    className="w-full px-3 py-2 border border-green-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="Nama provinsi"
+                  />
+                </div>
+                <div className="flex space-x-3 pt-4">
+                  <button
+                    type="submit"
+                    disabled={actionLoading}
+                    className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition-colors duration-200 disabled:opacity-50"
+                  >
+                    {actionLoading ? 'Menambahkan...' : 'Tambah Data'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddModal(false)}
+                    className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400 transition-colors duration-200"
+                  >
+                    Batal
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal Edit Keluarga */}
       {showEditModal && (
-        <div className="fixed inset-0 backdrop-blur drop-shadow-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 backdrop-blur drop-shadow-2xl bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <h3 className="text-lg font-semibold text-green-900 mb-4">Edit Data Keluarga</h3>
               <form onSubmit={handleUpdateKeluarga} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-green-700 mb-1">Alamat</label>
+                  <label className="block text-sm font-medium text-green-700 mb-1">Alamat *</label>
                   <textarea
                     value={formData.alamat}
                     onChange={(e) => setFormData({...formData, alamat: e.target.value})}
@@ -544,7 +736,7 @@ const Keluarga = () => {
 
       {/* Modal Notifikasi */}
       {showNotificationModal && (
-        <div className="fixed inset-0 backdrop-blur bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 backdrop-blur drop-shadow-2xl bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl max-w-sm w-full">
             <div className="p-6 text-center">
               <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
