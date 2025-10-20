@@ -25,6 +25,7 @@ import BeritaManagement from './pages/super-admin/Berita';
 import InformasiTPQ from './pages/super-admin/InformasiTPQ';
 import PengumumanManagement from './pages/super-admin/Pengumuman';
 import SystemManagement from './pages/super-admin/System';
+import DataSantri from './pages/super-admin/DataSantri'; // Import DataSantri
 
 import DataDonasi from './pages/admin/DataDonasi';
 import DataKeuangan from './pages/admin/DataKeuangan';
@@ -117,6 +118,16 @@ const AppContent = () => {
         element={
           <ProtectedRoute allowedRoles={['super_admin']}>
             <SystemManagement />
+          </ProtectedRoute>
+        } 
+      />
+      
+      {/* Data Santri Routes - Tambahkan di sini */}
+      <Route 
+        path="/super-admin/santri" 
+        element={
+          <ProtectedRoute allowedRoles={['super_admin']}>
+            <DataSantri />
           </ProtectedRoute>
         } 
       />
