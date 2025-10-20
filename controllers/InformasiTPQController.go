@@ -5,8 +5,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
-	"time"
 	"tpq_asysyafii/models"
 
 	"github.com/gin-gonic/gin"
