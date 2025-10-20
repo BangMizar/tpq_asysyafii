@@ -41,6 +41,8 @@ func InitDB() {
 		&models.RekapSaldo{},
 		&models.Pengumuman{},
 		&models.Berita{},
+		&models.InformasiTPQ{},
+		&models.SosialMedia{},
 		&models.LogAktivitas{},
 	)
 	if err != nil {
