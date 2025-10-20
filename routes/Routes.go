@@ -24,6 +24,14 @@ func SetupRoutes(r *gin.Engine) {
 		api.GET("/berita/:slug", beritaController.GetBeritaBySlug)     // Detail berita by slug
 		api.GET("/berita/id/:id", beritaController.GetBeritaByID)      // Detail berita by ID (jika diperlukan)
 
+		// Public routes untuk informasi TPQ
+		informasiTPQController := controllers.NewInformasiTPQController(config.DB)
+		api.GET("/informasi-tpq", informasiTPQController.GetInformasiTPQ)
+
+		// Public routes untuk sosial media
+		sosialMediaController := controllers.NewSosialMediaController(config.DB)
+		api.GET("/sosial-media", sosialMediaController.GetAllSosialMedia)
+
 		protected := api.Group("/")
 		protected.Use(middlewares.AuthMiddleware())
 		{
@@ -158,6 +166,19 @@ func SetupRoutes(r *gin.Engine) {
 			superAdmin.PUT("/berita/:id", beritaController.UpdateBerita)
 			superAdmin.PUT("/berita/:id/publish", beritaController.PublishBerita)
 			superAdmin.DELETE("/berita/:id", beritaController.DeleteBerita)
+
+			// Hanya super-admin yang bisa CRUD informasi TPQ
+			superAdmin.POST("/informasi-tpq", informasiTPQController.CreateInformasiTPQ)
+			superAdmin.GET("/informasi-tpq/all", informasiTPQController.GetInformasiTPQ)
+			superAdmin.PUT("/informasi-tpq/:id", informasiTPQController.UpdateInformasiTPQ)
+			superAdmin.DELETE("/informasi-tpq/:id", informasiTPQController.DeleteInformasiTPQ)
+
+			// Hanya super-admin yang bisa CRUD sosial media
+			superAdmin.POST("/sosial-media", sosialMediaController.CreateSosialMedia)
+			superAdmin.GET("/sosial-media", sosialMediaController.GetAllSosialMedia)
+			superAdmin.GET("/sosial-media/:id", sosialMediaController.GetSosialMediaByID)
+			superAdmin.PUT("/sosial-media/:id", sosialMediaController.UpdateSosialMedia)
+			superAdmin.DELETE("/sosial-media/:id", sosialMediaController.DeleteSosialMedia)
 		}
 	}
 }
