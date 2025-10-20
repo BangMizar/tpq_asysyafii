@@ -177,6 +177,7 @@ const Sidebar = () => {
       path: '/super-admin/data',
       icon: <DataIcon />,
       submenu: [
+        { title: 'Data Santri', path: '/super-admin/santri' }, // TAMBAHKAN DI SINI
         { title: 'Data Syahriah', path: '/admin/syahriah' },
         { title: 'Data Donasi', path: '/admin/donasi' },
         { title: 'Rekap Keuangan', path: '/admin/keuangan' }
