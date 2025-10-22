@@ -25,9 +25,11 @@ func main() {
 	r := gin.Default()
 
 	r.Static("/image/berita", "./image/berita")
+	r.Static("/image/tpq", "./image/tpq")
 	workDir, _ := os.Getwd()
     log.Printf("Working directory: %s", workDir)
     log.Printf("Image path: %s", filepath.Join(workDir, "image", "berita"))
+	log.Printf("TPQ image path: %s", filepath.Join(workDir, "image", "tpq"))
 
 	// CORS setup
 	allowedOrigins := getOriginsFromEnv()

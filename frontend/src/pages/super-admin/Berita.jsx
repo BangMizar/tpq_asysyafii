@@ -1046,7 +1046,7 @@ const BeritaManagement = () => {
                     }}
                   />
                   <p className="text-xs text-gray-500 text-center break-all">
-                    Path: {`${API_URL}/image/berita/${selectedBerita.gambar_cover}`}
+                    Path: {`${API_URL}${selectedBerita.gambar_cover}`}
                   </p>
                 </div>
               ) : (

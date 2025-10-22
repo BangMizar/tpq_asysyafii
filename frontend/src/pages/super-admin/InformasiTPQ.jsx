@@ -49,8 +49,13 @@ const InformasiTPQ = () => {
           hari_jam_belajar: result.data.hari_jam_belajar || ''
         });
         
+        // PERBAIKAN: Set logo preview dengan error handling
         if (result.data.logo) {
-          setLogoPreview(`${API_URL}/image/tpq/${result.data.logo}`);
+          const logoUrl = `${API_URL}/image/tpq/${result.data.logo}`;
+          console.log('Logo URL:', logoUrl); // Debug log
+          setLogoPreview(logoUrl);
+        } else {
+          setLogoPreview('');
         }
       }
 
@@ -75,9 +80,23 @@ const InformasiTPQ = () => {
   const handleLogoChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Validasi tipe file
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+      if (!allowedTypes.includes(file.type)) {
+        setError('Format file tidak didukung. Gunakan JPEG, PNG, GIF, WebP, atau SVG.');
+        return;
+      }
+
+      // Validasi ukuran file (max 2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        setError('Ukuran file terlalu besar. Maksimal 2MB.');
+        return;
+      }
+
       setLogoFile(file);
+      setError('');
       
-      // Create preview
+      // Create preview 
       const reader = new FileReader();
       reader.onload = (e) => {
         setLogoPreview(e.target.result);
@@ -136,7 +155,7 @@ const InformasiTPQ = () => {
         setLogoFile(null);
       }
 
-      alert('Informasi TPQ berhasil disimpan!');
+      showAlert('Berhasil', 'Informasi TPQ berhasil disimpan!', 'success');
 
     } catch (err) {
       console.error('Error saving informasi TPQ:', err);
@@ -173,7 +192,7 @@ const InformasiTPQ = () => {
       setLogoPreview('');
       setIsEditing(false);
       
-      alert('Informasi TPQ berhasil dihapus!');
+      showAlert('Berhasil', 'Informasi TPQ berhasil dihapus!', 'success');
 
     } catch (err) {
       console.error('Error deleting informasi TPQ:', err);
@@ -181,6 +200,11 @@ const InformasiTPQ = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  // Show alert function 
+  const showAlert = (title, message, type = 'success') => {
+    alert(`${title}: ${message}`);
   };
 
   const cancelEdit = () => {
@@ -200,11 +224,27 @@ const InformasiTPQ = () => {
         hari_jam_belajar: informasi.hari_jam_belajar || ''
       });
       
+      // PERBAIKAN: Reset logo preview dengan error handling
       if (informasi.logo) {
         setLogoPreview(`${API_URL}/image/tpq/${informasi.logo}`);
+      } else {
+        setLogoPreview('');
       }
     }
     setLogoFile(null);
+    setError('');
+  };
+
+  // PERBAIKAN: Fungsi untuk handle error gambar
+  const handleImageError = (e) => {
+    console.error('Gagal memuat logo:', logoPreview);
+    e.target.style.display = 'none';
+    
+    // Tampilkan fallback UI
+    const fallbackDiv = e.target.nextSibling;
+    if (fallbackDiv) {
+      fallbackDiv.style.display = 'flex';
+    }
   };
 
   useEffect(() => {
@@ -317,33 +357,64 @@ const InformasiTPQ = () => {
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow-md p-6">
-            {/* Logo Section */}
+            {/* Logo Section - PERBAIKAN: Enhanced error handling */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">Logo TPQ</label>
               <div className="flex items-center gap-6">
                 {(logoPreview || informasi?.logo) && (
-                  <div className="w-32 h-32 border-2 border-gray-300 rounded-lg overflow-hidden">
+                  <div className="w-32 h-32 border-2 border-gray-300 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center relative">
                     <img 
                       src={logoPreview} 
                       alt="Logo TPQ" 
                       className="w-full h-full object-cover"
+                      onError={handleImageError}
                     />
+                    <div className="hidden absolute inset-0 flex-col items-center justify-center text-gray-400 bg-gray-100">
+                      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span className="text-xs mt-1">Gagal memuat logo</span>
+                    </div>
                   </div>
                 )}
                 {isEditing && (
-                  <div>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleLogoChange}
-                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Format: JPG, PNG, GIF, WebP, SVG. Maksimal 2MB.</p>
+                  <div className="flex-1">
+                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 bg-gray-50">
+                      {logoPreview ? (
+                        <div className="text-center">
+                          <svg className="w-8 h-8 text-green-500 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          <p className="text-sm text-gray-600">Gambar siap diupload</p>
+                          <p className="text-xs text-gray-500">Klik untuk mengganti</p>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                          <svg className="w-8 h-8 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <p className="text-sm text-gray-500">
+                            <span className="font-semibold">Klik untuk upload</span>
+                          </p>
+                          <p className="text-xs text-gray-400">PNG, JPG, GIF up to 2MB</p>
+                        </div>
+                      )}
+                      <input 
+                        type="file" 
+                        className="hidden" 
+                        accept="image/*"
+                        onChange={handleLogoChange}
+                      />
+                    </label>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Format: JPG, PNG, GIF, WebP, SVG. Maksimal 2MB.
+                    </p>
                   </div>
                 )}
               </div>
             </div>
 
+            {/* Form fields lainnya tetap sama */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Nama TPQ */}
               <div>

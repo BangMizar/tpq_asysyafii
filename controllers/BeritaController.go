@@ -248,7 +248,7 @@ func (ctrl *BeritaController) CreateBerita(c *gin.Context) {
 	if err := ctrl.db.Create(&berita).Error; err != nil {
 		// Hapus file yang sudah diupload jika gagal save
 		if gambarCover != nil {
-			os.Remove("../image/berita/" + *gambarCover)
+			os.Remove("./image/berita/" + *gambarCover)
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat berita: " + err.Error()})
 		return
@@ -439,7 +439,7 @@ func (ctrl *BeritaController) UpdateBerita(c *gin.Context) {
 	if err := ctrl.db.Save(&existingBerita).Error; err != nil {
 		// Hapus file baru yang sudah diupload jika gagal save
 		if newGambarCover != nil {
-			os.Remove("../image/berita/" + *newGambarCover)
+			os.Remove("./image/berita/" + *newGambarCover)
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengupdate berita: " + err.Error()})
 		return
@@ -447,7 +447,7 @@ func (ctrl *BeritaController) UpdateBerita(c *gin.Context) {
 
 	// Hapus file gambar lama jika ada gambar baru
 	if newGambarCover != nil && oldGambarCover != nil {
-		os.Remove("../image/berita/" + *oldGambarCover)
+		os.Remove("./image/berita/" + *oldGambarCover)
 	}
 
 	// Preload relations untuk response
@@ -487,7 +487,7 @@ func (ctrl *BeritaController) DeleteBerita(c *gin.Context) {
 
 	// Hapus file gambar jika ada
 	if berita.GambarCover != nil {
-		os.Remove("../image/berita/" + *berita.GambarCover)
+		os.Remove("./image/berita/" + *berita.GambarCover)
 	}
 
 	// Hapus berita
