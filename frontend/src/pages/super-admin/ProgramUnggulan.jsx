@@ -128,10 +128,27 @@ const ProgramUnggulanManagement = () => {
 
   const openEditModal = (program) => {
     setSelectedProgram(program);
+  
+    let fiturText = '';
+    if (program.fitur) {
+      try {
+        const fiturArray = typeof program.fitur === 'string' 
+          ? JSON.parse(program.fitur) 
+          : program.fitur;
+        
+        if (Array.isArray(fiturArray)) {
+          fiturText = fiturArray.join('\n');
+        }
+      } catch (error) {
+        console.error('Error parsing fitur:', error);
+        fiturText = program.fitur;
+      }
+    }
+  
     setFormData({
       nama_program: program.nama_program,
       deskripsi: program.deskripsi,
-      fitur: program.fitur,
+      fitur: fiturText,
       status: program.status
     });
     setShowEditModal(true);
