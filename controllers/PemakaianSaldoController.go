@@ -23,21 +23,21 @@ func NewPemakaianSaldoController(db *gorm.DB) *PemakaianSaldoController {
 
 // Request structs
 type CreatePemakaianRequest struct {
-	JudulPemakaian  string                `json:"judul_pemakaian" binding:"required"`
-	Deskripsi       string                `json:"deskripsi" binding:"required"`
-	Nominal         float64               `json:"nominal" binding:"required,gt=0"`
-	TipePemakaian   models.TipePemakaian  `json:"tipe_pemakaian" binding:"required"`
-	SumberDana      models.SumberDana     `json:"sumber_dana" binding:"required"`
-	TanggalPemakaian *string              `json:"tanggal_pemakaian"`
-	Keterangan      *string               `json:"keterangan"`
+	JudulPemakaian   string                `json:"judul_pemakaian" binding:"required"`
+	Deskripsi        string                `json:"deskripsi" binding:"required"`
+	NominalSyahriah  float64               `json:"nominal_syahriah" binding:"required,min=0"`
+	NominalDonasi    float64               `json:"nominal_donasi" binding:"required,min=0"`
+	TipePemakaian    models.TipePemakaian  `json:"tipe_pemakaian" binding:"required"`
+	TanggalPemakaian *string               `json:"tanggal_pemakaian"`
+	Keterangan       *string               `json:"keterangan"`
 }
 
 type UpdatePemakaianRequest struct {
 	JudulPemakaian   *string               `json:"judul_pemakaian"`
 	Deskripsi        *string               `json:"deskripsi"`
-	Nominal          *float64              `json:"nominal"`
+	NominalSyahriah  *float64              `json:"nominal_syahriah"`
+	NominalDonasi    *float64              `json:"nominal_donasi"`
 	TipePemakaian    *models.TipePemakaian `json:"tipe_pemakaian"`
-	SumberDana       *models.SumberDana    `json:"sumber_dana"`
 	TanggalPemakaian *string               `json:"tanggal_pemakaian"`
 	Keterangan       *string               `json:"keterangan"`
 }
@@ -97,17 +97,19 @@ func (ctrl *PemakaianSaldoController) CreatePemakaian(c *gin.Context) {
 		return
 	}
 
-	// Validasi sumber dana
-	if req.SumberDana != models.SumberSyahriah && 
-	   req.SumberDana != models.SumberDonasi && 
-	   req.SumberDana != models.SumberCampuran {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Sumber dana tidak valid. Gunakan 'syahriah', 'donasi', atau 'campuran'"})
+	// Validasi nominal
+	if req.NominalSyahriah < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Nominal syahriah tidak boleh negatif"})
+		return
+	}
+	if req.NominalDonasi < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Nominal donasi tidak boleh negatif"})
 		return
 	}
 
-	// Validasi nominal
-	if req.Nominal <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Nominal harus lebih besar dari 0"})
+	nominalTotal := req.NominalSyahriah + req.NominalDonasi
+	if nominalTotal <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Total nominal harus lebih besar dari 0"})
 		return
 	}
 
@@ -126,9 +128,9 @@ func (ctrl *PemakaianSaldoController) CreatePemakaian(c *gin.Context) {
 		tanggalPemakaian = &today
 	}
 
-	// Cek saldo tersedia berdasarkan sumber dana
-	if !ctrl.cekSaldoTersedia(req.SumberDana, req.Nominal) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Saldo tidak mencukupi untuk sumber dana yang dipilih"})
+	// Cek saldo tersedia
+	if !ctrl.cekSaldoTersedia(req.NominalSyahriah, req.NominalDonasi) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Saldo tidak mencukupi"})
 		return
 	}
 
@@ -137,9 +139,10 @@ func (ctrl *PemakaianSaldoController) CreatePemakaian(c *gin.Context) {
 		IDPemakaian:      uuid.New().String(),
 		JudulPemakaian:   req.JudulPemakaian,
 		Deskripsi:        req.Deskripsi,
-		Nominal:          req.Nominal,
+		NominalSyahriah:  req.NominalSyahriah,
+		NominalDonasi:    req.NominalDonasi,
+		NominalTotal:     nominalTotal,
 		TipePemakaian:    req.TipePemakaian,
-		SumberDana:       req.SumberDana,
 		TanggalPemakaian: tanggalPemakaian,
 		DiajukanOleh:     adminID,
 		Keterangan:       req.Keterangan,
@@ -172,7 +175,6 @@ func (ctrl *PemakaianSaldoController) GetAllPemakaian(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	tipePemakaian := c.Query("tipe_pemakaian")
-	sumberDana := c.Query("sumber_dana")
 	startDate := c.Query("start_date")
 	endDate := c.Query("end_date")
 	search := c.Query("search")
@@ -196,9 +198,6 @@ func (ctrl *PemakaianSaldoController) GetAllPemakaian(c *gin.Context) {
 	if tipePemakaian != "" {
 		query = query.Where("tipe_pemakaian = ?", tipePemakaian)
 	}
-	if sumberDana != "" {
-		query = query.Where("sumber_dana = ?", sumberDana)
-	}
 	if startDate != "" {
 		start, err := time.Parse("2006-01-02", startDate)
 		if err == nil {
@@ -220,8 +219,8 @@ func (ctrl *PemakaianSaldoController) GetAllPemakaian(c *gin.Context) {
 	allowedSortFields := map[string]bool{
 		"created_at":        true,
 		"updated_at":        true,
-		"nominal":          true,
-		"judul_pemakaian":  true,
+		"nominal_total":     true,
+		"judul_pemakaian":   true,
 		"tanggal_pemakaian": true,
 	}
 
@@ -323,8 +322,8 @@ func (ctrl *PemakaianSaldoController) UpdatePemakaian(c *gin.Context) {
 	}
 
 	// Simpan nominal lama untuk update rekap
-	nominalLama := existingPemakaian.Nominal
-	sumberDanaLama := existingPemakaian.SumberDana
+	nominalSyahriahLama := existingPemakaian.NominalSyahriah
+	nominalDonasiLama := existingPemakaian.NominalDonasi
 
 	// Update fields
 	if req.JudulPemakaian != nil {
@@ -333,13 +332,29 @@ func (ctrl *PemakaianSaldoController) UpdatePemakaian(c *gin.Context) {
 	if req.Deskripsi != nil {
 		existingPemakaian.Deskripsi = *req.Deskripsi
 	}
-	if req.Nominal != nil {
-		if *req.Nominal <= 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Nominal harus lebih besar dari 0"})
+	if req.NominalSyahriah != nil {
+		if *req.NominalSyahriah < 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Nominal syahriah tidak boleh negatif"})
 			return
 		}
-		existingPemakaian.Nominal = *req.Nominal
+		existingPemakaian.NominalSyahriah = *req.NominalSyahriah
 	}
+	if req.NominalDonasi != nil {
+		if *req.NominalDonasi < 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Nominal donasi tidak boleh negatif"})
+			return
+		}
+		existingPemakaian.NominalDonasi = *req.NominalDonasi
+	}
+	
+	// Hitung ulang total
+	existingPemakaian.NominalTotal = existingPemakaian.NominalSyahriah + existingPemakaian.NominalDonasi
+	
+	if existingPemakaian.NominalTotal <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Total nominal harus lebih besar dari 0"})
+		return
+	}
+
 	if req.TipePemakaian != nil {
 		// Validasi tipe pemakaian
 		if *req.TipePemakaian != models.PemakaianOperasional && 
@@ -349,16 +364,6 @@ func (ctrl *PemakaianSaldoController) UpdatePemakaian(c *gin.Context) {
 			return
 		}
 		existingPemakaian.TipePemakaian = *req.TipePemakaian
-	}
-	if req.SumberDana != nil {
-		// Validasi sumber dana
-		if *req.SumberDana != models.SumberSyahriah && 
-		   *req.SumberDana != models.SumberDonasi && 
-		   *req.SumberDana != models.SumberCampuran {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Sumber dana tidak valid"})
-			return
-		}
-		existingPemakaian.SumberDana = *req.SumberDana
 	}
 	if req.TanggalPemakaian != nil {
 		parsedDate, err := time.Parse("2006-01-02", *req.TanggalPemakaian)
@@ -372,14 +377,11 @@ func (ctrl *PemakaianSaldoController) UpdatePemakaian(c *gin.Context) {
 		existingPemakaian.Keterangan = req.Keterangan
 	}
 
-	// Cek saldo tersedia jika nominal atau sumber dana berubah
-	if (req.Nominal != nil && *req.Nominal != nominalLama) || 
-	   (req.SumberDana != nil && *req.SumberDana != sumberDanaLama) {
-		sumberDanaBaru := existingPemakaian.SumberDana
-		nominalBaru := existingPemakaian.Nominal
-		
-		if !ctrl.cekSaldoTersedia(sumberDanaBaru, nominalBaru) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Saldo tidak mencukupi untuk sumber dana yang dipilih"})
+	// Cek saldo tersedia jika nominal berubah
+	if (req.NominalSyahriah != nil && *req.NominalSyahriah != nominalSyahriahLama) || 
+	   (req.NominalDonasi != nil && *req.NominalDonasi != nominalDonasiLama) {
+		if !ctrl.cekSaldoTersedia(existingPemakaian.NominalSyahriah, existingPemakaian.NominalDonasi) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Saldo tidak mencukupi"})
 			return
 		}
 	}
@@ -393,10 +395,10 @@ func (ctrl *PemakaianSaldoController) UpdatePemakaian(c *gin.Context) {
 	// Preload relations untuk response
 	ctrl.db.Preload("Pengaju").First(&existingPemakaian, "id_pemakaian = ?", existingPemakaian.IDPemakaian)
 
-	// Update rekap saldo jika nominal atau sumber dana berubah
-	if (req.Nominal != nil && *req.Nominal != nominalLama) || 
-	   (req.SumberDana != nil && *req.SumberDana != sumberDanaLama) {
-		if err := ctrl.updateRekapSaldoSetelahUpdate(existingPemakaian, nominalLama, sumberDanaLama); err != nil {
+	// Update rekap saldo jika nominal berubah
+	if (req.NominalSyahriah != nil && *req.NominalSyahriah != nominalSyahriahLama) || 
+	   (req.NominalDonasi != nil && *req.NominalDonasi != nominalDonasiLama) {
+		if err := ctrl.updateRekapSaldoSetelahUpdate(existingPemakaian, nominalSyahriahLama, nominalDonasiLama); err != nil {
 			fmt.Printf("Gagal update rekap saldo: %v\n", err)
 		}
 	}
@@ -455,7 +457,6 @@ func (ctrl *PemakaianSaldoController) GetPemakaianSummary(c *gin.Context) {
 	startDate := c.Query("start_date")
 	endDate := c.Query("end_date")
 	tipePemakaian := c.Query("tipe_pemakaian")
-	sumberDana := c.Query("sumber_dana")
 
 	var summary PemakaianSummary
 
@@ -478,12 +479,9 @@ func (ctrl *PemakaianSaldoController) GetPemakaianSummary(c *gin.Context) {
 	if tipePemakaian != "" {
 		query = query.Where("tipe_pemakaian = ?", tipePemakaian)
 	}
-	if sumberDana != "" {
-		query = query.Where("sumber_dana = ?", sumberDana)
-	}
 
 	// Hitung total nominal
-	if err := query.Select("COALESCE(SUM(nominal), 0)").Scan(&summary.TotalNominal).Error; err != nil {
+	if err := query.Select("COALESCE(SUM(nominal_total), 0)").Scan(&summary.TotalNominal).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung total nominal: " + err.Error()})
 		return
 	}
@@ -501,7 +499,7 @@ func (ctrl *PemakaianSaldoController) GetPemakaianSummary(c *gin.Context) {
 
 	// Hitung pemakaian terbanyak
 	var maxNominal float64
-	if err := query.Select("COALESCE(MAX(nominal), 0)").Scan(&maxNominal).Error; err != nil {
+	if err := query.Select("COALESCE(MAX(nominal_total), 0)").Scan(&maxNominal).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung pemakaian terbanyak: " + err.Error()})
 		return
 	}
@@ -513,7 +511,6 @@ func (ctrl *PemakaianSaldoController) GetPemakaianSummary(c *gin.Context) {
 			"start_date":     startDate,
 			"end_date":       endDate,
 			"tipe_pemakaian": tipePemakaian,
-			"sumber_dana":    sumberDana,
 		},
 	})
 }
@@ -521,9 +518,7 @@ func (ctrl *PemakaianSaldoController) GetPemakaianSummary(c *gin.Context) {
 // ========== HELPER FUNCTIONS ==========
 
 // cekSaldoTersedia - Cek apakah saldo mencukupi untuk pemakaian
-func (ctrl *PemakaianSaldoController) cekSaldoTersedia(sumberDana models.SumberDana, nominal float64) bool {
-	var saldoTersedia float64
-    
+func (ctrl *PemakaianSaldoController) cekSaldoTersedia(nominalSyahriah, nominalDonasi float64) bool {
     // Get latest rekap saldo
     var rekap models.RekapSaldo
     err := ctrl.db.Order("periode DESC").First(&rekap).Error
@@ -533,22 +528,19 @@ func (ctrl *PemakaianSaldoController) cekSaldoTersedia(sumberDana models.SumberD
         return false
     }
     
-    // Tentukan saldo berdasarkan sumber dana
-    switch sumberDana {
-    case models.SumberSyahriah:
-        saldoTersedia = rekap.SaldoAkhirSyahriah
-    case models.SumberDonasi:
-        saldoTersedia = rekap.SaldoAkhirDonasi
-    case models.SumberCampuran:
-        saldoTersedia = rekap.SaldoAkhirTotal
-    default:
-        saldoTersedia = rekap.SaldoAkhirTotal
+    // Cek masing-masing saldo
+    if nominalSyahriah > 0 && nominalSyahriah > rekap.SaldoAkhirSyahriah {
+        return false
     }
     
-    return saldoTersedia >= nominal
+    if nominalDonasi > 0 && nominalDonasi > rekap.SaldoAkhirDonasi {
+        return false
+    }
+    
+    return true
 }
 
-// updateRekapSaldoSetelahPemakaian - Update rekap saldo setelah pemakaian
+// updateRekapSaldoSetelahPemakaian - Update rekap saldo setelah pemakaian (SANGAT SEDERHANA SEKARANG)
 func (ctrl *PemakaianSaldoController) updateRekapSaldoSetelahPemakaian(pemakaian models.PemakaianSaldo) error {
     rekapController := NewRekapController(ctrl.db)
     
@@ -560,34 +552,17 @@ func (ctrl *PemakaianSaldoController) updateRekapSaldoSetelahPemakaian(pemakaian
         periode = time.Now().Format("2006-01")
     }
     
-    // Tentukan pengeluaran berdasarkan sumber dana
-    var pengeluaranSyahriah, pengeluaranDonasi, pengeluaranTotal float64
-    
-    switch pemakaian.SumberDana {
-    case models.SumberSyahriah:
-        pengeluaranSyahriah = pemakaian.Nominal
-        pengeluaranTotal = pemakaian.Nominal
-    case models.SumberDonasi:
-        pengeluaranDonasi = pemakaian.Nominal
-        pengeluaranTotal = pemakaian.Nominal
-    case models.SumberCampuran:
-        // Untuk campuran, bagi secara proporsional atau sesuai kebijakan
-        // Sementara kita anggap 50-50
-        pengeluaranSyahriah = pemakaian.Nominal * 0.5
-        pengeluaranDonasi = pemakaian.Nominal * 0.5
-        pengeluaranTotal = pemakaian.Nominal
-    }
-    
+    // Langsung gunakan nominal yang sudah ditentukan
     return rekapController.updateRekapSaldoDenganPengeluaran(
         periode, 
-        pengeluaranSyahriah, 
-        pengeluaranDonasi, 
-        pengeluaranTotal,
+        pemakaian.NominalSyahriah, 
+        pemakaian.NominalDonasi, 
+        pemakaian.NominalTotal,
     )
 }
 
-// updateRekapSaldoSetelahUpdate - Update rekap saldo setelah update pemakaian
-func (ctrl *PemakaianSaldoController) updateRekapSaldoSetelahUpdate(pemakaian models.PemakaianSaldo, nominalLama float64, sumberDanaLama models.SumberDana) error {
+// updateRekapSaldoSetelahUpdate - Update rekap saldo setelah update pemakaian (SANGAT SEDERHANA SEKARANG)
+func (ctrl *PemakaianSaldoController) updateRekapSaldoSetelahUpdate(pemakaian models.PemakaianSaldo, nominalSyahriahLama, nominalDonasiLama float64) error {
     rekapController := NewRekapController(ctrl.db)
     
     // Get periode from tanggal pemakaian
@@ -598,61 +573,26 @@ func (ctrl *PemakaianSaldoController) updateRekapSaldoSetelahUpdate(pemakaian mo
         periode = time.Now().Format("2006-01")
     }
     
-    // Jika sumber dana berubah atau nominal berubah
-    if sumberDanaLama != pemakaian.SumberDana || nominalLama != pemakaian.Nominal {
-        // 1. Kembalikan saldo dari sumber dana lama
-        var pengembalianSyahriah, pengembalianDonasi, pengembalianTotal float64
-        
-        switch sumberDanaLama {
-        case models.SumberSyahriah:
-            pengembalianSyahriah = nominalLama
-            pengembalianTotal = nominalLama
-        case models.SumberDonasi:
-            pengembalianDonasi = nominalLama
-            pengembalianTotal = nominalLama
-        case models.SumberCampuran:
-            pengembalianSyahriah = nominalLama * 0.5
-            pengembalianDonasi = nominalLama * 0.5
-            pengembalianTotal = nominalLama
-        }
-        
-        if err := rekapController.updateRekapSaldoDenganPemasukan(
-            periode,
-            pengembalianSyahriah,
-            pengembalianDonasi,
-            pengembalianTotal,
-        ); err != nil {
-            return err
-        }
-        
-        // 2. Kurangi saldo dari sumber dana baru
-        var pengeluaranSyahriah, pengeluaranDonasi, pengeluaranTotal float64
-        
-        switch pemakaian.SumberDana {
-        case models.SumberSyahriah:
-            pengeluaranSyahriah = pemakaian.Nominal
-            pengeluaranTotal = pemakaian.Nominal
-        case models.SumberDonasi:
-            pengeluaranDonasi = pemakaian.Nominal
-            pengeluaranTotal = pemakaian.Nominal
-        case models.SumberCampuran:
-            pengeluaranSyahriah = pemakaian.Nominal * 0.5
-            pengeluaranDonasi = pemakaian.Nominal * 0.5
-            pengeluaranTotal = pemakaian.Nominal
-        }
-        
-        return rekapController.updateRekapSaldoDenganPengeluaran(
-            periode,
-            pengeluaranSyahriah,
-            pengeluaranDonasi,
-            pengeluaranTotal,
-        )
+    // 1. Kembalikan saldo lama
+    if err := rekapController.updateRekapSaldoDenganPemasukan(
+        periode,
+        nominalSyahriahLama,
+        nominalDonasiLama,
+        nominalSyahriahLama + nominalDonasiLama,
+    ); err != nil {
+        return err
     }
     
-    return nil
+    // 2. Kurangi saldo baru
+    return rekapController.updateRekapSaldoDenganPengeluaran(
+        periode,
+        pemakaian.NominalSyahriah,
+        pemakaian.NominalDonasi,
+        pemakaian.NominalTotal,
+    )
 }
 
-// updateRekapSaldoSetelahHapus - Update rekap saldo setelah hapus pemakaian
+// updateRekapSaldoSetelahHapus - Update rekap saldo setelah hapus pemakaian (SANGAT SEDERHANA SEKARANG)
 func (ctrl *PemakaianSaldoController) updateRekapSaldoSetelahHapus(pemakaian models.PemakaianSaldo) error {
     rekapController := NewRekapController(ctrl.db)
     
@@ -665,25 +605,10 @@ func (ctrl *PemakaianSaldoController) updateRekapSaldoSetelahHapus(pemakaian mod
     }
     
     // Kembalikan saldo yang dihapus
-    var pengembalianSyahriah, pengembalianDonasi, pengembalianTotal float64
-    
-    switch pemakaian.SumberDana {
-    case models.SumberSyahriah:
-        pengembalianSyahriah = pemakaian.Nominal
-        pengembalianTotal = pemakaian.Nominal
-    case models.SumberDonasi:
-        pengembalianDonasi = pemakaian.Nominal
-        pengembalianTotal = pemakaian.Nominal
-    case models.SumberCampuran:
-        pengembalianSyahriah = pemakaian.Nominal * 0.5
-        pengembalianDonasi = pemakaian.Nominal * 0.5
-        pengembalianTotal = pemakaian.Nominal
-    }
-    
     return rekapController.updateRekapSaldoDenganPemasukan(
         periode,
-        pengembalianSyahriah,
-        pengembalianDonasi,
-        pengembalianTotal,
+        pemakaian.NominalSyahriah,
+        pemakaian.NominalDonasi,
+        pemakaian.NominalTotal,
     )
 }

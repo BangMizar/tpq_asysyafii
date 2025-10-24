@@ -735,7 +735,7 @@ func (ctrl *RekapController) updateRekapSaldoDenganPengeluaran(periode string, p
         return ctrl.updateRekapSaldo(periode)
     }
     
-    // Update pengeluaran dan saldo
+    // PERBAIKAN: Update HANYA pengeluaran dan saldo akhir, jangan sentuh pemasukan
     existingRekap.PengeluaranSyahriah += pengeluaranSyahriah
     existingRekap.SaldoAkhirSyahriah -= pengeluaranSyahriah
     existingRekap.PengeluaranDonasi += pengeluaranDonasi
@@ -744,10 +744,14 @@ func (ctrl *RekapController) updateRekapSaldoDenganPengeluaran(periode string, p
     existingRekap.SaldoAkhirTotal -= pengeluaranTotal
     existingRekap.TerakhirUpdate = time.Now()
     
+    // Debug log
+    fmt.Printf("DEBUG: Update Pengeluaran - Periode: %s, Syahriah: %.0f, Donasi: %.0f, Total: %.0f\n",
+        periode, pengeluaranSyahriah, pengeluaranDonasi, pengeluaranTotal)
+    
     return ctrl.db.Save(&existingRekap).Error
 }
 
-// updateRekapSaldoDenganPemasukan - Update rekap dengan tambahan pemasukan (untuk koreksi)
+// updateRekapSaldoDenganPemasukan - Update rekap saldo dengan tambahan pemasukan (untuk koreksi) (PERBAIKAN)
 func (ctrl *RekapController) updateRekapSaldoDenganPemasukan(periode string, pemasukanSyahriah, pemasukanDonasi, pemasukanTotal float64) error {
     var existingRekap models.RekapSaldo
     if err := ctrl.db.Where("periode = ?", periode).First(&existingRekap).Error; err != nil {
@@ -755,14 +759,18 @@ func (ctrl *RekapController) updateRekapSaldoDenganPemasukan(periode string, pem
         return ctrl.updateRekapSaldo(periode)
     }
     
-    // Update pemasukan dan saldo
-    existingRekap.PemasukanSyahriah += pemasukanSyahriah
+    // PERBAIKAN: Untuk pemasukan (koreksi), kita KURANGI pengeluaran dan TAMBAH saldo
+    existingRekap.PengeluaranSyahriah -= pemasukanSyahriah
     existingRekap.SaldoAkhirSyahriah += pemasukanSyahriah
-    existingRekap.PemasukanDonasi += pemasukanDonasi
+    existingRekap.PengeluaranDonasi -= pemasukanDonasi
     existingRekap.SaldoAkhirDonasi += pemasukanDonasi
-    existingRekap.PemasukanTotal += pemasukanTotal
+    existingRekap.PengeluaranTotal -= pemasukanTotal
     existingRekap.SaldoAkhirTotal += pemasukanTotal
     existingRekap.TerakhirUpdate = time.Now()
+    
+    // Debug log
+    fmt.Printf("DEBUG: Update Pemasukan (Koreksi) - Periode: %s, Syahriah: %.0f, Donasi: %.0f, Total: %.0f\n",
+        periode, pemasukanSyahriah, pemasukanDonasi, pemasukanTotal)
     
     return ctrl.db.Save(&existingRekap).Error
 }

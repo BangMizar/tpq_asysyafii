@@ -23,19 +23,20 @@ const DataKeuangan = () => {
   const [alertMessage, setAlertMessage] = useState({ title: '', message: '', type: '' });
   
   // State untuk modal CRUD pemakaian
-  const [showPemakaianModal, setShowPemakaianModal] = useState(false);
-  const [modalMode, setModalMode] = useState('create'); // 'create' or 'edit'
-  const [selectedPemakaian, setSelectedPemakaian] = useState(null);
-  const [formData, setFormData] = useState({
-    judul_pemakaian: '',
-    deskripsi: '',
-    nominal: '',
-    tipe_pemakaian: 'operasional',
-    sumber_dana: 'syahriah',
-    tanggal_pemakaian: new Date().toISOString().split('T')[0],
-    keterangan: ''
-  });
-  const [formLoading, setFormLoading] = useState(false);
+const [showPemakaianModal, setShowPemakaianModal] = useState(false);
+const [modalMode, setModalMode] = useState('create'); // 'create' or 'edit'
+const [selectedPemakaian, setSelectedPemakaian] = useState(null);
+const [formData, setFormData] = useState({
+  judul_pemakaian: '',
+  deskripsi: '',
+  nominal_syahriah: '',
+  nominal_donasi: '',
+  nominal_total: '',
+  tipe_pemakaian: 'operasional',
+  tanggal_pemakaian: new Date().toISOString().split('T')[0],
+  keterangan: ''
+});
+const [formLoading, setFormLoading] = useState(false);
 
   // State untuk export
   const [exportLoading, setExportLoading] = useState(false);
@@ -122,7 +123,6 @@ const DataKeuangan = () => {
     }
   };
 
-  // Calculate summary data yang diperbaiki
   const calculateSummary = (rekapData, pemakaianData, donasiData, syahriahData) => {
     // Filter data berdasarkan periode yang dipilih
     const currentPeriod = selectedPeriod === 'semua' ? null : selectedPeriod;
@@ -134,16 +134,17 @@ const DataKeuangan = () => {
           return itemPeriod === currentPeriod;
         })
       : donasiData;
-
-    // Filter syahriah data berdasarkan periode (menggunakan bulan dari field bulan)
+  
+    // Filter syahriah data berdasarkan periode dan HANYA status 'lunas'
     const filteredSyahriah = currentPeriod
       ? syahriahData.filter(item => {
           // Format bulan: "2025-10" -> cocok dengan format periode "2025-10"
-          return item.bulan === currentPeriod;
+          // HANYA hitung yang statusnya 'lunas'
+          return item.bulan === currentPeriod && item.status === 'lunas';
         })
-      : syahriahData;
-
-    // Filter pemakaian data berdasarkan periode - PERBAIKAN: semua sumber dana dihitung
+      : syahriahData.filter(item => item.status === 'lunas'); // Filter hanya yang lunas untuk semua periode
+  
+    // Filter pemakaian data berdasarkan periode
     const filteredPemakaian = currentPeriod
       ? pemakaianData.filter(item => {
           const itemPeriod = item.tanggal_pemakaian 
@@ -152,22 +153,22 @@ const DataKeuangan = () => {
           return itemPeriod === currentPeriod;
         })
       : pemakaianData;
-
+  
     // Total Donasi: Sum dari semua donasi dalam periode yang dipilih
     const totalDonasi = filteredDonasi.reduce((sum, item) => sum + (item.nominal || 0), 0);
-
-    // Total Syahriah: Sum dari semua syahriah dalam periode yang dipilih
+  
+    // Total Syahriah: Sum dari semua syahriah dalam periode yang dipilih (HANYA yang lunas)
     const totalSyahriah = filteredSyahriah.reduce((sum, item) => sum + (item.nominal || 0), 0);
-
+  
     // Total Pemasukan: Total Donasi + Total Syahriah
     const totalPemasukan = totalDonasi + totalSyahriah;
-
-    // Total Pengeluaran: Sum dari semua pemakaian yang difilter - PERBAIKAN: semua sumber dana dihitung
-    const totalPengeluaran = filteredPemakaian.reduce((sum, item) => sum + (item.nominal || 0), 0);
-
+  
+    // PERBAIKAN: Total Pengeluaran menggunakan nominal_total (bukan nominal)
+    const totalPengeluaran = filteredPemakaian.reduce((sum, item) => sum + (item.nominal_total || 0), 0);
+  
     // Saldo Akhir: Total Pemasukan - Total Pengeluaran
     const saldoAkhir = totalPemasukan - totalPengeluaran;
-
+  
     setSummaryData({
       totalPemasukan,
       totalPengeluaran,
@@ -220,38 +221,76 @@ const DataKeuangan = () => {
   };
 
   // ========== EXPORT FUNCTIONS ==========
-  const exportToXLSX = () => {
+  const exportToXLSX = async () => {
     setExportLoading(true);
     try {
+      // Ambil informasi TPQ terlebih dahulu
+      const token = localStorage.getItem('token');
+      const infoResponse = await fetch(`${API_URL}/api/informasi-tpq`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+  
+      let tpqInfo = null;
+      if (infoResponse.ok) {
+        const infoResult = await infoResponse.json();
+        tpqInfo = infoResult.data;
+      }
+  
       const wb = XLSX.utils.book_new();
       let fileName = 'Laporan_Keuangan_Lengkap';
-
-      // Sheet 1: Summary/Statistik
+  
+      // Sheet 1: Summary/Statistik dengan kop surat
       const summarySheetData = [
-        ['LAPORAN KEUANGAN - SUMMARY'],
-        ['Periode', getCurrentPeriodText()],
-        ['Tanggal Export', new Date().toLocaleDateString('id-ID', { 
-          weekday: 'long', 
-          year: 'numeric', 
-          month: 'long', 
-          day: 'numeric' 
-        })],
-        [],
-        ['STATISTIK KEUANGAN'],
-        ['Total Pemasukan', summaryData?.totalPemasukan || 0],
-        ['Total Pengeluaran', summaryData?.totalPengeluaran || 0],
-        ['Saldo Akhir', summaryData?.saldoAkhir || 0],
-        ['Total Donasi', summaryData?.totalDonasi || 0],
-        ['Total Syahriah', summaryData?.totalSyahriah || 0],
-        [],
-        ['RINCIAN PER KATEGORI']
+        // Kop Surat
+        ['', '', '', '', '', ''],
+        ['', '', '', '', '', ''],
+        ['', 'LAPORAN KEUANGAN', '', '', '', ''],
+        ['', `TPQ ${tpqInfo?.nama_tpq || 'ASY-SYAFI\''}`, '', '', '', ''],
+        ['', `Periode: ${getCurrentPeriodText()}`, '', '', '', ''],
+        ['', '', '', '', '', ''],
+        ['', '', '', '', '', ''],
+        // Informasi TPQ
+        ['INFORMASI TPQ:', '', '', 'PERIODE LAPORAN:', '', ''],
+        [`Nama: ${tpqInfo?.nama_tpq || 'TPQ Asy-Syafi\''}`, '', '', `Periode: ${getCurrentPeriodText()}`, '', ''],
+        [`Alamat: ${tpqInfo?.alamat || '-'}`, '', '', `Tanggal Export: ${new Date().toLocaleDateString('id-ID')}`, '', ''],
+        [`Telp: ${tpqInfo?.no_telp || '-'}`, '', '', '', '', ''],
+        [`Email: ${tpqInfo?.email || '-'}`, '', '', '', '', ''],
+        ['', '', '', '', '', ''],
+        // Summary Keuangan
+        ['RINGKASAN KEUANGAN', '', '', '', '', ''],
+        ['Kategori', 'Nominal', '', '', '', ''],
+        ['Total Pemasukan', summaryData?.totalPemasukan || 0, '', '', '', ''],
+        ['Total Pengeluaran', summaryData?.totalPengeluaran || 0, '', '', '', ''],
+        ['Saldo Akhir', summaryData?.saldoAkhir || 0, '', '', '', ''],
+        ['Total Donasi', summaryData?.totalDonasi || 0, '', '', '', ''],
+        ['Total Syahriah', summaryData?.totalSyahriah || 0, '', '', '', ''],
+        ['', '', '', '', '', ''],
+        ['RINCIAN PER KATEGORI', '', '', '', '', '']
       ];
-
+  
       const wsSummary = XLSX.utils.aoa_to_sheet(summarySheetData);
-      XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
-
-      // Sheet 2: Rekap Keuangan - PERBAIKAN: Sesuaikan dengan struktur baru
+      XLSX.utils.book_append_sheet(wb, wsSummary, 'Ringkasan');
+  
+      // Merge cells untuk kop surat
+      if (!wsSummary['!merges']) wsSummary['!merges'] = [];
+      wsSummary['!merges'].push(
+        { s: { r: 2, c: 1 }, e: { r: 2, c: 4 } }, // LAPORAN KEUANGAN
+        { s: { r: 3, c: 1 }, e: { r: 3, c: 4 } }, // Nama TPQ
+        { s: { r: 4, c: 1 }, e: { r: 4, c: 4 } }  // Periode
+      );
+  
+      // Sheet 2: Rekap Keuangan dengan header
       if (getFilteredRekap().length > 0) {
+        const rekapHeader = [
+          ['REKAP KEUANGAN PER PERIODE'],
+          ['TPQ ASY-SYAFI\'I'],
+          [`Periode: ${getCurrentPeriodText()}`],
+          []
+        ];
+  
         const rekapDataToExport = getFilteredRekap().map(item => ({
           'Periode': formatPeriod(item.periode),
           'Pemasukan Syahriah': item.pemasukan_syahriah,
@@ -265,28 +304,47 @@ const DataKeuangan = () => {
           'Saldo Akhir Total': item.saldo_akhir_total,
           'Update Terakhir': formatDateTime(item.terakhir_update)
         }));
-        const wsRekap = XLSX.utils.json_to_sheet(rekapDataToExport);
+  
+        const wsRekap = XLSX.utils.aoa_to_sheet(rekapHeader);
+        XLSX.utils.sheet_add_json(wsRekap, rekapDataToExport, { origin: 'A5', skipHeader: false });
         XLSX.utils.book_append_sheet(wb, wsRekap, 'Rekap Keuangan');
       }
-
-      // Sheet 3: Pengeluaran
+  
+      // Sheet 3: Pengeluaran dengan header
       if (getFilteredPemakaian().length > 0) {
+        const pemakaianHeader = [
+          ['DATA PENGELUARAN'],
+          ['TPQ ASY-SYAFI\'I'],
+          [`Periode: ${getCurrentPeriodText()}`],
+          []
+        ];
+  
         const pemakaianDataToExport = getFilteredPemakaian().map(item => ({
           'Tanggal': item.tanggal_pemakaian ? formatDate(item.tanggal_pemakaian) : formatDate(item.created_at),
           'Judul Pengeluaran': item.judul_pemakaian,
           'Deskripsi': item.deskripsi,
           'Tipe Pengeluaran': item.tipe_pemakaian,
-          'Sumber Dana': item.sumber_dana,
-          'Nominal': item.nominal,
+          'Nominal Syahriah': item.nominal_syahriah,
+          'Nominal Donasi': item.nominal_donasi,
+          'Nominal Total': item.nominal_total,
           'Keterangan': item.keterangan || '-',
           'Diajukan Oleh': item.pengaju?.nama_lengkap || 'Admin'
         }));
-        const wsPemakaian = XLSX.utils.json_to_sheet(pemakaianDataToExport);
+  
+        const wsPemakaian = XLSX.utils.aoa_to_sheet(pemakaianHeader);
+        XLSX.utils.sheet_add_json(wsPemakaian, pemakaianDataToExport, { origin: 'A5', skipHeader: false });
         XLSX.utils.book_append_sheet(wb, wsPemakaian, 'Pengeluaran');
       }
-
-      // Sheet 4: Pemasukan Donasi
+  
+      // Sheet 4: Pemasukan Donasi dengan header
       if (getFilteredDonasi().length > 0) {
+        const donasiHeader = [
+          ['DATA PEMASUKAN DONASI'],
+          ['TPQ ASY-SYAFI\'I'],
+          [`Periode: ${getCurrentPeriodText()}`],
+          []
+        ];
+  
         const donasiDataToExport = getFilteredDonasi().map(item => ({
           'Tanggal': formatDateTime(item.waktu_catat),
           'Nama Donatur': item.nama_donatur,
@@ -294,12 +352,21 @@ const DataKeuangan = () => {
           'Nominal': item.nominal,
           'Dicatat Oleh': item.admin?.nama_lengkap || 'Admin'
         }));
-        const wsDonasi = XLSX.utils.json_to_sheet(donasiDataToExport);
+  
+        const wsDonasi = XLSX.utils.aoa_to_sheet(donasiHeader);
+        XLSX.utils.sheet_add_json(wsDonasi, donasiDataToExport, { origin: 'A5', skipHeader: false });
         XLSX.utils.book_append_sheet(wb, wsDonasi, 'Pemasukan Donasi');
       }
-
-      // Sheet 5: Pemasukan Syahriah
+  
+      // Sheet 5: Pemasukan Syahriah dengan header
       if (getFilteredSyahriah().length > 0) {
+        const syahriahHeader = [
+          ['DATA PEMASUKAN SYAHRIYAH'],
+          ['TPQ ASY-SYAFI\'I'],
+          [`Periode: ${getCurrentPeriodText()}`],
+          []
+        ];
+  
         const syahriahDataToExport = getFilteredSyahriah().map(item => ({
           'Tanggal Bayar': formatDateTime(item.waktu_catat),
           'Nama Wali': item.wali?.nama_lengkap || '-',
@@ -310,33 +377,13 @@ const DataKeuangan = () => {
           'Status': item.status,
           'Dicatat Oleh': item.admin?.nama_lengkap || 'Admin'
         }));
-        const wsSyahriah = XLSX.utils.json_to_sheet(syahriahDataToExport);
+  
+        const wsSyahriah = XLSX.utils.aoa_to_sheet(syahriahHeader);
+        XLSX.utils.sheet_add_json(wsSyahriah, syahriahDataToExport, { origin: 'A5', skipHeader: false });
         XLSX.utils.book_append_sheet(wb, wsSyahriah, 'Pemasukan Syahriah');
       }
-
-      // Auto-size columns untuk semua sheet
-      wb.SheetNames.forEach(sheetName => {
-        const ws = wb.Sheets[sheetName];
-        if (ws['!ref']) {
-          const range = XLSX.utils.decode_range(ws['!ref']);
-          const colWidths = [];
-          
-          for (let col = range.s.c; col <= range.e.c; col++) {
-            let maxLength = 0;
-            for (let row = range.s.r; row <= range.e.r; row++) {
-              const cell = ws[XLSX.utils.encode_cell({ r: row, c: col })];
-              if (cell && cell.v) {
-                const length = String(cell.v).length;
-                if (length > maxLength) maxLength = length;
-              }
-            }
-            colWidths.push({ wch: Math.min(maxLength + 2, 50) }); // Max width 50 characters
-          }
-          ws['!cols'] = colWidths;
-        }
-      });
-
-      XLSX.writeFile(wb, `${fileName}_${selectedPeriod === 'semua' ? 'Semua_Periode' : selectedPeriod}_${new Date().toISOString().split('T')[0]}.xlsx`);
+  
+      XLSX.writeFile(wb, `${fileName}_${tpqInfo?.nama_tpq?.replace(/\s+/g, '_') || 'TPQ_Asy_Syafii'}_${selectedPeriod === 'semua' ? 'Semua_Periode' : selectedPeriod}_${new Date().toISOString().split('T')[0]}.xlsx`);
       showAlert('Berhasil', `Laporan keuangan lengkap berhasil diexport ke Excel`, 'success');
     } catch (err) {
       console.error('Error exporting to Excel:', err);
@@ -346,34 +393,54 @@ const DataKeuangan = () => {
     }
   };
 
-  const exportToCSV = () => {
-    setExportLoading(true);
-    try {
-      let allData = [];
-      let fileName = 'Laporan_Keuangan_Lengkap';
+const exportToCSV = async () => {
+  setExportLoading(true);
+  try {
+    // Ambil informasi TPQ
+    const token = localStorage.getItem('token');
+    const infoResponse = await fetch(`${API_URL}/api/informasi-tpq`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
 
-      // Header untuk file CSV
-      const header = [
-        'LAPORAN KEUANGAN LENGKAP',
-        `Periode: ${getCurrentPeriodText()}`,
-        `Tanggal Export: ${new Date().toLocaleDateString('id-ID')}`,
-        ''
-      ];
+    let tpqInfo = null;
+    if (infoResponse.ok) {
+      const infoResult = await infoResponse.json();
+      tpqInfo = infoResult.data;
+    }
 
-      // Section 1: Summary
-      const summarySection = [
-        'SUMMARY KEUANGAN',
-        'Kategori,Nilai',
-        `Total Pemasukan,${summaryData?.totalPemasukan || 0}`,
-        `Total Pengeluaran,${summaryData?.totalPengeluaran || 0}`,
-        `Saldo Akhir,${summaryData?.saldoAkhir || 0}`,
-        `Total Donasi,${summaryData?.totalDonasi || 0}`,
-        `Total Syahriah,${summaryData?.totalSyahriah || 0}`,
-        ''
-      ];
+    let allData = [];
+    let fileName = 'Laporan_Keuangan_Lengkap';
 
-      allData = [...header, ...summarySection];
+    // Header untuk file CSV dengan informasi TPQ
+    const header = [
+      'LAPORAN KEUANGAN - TPQ ASY-SYAFI\'I',
+      `Nama TPQ: ${tpqInfo?.nama_tpq || 'TPQ Asy-Syafi\'i'}`,
+      `Alamat: ${tpqInfo?.alamat || '-'}`,
+      `No. Telepon: ${tpqInfo?.no_telp || '-'}`,
+      `Email: ${tpqInfo?.email || '-'}`,
+      `Hari & Jam Belajar: ${tpqInfo?.hari_jam_belajar || '-'}`,
+      '',
+      `Periode: ${getCurrentPeriodText()}`,
+      `Tanggal Export: ${new Date().toLocaleDateString('id-ID')}`,
+      ''
+    ];
 
+    // Section 1: Summary
+    const summarySection = [
+      'SUMMARY KEUANGAN',
+      'Kategori,Nilai',
+      `Total Pemasukan,${summaryData?.totalPemasukan || 0}`,
+      `Total Pengeluaran,${summaryData?.totalPengeluaran || 0}`,
+      `Saldo Akhir,${summaryData?.saldoAkhir || 0}`,
+      `Total Donasi,${summaryData?.totalDonasi || 0}`,
+      `Total Syahriah,${summaryData?.totalSyahriah || 0}`,
+      ''
+    ];
+
+    allData = [...header, ...summarySection];
       // Section 2: Rekap Keuangan - PERBAIKAN: Sesuaikan dengan struktur baru
       const rekapData = getFilteredRekap();
       if (rekapData.length > 0) {
@@ -401,15 +468,16 @@ const DataKeuangan = () => {
       const pemakaianData = getFilteredPemakaian();
       if (pemakaianData.length > 0) {
         allData.push('DATA PENGELUARAN');
-        allData.push('Tanggal,Judul Pengeluaran,Deskripsi,Tipe Pengeluaran,Sumber Dana,Nominal,Keterangan,Diajukan Oleh');
+        allData.push('Tanggal,Judul Pengeluaran,Deskripsi,Tipe Pengeluaran,Nominal Syahriah,Nominal Donasi,Nominal Total,Keterangan,Diajukan Oleh');
         pemakaianData.forEach(item => {
           allData.push([
             item.tanggal_pemakaian ? formatDate(item.tanggal_pemakaian) : formatDate(item.created_at),
             `"${item.judul_pemakaian}"`,
             `"${item.deskripsi}"`,
             item.tipe_pemakaian,
-            item.sumber_dana,
-            item.nominal,
+            item.nominal_syahriah,
+            item.nominal_donasi,
+            item.nominal_total,
             `"${item.keterangan || '-'}"`,
             item.pengaju?.nama_lengkap || 'Admin'
           ].join(','));
@@ -465,292 +533,377 @@ const DataKeuangan = () => {
     }
   };
 
-  const exportToDOCX = () => {
+  const exportToDOCX = async () => {
     setExportLoading(true);
     try {
-      // Create comprehensive HTML content for DOCX
+      // Ambil informasi TPQ
+      const token = localStorage.getItem('token');
+      const infoResponse = await fetch(`${API_URL}/api/informasi-tpq`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+  
+      let tpqInfo = null;
+      if (infoResponse.ok) {
+        const infoResult = await infoResponse.json();
+        tpqInfo = infoResult.data;
+      }
+  
+      // Create comprehensive HTML content for DOCX dengan format surat resmi
       const htmlContent = `
         <html>
           <head>
             <meta charset="utf-8">
-            <title>Laporan Keuangan Lengkap</title>
+            <title>Laporan Keuangan - ${tpqInfo?.nama_tpq || 'TPQ Asy-Syafi\'i'}</title>
             <style>
-              body { 
-                font-family: Arial, sans-serif; 
-                margin: 20px; 
-                line-height: 1.6;
+              @page {
+                margin: 2cm;
+                size: A4;
               }
-              h1 { 
-                color: #2d3748; 
-                border-bottom: 3px solid #4a5568; 
+              body { 
+                font-family: 'Times New Roman', Times, serif; 
+                margin: 0;
+                padding: 0;
+                line-height: 1.6;
+                font-size: 12pt;
+                color: #000;
+              }
+              .kop-surat {
+                border-bottom: 3px double #000;
                 padding-bottom: 10px;
+                margin-bottom: 20px;
                 text-align: center;
               }
-              h2 {
-                color: #4a5568;
-                border-bottom: 2px solid #cbd5e0;
-                padding-bottom: 8px;
-                margin-top: 30px;
+              .logo {
+                float: left;
+                width: 80px;
+                height: 80px;
+                margin-right: 15px;
               }
-              h3 {
-                color: #718096;
-                margin-top: 20px;
+              .header-info {
+                text-align: center;
+              }
+              .nama-tpq {
+                font-size: 16pt;
+                font-weight: bold;
+                margin: 5px 0;
+                text-transform: uppercase;
+              }
+              .alamat-tpq {
+                font-size: 11pt;
+                margin: 2px 0;
+              }
+              .kontak-tpq {
+                font-size: 10pt;
+                margin: 2px 0;
+              }
+              .judul-laporan {
+                text-align: center;
+                margin: 25px 0;
+                font-size: 14pt;
+                font-weight: bold;
+                text-decoration: underline;
+              }
+              .periode-info {
+                text-align: center;
+                margin: 15px 0;
+                font-size: 11pt;
               }
               table { 
                 width: 100%; 
                 border-collapse: collapse; 
                 margin: 15px 0;
-                font-size: 14px;
+                font-size: 10pt;
               }
               th, td { 
-                border: 1px solid #cbd5e0; 
-                padding: 12px; 
+                border: 1px solid #000; 
+                padding: 8px; 
                 text-align: left; 
+                vertical-align: top;
               }
               th { 
-                background-color: #f7fafc; 
+                background-color: #f0f0f0; 
                 font-weight: bold;
-                color: #4a5568;
-              }
-              tr:nth-child(even) { 
-                background-color: #f7fafc; 
+                text-align: center;
               }
               .summary-section { 
-                background: #f0fff4; 
-                padding: 20px; 
-                border-radius: 8px; 
-                margin: 20px 0;
-                border-left: 4px solid #48bb78;
-              }
-              .stat-grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                gap: 15px;
-                margin: 15px 0;
-              }
-              .stat-card {
-                background: white;
+                background: #f9f9f9; 
                 padding: 15px;
-                border-radius: 8px;
-                border-left: 4px solid #4299e1;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                border: 1px solid #000;
+                margin: 20px 0;
               }
-              .stat-value {
-                font-size: 24px;
+              .summary-grid {
+                display: table;
+                width: 100%;
+                margin: 10px 0;
+              }
+              .summary-item {
+                display: table-row;
+              }
+              .summary-label {
+                display: table-cell;
+                padding: 5px 10px;
                 font-weight: bold;
-                color: #2d3748;
+                width: 40%;
               }
-              .stat-label {
-                font-size: 14px;
-                color: #718096;
-                margin-top: 5px;
+              .summary-value {
+                display: table-cell;
+                padding: 5px 10px;
               }
-              .positive { color: #38a169; }
-              .negative { color: #e53e3e; }
-              .section {
-                margin: 30px 0;
-              }
-              .header-info {
-                text-align: center;
-                margin-bottom: 30px;
-                color: #718096;
-              }
+              .positive { color: #006400; }
+              .negative { color: #8b0000; }
               .currency {
                 font-family: 'Courier New', monospace;
                 font-weight: bold;
               }
+              .section-title {
+                margin: 25px 0 10px 0;
+                font-size: 12pt;
+                font-weight: bold;
+                border-bottom: 1px solid #000;
+                padding-bottom: 5px;
+              }
+              .footer {
+                margin-top: 40px;
+                text-align: right;
+                font-size: 10pt;
+              }
+              .ttd {
+                margin-top: 60px;
+                text-align: center;
+              }
+              .ttd-space {
+                height: 60px;
+              }
+              .ttd-name {
+                font-weight: bold;
+                text-decoration: underline;
+              }
+              .ttd-position {
+                font-size: 10pt;
+              }
             </style>
           </head>
           <body>
-            <h1>LAPORAN KEUANGAN LENGKAP</h1>
+            <!-- Kop Surat -->
+            <div class="kop-surat">
+              <div class="header-info">
+                <div class="nama-tpq">${tpqInfo?.nama_tpq || 'TAMAN PENDIDIKAN QURAN ASY-SYAFI\'I'}</div>
+                <div class="alamat-tpq">${tpqInfo?.alamat || 'Jl. Raya Sangkanayu - Pengalusan KM 1 Campakoah RT 03 RW 01 Kec. Mrebet - Purbalingga'}</div>
+                <div class="kontak-tpq">
+                  Telp: ${tpqInfo?.no_telp || '085643955667'} | Email: ${tpqInfo?.email || 'tpqasysyafiicampakoah@gmail.com'} | 
+                </div>
+              </div>
+            </div>
+  
+            <!-- Judul Laporan -->
+            <div class="judul-laporan">LAPORAN KEUANGAN</div>
             
-            <div class="header-info">
-              <p><strong>Periode:</strong> ${getCurrentPeriodText()}</p>
-              <p><strong>Tanggal Export:</strong> ${new Date().toLocaleDateString('id-ID', { 
-                weekday: 'long', 
-                year: 'numeric', 
+            <!-- Periode -->
+            <div class="periode-info">
+              Periode: <strong>${getCurrentPeriodText()}</strong><br>
+              Tanggal Cetak: ${new Date().toLocaleDateString('id-ID', { 
+                day: 'numeric', 
                 month: 'long', 
-                day: 'numeric' 
-              })}</p>
+                year: 'numeric' 
+              })}
             </div>
-
-            <!-- Summary Section -->
+  
+            <!-- Ringkasan Keuangan -->
+            <div class="section-title">RINGKASAN KEUANGAN</div>
             <div class="summary-section">
-              <h2>SUMMARY KEUANGAN</h2>
-              <div class="stat-grid">
-                <div class="stat-card">
-                  <div class="stat-value positive">${formatCurrency(summaryData?.totalPemasukan || 0)}</div>
-                  <div class="stat-label">Total Pemasukan</div>
+              <div class="summary-grid">
+                <div class="summary-item">
+                  <div class="summary-label">Total Pemasukan:</div>
+                  <div class="summary-value currency positive">${formatCurrency(summaryData?.totalPemasukan || 0)}</div>
                 </div>
-                <div class="stat-card">
-                  <div class="stat-value negative">${formatCurrency(summaryData?.totalPengeluaran || 0)}</div>
-                  <div class="stat-label">Total Pengeluaran</div>
+                <div class="summary-item">
+                  <div class="summary-label">Total Pengeluaran:</div>
+                  <div class="summary-value currency negative">${formatCurrency(summaryData?.totalPengeluaran || 0)}</div>
                 </div>
-                <div class="stat-card">
-                  <div class="stat-value" style="color: #3182ce;">${formatCurrency(summaryData?.saldoAkhir || 0)}</div>
-                  <div class="stat-label">Saldo Akhir</div>
+                <div class="summary-item">
+                  <div class="summary-label">Saldo Akhir:</div>
+                  <div class="summary-value currency">${formatCurrency(summaryData?.saldoAkhir || 0)}</div>
                 </div>
-                <div class="stat-card">
-                  <div class="stat-value positive">${formatCurrency(summaryData?.totalDonasi || 0)}</div>
-                  <div class="stat-label">Total Donasi</div>
+                <div class="summary-item">
+                  <div class="summary-label">Total Donasi:</div>
+                  <div class="summary-value currency positive">${formatCurrency(summaryData?.totalDonasi || 0)}</div>
                 </div>
-                <div class="stat-card">
-                  <div class="stat-value positive">${formatCurrency(summaryData?.totalSyahriah || 0)}</div>
-                  <div class="stat-label">Total Syahriah</div>
+                <div class="summary-item">
+                  <div class="summary-label">Total Syahriah:</div>
+                  <div class="summary-value currency positive">${formatCurrency(summaryData?.totalSyahriah || 0)}</div>
                 </div>
               </div>
             </div>
-
-            <!-- Rekap Keuangan Section - PERBAIKAN: Sesuaikan dengan struktur baru -->
+  
+            <!-- Rekap Keuangan -->
             ${getFilteredRekap().length > 0 ? `
-              <div class="section">
-                <h2>REKAP KEUANGAN</h2>
-                <table>
-                  <thead>
+              <div class="section-title">REKAP KEUANGAN PER PERIODE</div>
+              <table>
+                <thead>
+                  <tr>
+                    <th rowspan="2">Periode</th>
+                    <th colspan="3">Syahriah</th>
+                    <th colspan="3">Donasi</th>
+                    <th colspan="3">Total</th>
+                    <th rowspan="2">Update Terakhir</th>
+                  </tr>
+                  <tr>
+                    <th>Pemasukan</th>
+                    <th>Pengeluaran</th>
+                    <th>Saldo</th>
+                    <th>Pemasukan</th>
+                    <th>Pengeluaran</th>
+                    <th>Saldo</th>
+                    <th>Pemasukan</th>
+                    <th>Pengeluaran</th>
+                    <th>Saldo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${getFilteredRekap().map(item => `
                     <tr>
-                      <th>Periode</th>
-                      <th>Pemasukan Syahriah</th>
-                      <th>Pengeluaran Syahriah</th>
-                      <th>Saldo Syahriah</th>
-                      <th>Pemasukan Donasi</th>
-                      <th>Pengeluaran Donasi</th>
-                      <th>Saldo Donasi</th>
-                      <th>Pemasukan Total</th>
-                      <th>Pengeluaran Total</th>
-                      <th>Saldo Total</th>
-                      <th>Update Terakhir</th>
+                      <td>${formatPeriod(item.periode)}</td>
+                      <td class="currency positive">${formatCurrency(item.pemasukan_syahriah)}</td>
+                      <td class="currency negative">${formatCurrency(item.pengeluaran_syahriah)}</td>
+                      <td class="currency">${formatCurrency(item.saldo_akhir_syahriah)}</td>
+                      <td class="currency positive">${formatCurrency(item.pemasukan_donasi)}</td>
+                      <td class="currency negative">${formatCurrency(item.pengeluaran_donasi)}</td>
+                      <td class="currency">${formatCurrency(item.saldo_akhir_donasi)}</td>
+                      <td class="currency positive">${formatCurrency(item.pemasukan_total)}</td>
+                      <td class="currency negative">${formatCurrency(item.pengeluaran_total)}</td>
+                      <td class="currency">${formatCurrency(item.saldo_akhir_total)}</td>
+                      <td style="font-size: 9pt;">${formatDateTime(item.terakhir_update)}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    ${getFilteredRekap().map(item => `
-                      <tr>
-                        <td>${formatPeriod(item.periode)}</td>
-                        <td class="currency positive">${formatCurrency(item.pemasukan_syahriah)}</td>
-                        <td class="currency negative">${formatCurrency(item.pengeluaran_syahriah)}</td>
-                        <td class="currency">${formatCurrency(item.saldo_akhir_syahriah)}</td>
-                        <td class="currency positive">${formatCurrency(item.pemasukan_donasi)}</td>
-                        <td class="currency negative">${formatCurrency(item.pengeluaran_donasi)}</td>
-                        <td class="currency">${formatCurrency(item.saldo_akhir_donasi)}</td>
-                        <td class="currency positive">${formatCurrency(item.pemasukan_total)}</td>
-                        <td class="currency negative">${formatCurrency(item.pengeluaran_total)}</td>
-                        <td class="currency">${formatCurrency(item.saldo_akhir_total)}</td>
-                        <td>${formatDateTime(item.terakhir_update)}</td>
-                      </tr>
-                    `).join('')}
-                  </tbody>
-                </table>
-              </div>
+                  `).join('')}
+                </tbody>
+              </table>
             ` : ''}
-
-            <!-- Pengeluaran Section -->
+  
+            <!-- Pengeluaran -->
             ${getFilteredPemakaian().length > 0 ? `
-              <div class="section">
-                <h2>DATA PENGELUARAN</h2>
-                <table>
-                  <thead>
+              <div class="section-title">DATA PENGELUARAN</div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Tanggal</th>
+                    <th>Keterangan</th>
+                    <th>Tipe</th>
+                    <th>Sumber Dana</th>
+                    <th>Nominal</th>
+                    <th>Diajukan Oleh</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${getFilteredPemakaian().map(item => `
                     <tr>
-                      <th>Tanggal</th>
-                      <th>Judul Pengeluaran</th>
-                      <th>Deskripsi</th>
-                      <th>Tipe</th>
-                      <th>Sumber Dana</th>
-                      <th>Nominal</th>
-                      <th>Diajukan Oleh</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${getFilteredPemakaian().map(item => `
-                      <tr>
-                        <td>${item.tanggal_pemakaian ? formatDate(item.tanggal_pemakaian) : formatDate(item.created_at)}</td>
-                        <td>${item.judul_pemakaian}</td>
-                        <td>${item.deskripsi}</td>
-                        <td>${item.tipe_pemakaian}</td>
-                        <td>${item.sumber_dana}</td>
-                        <td class="currency negative">${formatCurrency(item.nominal)}</td>
-                        <td>${item.pengaju?.nama_lengkap || 'Admin'}</td>
-                      </tr>
-                    `).join('')}
-                  </tbody>
-                </table>
-              </div>
+                    <td>${item.tanggal_pemakaian ? formatDate(item.tanggal_pemakaian) : formatDate(item.created_at)}</td>
+                    <td>
+                      <strong>${item.judul_pemakaian}</strong><br>
+                      <small>${item.deskripsi}</small>
+                      ${item.keterangan ? `<br><small><em>Catatan: ${item.keterangan}</em></small>` : ''}
+                    </td>
+                    <td style="text-transform: capitalize;">${item.tipe_pemakaian}</td>
+                    <td class="currency negative">${formatCurrency(item.nominal_syahriah)}</td>
+                    <td class="currency negative">${formatCurrency(item.nominal_donasi)}</td>
+                    <td class="currency negative">${formatCurrency(item.nominal_total)}</td>
+                    <td>${item.pengaju?.nama_lengkap || 'Admin'}</td>
+                  </tr>
+                  `).join('')}
+                </tbody>
+              </table>
             ` : ''}
-
-            <!-- Pemasukan Donasi Section -->
+  
+            <!-- Pemasukan Donasi -->
             ${getFilteredDonasi().length > 0 ? `
-              <div class="section">
-                <h2>DATA PEMASUKAN DONASI</h2>
-                <table>
-                  <thead>
+              <div class="section-title">DATA PEMASUKAN DONASI</div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Tanggal</th>
+                    <th>Nama Donatur</th>
+                    <th>Kontak</th>
+                    <th>Nominal</th>
+                    <th>Dicatat Oleh</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${getFilteredDonasi().map(item => `
                     <tr>
-                      <th>Tanggal</th>
-                      <th>Nama Donatur</th>
-                      <th>No. Telepon</th>
-                      <th>Nominal</th>
-                      <th>Dicatat Oleh</th>
+                      <td>${formatDateTime(item.waktu_catat)}</td>
+                      <td>${item.nama_donatur}</td>
+                      <td>${item.no_telp || '-'}</td>
+                      <td class="currency positive">${formatCurrency(item.nominal)}</td>
+                      <td>${item.admin?.nama_lengkap || 'Admin'}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    ${getFilteredDonasi().map(item => `
-                      <tr>
-                        <td>${formatDateTime(item.waktu_catat)}</td>
-                        <td>${item.nama_donatur}</td>
-                        <td>${item.no_telp || '-'}</td>
-                        <td class="currency positive">${formatCurrency(item.nominal)}</td>
-                        <td>${item.admin?.nama_lengkap || 'Admin'}</td>
-                      </tr>
-                    `).join('')}
-                  </tbody>
-                </table>
-              </div>
+                  `).join('')}
+                </tbody>
+              </table>
             ` : ''}
-
-            <!-- Pemasukan Syahriah Section -->
+  
+            <!-- Pemasukan Syahriah -->
             ${getFilteredSyahriah().length > 0 ? `
-              <div class="section">
-                <h2>DATA PEMASUKAN SYAHRIYAH</h2>
-                <table>
-                  <thead>
+              <div class="section-title">DATA PEMASUKAN SYAHRIYAH</div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Tanggal Bayar</th>
+                    <th>Nama Wali</th>
+                    <th>Kontak</th>
+                    <th>Bulan</th>
+                    <th>Nominal</th>
+                    <th>Status</th>
+                    <th>Dicatat Oleh</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${getFilteredSyahriah().map(item => `
                     <tr>
-                      <th>Tanggal Bayar</th>
-                      <th>Nama Wali</th>
-                      <th>Email</th>
-                      <th>No. Telepon</th>
-                      <th>Bulan</th>
-                      <th>Nominal</th>
-                      <th>Status</th>
-                      <th>Dicatat Oleh</th>
+                      <td>${formatDateTime(item.waktu_catat)}</td>
+                      <td>${item.wali?.nama_lengkap || '-'}</td>
+                      <td>
+                        ${item.wali?.no_telp || '-'}<br>
+                        <small>${item.wali?.email || ''}</small>
+                      </td>
+                      <td>${formatPeriod(item.bulan)}</td>
+                      <td class="currency positive">${formatCurrency(item.nominal)}</td>
+                      <td style="text-transform: capitalize;">${item.status}</td>
+                      <td>${item.admin?.nama_lengkap || 'Admin'}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    ${getFilteredSyahriah().map(item => `
-                      <tr>
-                        <td>${formatDateTime(item.waktu_catat)}</td>
-                        <td>${item.wali?.nama_lengkap || '-'}</td>
-                        <td>${item.wali?.email || '-'}</td>
-                        <td>${item.wali?.no_telp || '-'}</td>
-                        <td>${formatPeriod(item.bulan)}</td>
-                        <td class="currency positive">${formatCurrency(item.nominal)}</td>
-                        <td>${item.status}</td>
-                        <td>${item.admin?.nama_lengkap || 'Admin'}</td>
-                      </tr>
-                    `).join('')}
-                  </tbody>
-                </table>
-              </div>
+                  `).join('')}
+                </tbody>
+              </table>
             ` : ''}
-
-            <!-- Footer -->
-            <div style="margin-top: 50px; padding-top: 20px; border-top: 2px solid #e2e8f0; text-align: center; color: #718096;">
-              <p>Dokumen ini dihasilkan secara otomatis oleh Sistem Keuangan</p>
-              <p>Total Data: ${getFilteredRekap().length + getFilteredPemakaian().length + getFilteredDonasi().length + getFilteredSyahriah().length} records</p>
+  
+            <!-- Footer dan TTD -->
+            <div class="footer">
+              <div class="ttd">
+                <div>Purbalingga, ${new Date().toLocaleDateString('id-ID', { 
+                  day: 'numeric', 
+                  month: 'long', 
+                  year: 'numeric' 
+                })}</div>
+                <div class="ttd-space"></div>
+                <div class="ttd-name">Bendahara TPQ</div>
+                <div class="ttd-position">${tpqInfo?.nama_tpq || 'TPQ Asy-Syafi\''}</div>
+              </div>
+            </div>
+  
+            <!-- Informasi Dokumen -->
+            <div style="margin-top: 30px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 9pt; color: #666; text-align: center;">
+              <p>Dokumen ini dihasilkan secara otomatis oleh Sistem Keuangan ${tpqInfo?.nama_tpq || 'TPQ Asy-Syafi\''}</p>
+              <p>Total Data: ${getFilteredRekap().length} rekap, ${getFilteredPemakaian().length} pengeluaran, 
+              ${getFilteredDonasi().length} donasi, ${getFilteredSyahriah().length} syahriah</p>
             </div>
           </body>
         </html>
       `;
-
+  
       const blob = new Blob([htmlContent], { type: 'application/msword' });
-      saveAs(blob, `Laporan_Keuangan_Lengkap_${selectedPeriod === 'semua' ? 'Semua_Periode' : selectedPeriod}_${new Date().toISOString().split('T')[0]}.doc`);
-      showAlert('Berhasil', `Laporan keuangan lengkap berhasil diexport ke Word`, 'success');
+      saveAs(blob, `Laporan_Keuangan_${tpqInfo?.nama_tpq?.replace(/\s+/g, '_') || 'TPQ_Asy_Syafii'}_${selectedPeriod === 'semua' ? 'Semua_Periode' : selectedPeriod}_${new Date().toISOString().split('T')[0]}.doc`);
+      showAlert('Berhasil', `Laporan keuangan lengkap berhasil diexport ke Word dengan format surat resmi`, 'success');
     } catch (err) {
       console.error('Error exporting to DOCX:', err);
       showAlert('Gagal', `Gagal export data: ${err.message}`, 'error');
@@ -764,7 +917,21 @@ const DataKeuangan = () => {
     e.preventDefault();
     try {
       setFormLoading(true);
-
+  
+      // Validasi client-side
+      const nominalTotal = parseFloat(formData.nominal_total);
+      if (nominalTotal <= 0) {
+        throw new Error('Total pengeluaran harus lebih dari 0');
+      }
+  
+      const nominalSyahriah = parseFloat(formData.nominal_syahriah) || 0;
+      const nominalDonasi = parseFloat(formData.nominal_donasi) || 0;
+      
+      // Validasi konsistensi data
+      if (Math.abs((nominalSyahriah + nominalDonasi) - nominalTotal) > 0.01) {
+        throw new Error('Total pengeluaran tidak sesuai dengan jumlah nominal syahriah dan donasi');
+      }
+  
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_URL}/api/admin/pemakaian`, {
         method: 'POST',
@@ -775,19 +942,20 @@ const DataKeuangan = () => {
         body: JSON.stringify({
           judul_pemakaian: formData.judul_pemakaian,
           deskripsi: formData.deskripsi,
-          nominal: parseFloat(formData.nominal),
+          nominal_syahriah: nominalSyahriah,
+          nominal_donasi: nominalDonasi,
+          nominal_total: nominalTotal,
           tipe_pemakaian: formData.tipe_pemakaian,
-          sumber_dana: formData.sumber_dana,
           tanggal_pemakaian: formData.tanggal_pemakaian,
           keterangan: formData.keterangan || null
         })
       });
-
+  
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Gagal membuat data pemakaian');
       }
-
+  
       const result = await response.json();
       showAlert('Berhasil', 'Data pemakaian berhasil dibuat!', 'success');
       setShowPemakaianModal(false);
@@ -806,7 +974,7 @@ const DataKeuangan = () => {
     e.preventDefault();
     try {
       setFormLoading(true);
-
+  
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_URL}/api/admin/pemakaian/${selectedPemakaian.id_pemakaian}`, {
         method: 'PUT',
@@ -817,19 +985,20 @@ const DataKeuangan = () => {
         body: JSON.stringify({
           judul_pemakaian: formData.judul_pemakaian,
           deskripsi: formData.deskripsi,
-          nominal: parseFloat(formData.nominal),
+          nominal_syahriah: parseFloat(formData.nominal_syahriah) || 0,
+          nominal_donasi: parseFloat(formData.nominal_donasi) || 0,
+          nominal_total: parseFloat(formData.nominal_total),
           tipe_pemakaian: formData.tipe_pemakaian,
-          sumber_dana: formData.sumber_dana,
           tanggal_pemakaian: formData.tanggal_pemakaian,
           keterangan: formData.keterangan || null
         })
       });
-
+  
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Gagal mengupdate data pemakaian');
       }
-
+  
       const result = await response.json();
       showAlert('Berhasil', 'Data pemakaian berhasil diupdate!', 'success');
       setShowPemakaianModal(false);
@@ -891,9 +1060,10 @@ const DataKeuangan = () => {
     setFormData({
       judul_pemakaian: pemakaian.judul_pemakaian,
       deskripsi: pemakaian.deskripsi,
-      nominal: pemakaian.nominal.toString(),
+      nominal_syahriah: pemakaian.nominal_syahriah.toString(),
+      nominal_donasi: pemakaian.nominal_donasi.toString(),
+      nominal_total: pemakaian.nominal_total.toString(), // Total sudah dihitung otomatis
       tipe_pemakaian: pemakaian.tipe_pemakaian,
-      sumber_dana: pemakaian.sumber_dana,
       tanggal_pemakaian: pemakaian.tanggal_pemakaian 
         ? new Date(pemakaian.tanggal_pemakaian).toISOString().split('T')[0]
         : new Date(pemakaian.created_at).toISOString().split('T')[0],
@@ -906,9 +1076,10 @@ const DataKeuangan = () => {
     setFormData({
       judul_pemakaian: '',
       deskripsi: '',
-      nominal: '',
+      nominal_syahriah: '',
+      nominal_donasi: '',
+      nominal_total: '',
       tipe_pemakaian: 'operasional',
-      sumber_dana: 'campuran',
       tanggal_pemakaian: new Date().toISOString().split('T')[0],
       keterangan: ''
     });
@@ -916,10 +1087,23 @@ const DataKeuangan = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    
+    setFormData(prev => {
+      const newFormData = {
+        ...prev,
+        [name]: value
+      };
+      
+      if (name === 'nominal_syahriah' || name === 'nominal_donasi') {
+        const nominalSyahriah = parseFloat(newFormData.nominal_syahriah) || 0;
+        const nominalDonasi = parseFloat(newFormData.nominal_donasi) || 0;
+        const nominalTotal = nominalSyahriah + nominalDonasi;
+        
+        newFormData.nominal_total = nominalTotal > 0 ? nominalTotal.toString() : '';
+      }
+      
+      return newFormData;
+    });
   };
 
   const showAlert = (title, message, type = 'success') => {
@@ -1228,97 +1412,101 @@ const DataKeuangan = () => {
           </div>
         );
       
-      case 'pengeluaran':
-        return (
-          <div className="overflow-x-auto">
-            {filteredPemakaian.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+        case 'pengeluaran':
+          return (
+            <div className="overflow-x-auto">
+              {filteredPemakaian.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Pengeluaran</h3>
+                  <p className="text-green-600 mb-4">Data pengeluaran akan muncul setelah ada pemakaian saldo</p>
+                  <button
+                    onClick={handleOpenCreateModal}
+                    className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors font-medium"
+                  >
+                    {icons.plus}
+                    <span className="ml-2">Tambah Pengeluaran</span>
+                  </button>
                 </div>
-                <h3 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Pengeluaran</h3>
-                <p className="text-green-600 mb-4">Data pengeluaran akan muncul setelah ada pemakaian saldo</p>
-                <button
-                  onClick={handleOpenCreateModal}
-                  className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors font-medium"
-                >
-                  {icons.plus}
-                  <span className="ml-2">Tambah Pengeluaran</span>
-                </button>
-              </div>
-            ) : (
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Keterangan</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipe</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sumber Dana</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jumlah</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Diajukan Oleh</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredPemakaian.map((item, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {item.tanggal_pemakaian ? formatDate(item.tanggal_pemakaian) : formatDate(item.created_at)}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        <div>
-                          <div className="font-medium">{item.judul_pemakaian}</div>
-                          <div className="text-gray-500 text-xs mt-1">{item.deskripsi}</div>
-                          {item.keterangan && (
-                            <div className="text-gray-400 text-xs mt-1">Catatan: {item.keterangan}</div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full capitalize ${
-                          item.tipe_pemakaian === 'operasional' ? 'bg-blue-100 text-blue-800' :
-                          item.tipe_pemakaian === 'investasi' ? 'bg-purple-100 text-purple-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {item.tipe_pemakaian}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">
-                        {item.sumber_dana}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">
-                        {formatCurrency(item.nominal)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {item.pengaju?.nama_lengkap || 'Admin'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => handleOpenEditModal(item)}
-                            className="text-blue-600 hover:text-blue-900 transition-colors"
-                            title="Edit"
-                          >
-                            {icons.edit}
-                          </button>
-                          <button
-                            onClick={() => handleDeletePemakaian(item.id_pemakaian)}
-                            className="text-red-600 hover:text-red-900 transition-colors"
-                            title="Hapus"
-                          >
-                            {icons.delete}
-                          </button>
-                        </div>
-                      </td>
+              ) : (
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Keterangan</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipe</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dana Syahriah</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dana Donasi</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Diajukan Oleh</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        );
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredPemakaian.map((item, index) => (
+                      <tr key={index} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {item.tanggal_pemakaian ? formatDate(item.tanggal_pemakaian) : formatDate(item.created_at)}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900">
+                          <div>
+                            <div className="font-medium">{item.judul_pemakaian}</div>
+                            <div className="text-gray-500 text-xs mt-1">{item.deskripsi}</div>
+                            {item.keterangan && (
+                              <div className="text-gray-400 text-xs mt-1">Catatan: {item.keterangan}</div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full capitalize ${
+                            item.tipe_pemakaian === 'operasional' ? 'bg-blue-100 text-blue-800' :
+                            item.tipe_pemakaian === 'investasi' ? 'bg-purple-100 text-purple-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {item.tipe_pemakaian}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-orange-600">
+                          {formatCurrency(item.nominal_syahriah)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-purple-600">
+                          {formatCurrency(item.nominal_donasi)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">
+                          {formatCurrency(item.nominal_total)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {item.pengaju?.nama_lengkap || 'Admin'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => handleOpenEditModal(item)}
+                              className="text-blue-600 hover:text-blue-900 transition-colors"
+                              title="Edit"
+                            >
+                              {icons.edit}
+                            </button>
+                            <button
+                              onClick={() => handleDeletePemakaian(item.id_pemakaian)}
+                              className="text-red-600 hover:text-red-900 transition-colors"
+                              title="Hapus"
+                            >
+                              {icons.delete}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          );
 
       case 'pemasukan':
         return (
@@ -1695,21 +1883,62 @@ const DataKeuangan = () => {
                   />
                 </div>
 
-                {/* Nominal */}
+                {/* Nominal Syahriah */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nominal *
+                    Nominal dari Syahriah
                   </label>
                   <input
                     type="number"
-                    name="nominal"
-                    value={formData.nominal}
+                    name="nominal_syahriah"
+                    value={formData.nominal_syahriah}
                     onChange={handleInputChange}
-                    required
-                    min="1"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    min="0"
+                    step="0.01"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                     placeholder="0"
                   />
+                </div>
+
+                {/* Nominal Donasi */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nominal dari Donasi
+                  </label>
+                  <input
+                    type="number"
+                    name="nominal_donasi"
+                    value={formData.nominal_donasi}
+                    onChange={handleInputChange}
+                    min="0"
+                    step="0.01"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="0"
+                  />
+                </div>
+
+                {/* Nominal Total - READ ONLY */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nominal Total *
+                  </label>
+                  <input
+                    type="number"
+                    name="nominal_total"
+                    value={formData.nominal_total}
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 cursor-not-allowed"
+                    placeholder="0"
+                  />
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>
+                      Total: {formatCurrency(parseFloat(formData.nominal_total) || 0)}
+                    </span>
+                    <span>
+                      Syahriah: {formatCurrency(parseFloat(formData.nominal_syahriah) || 0)} + 
+                      Donasi: {formatCurrency(parseFloat(formData.nominal_donasi) || 0)}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Tanggal Pemakaian */}
@@ -1745,24 +1974,6 @@ const DataKeuangan = () => {
                   </select>
                 </div>
 
-                {/* Sumber Dana */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Sumber Dana *
-                  </label>
-                  <select
-                    name="sumber_dana"
-                    value={formData.sumber_dana}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  >
-                    <option value="syahriah">Syahriah</option>
-                    <option value="donasi">Donasi</option>
-                    <option value="campuran">Campuran</option>
-                  </select>
-                </div>
-
                 {/* Keterangan */}
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1779,6 +1990,20 @@ const DataKeuangan = () => {
                 </div>
               </div>
 
+              {/* Validation Summary */}
+              {parseFloat(formData.nominal_total) <= 0 && (
+                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 text-yellow-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                    <span className="text-yellow-700 text-sm">
+                      Total pengeluaran harus lebih dari 0. Masukkan nominal pada salah satu atau kedua sumber dana.
+                    </span>
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-end space-x-3">
                 <button
                   type="button"
@@ -1789,8 +2014,8 @@ const DataKeuangan = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={formLoading}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center"
+                  disabled={formLoading || parseFloat(formData.nominal_total) <= 0}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                 >
                   {formLoading ? (
                     <>
