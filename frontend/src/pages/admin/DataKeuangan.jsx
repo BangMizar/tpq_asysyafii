@@ -1075,6 +1075,35 @@ const exportToDOCX = () => {
       </button>
     </div>
   );
+  const handleGenerateRekap = async () => {
+    try {
+      setLoading(true);
+      
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/admin/rekap/generate`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+  
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Gagal generate rekap');
+      }
+  
+      const result = await response.json();
+      showAlert('Berhasil', 'Rekap keuangan berhasil digenerate!', 'success');
+      await fetchAllData(); // Refresh data
+      
+    } catch (err) {
+      console.error('Error generating rekap:', err);
+      showAlert('Gagal', `Gagal generate rekap: ${err.message}`, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Render content based on active tab
   const renderContent = () => {
