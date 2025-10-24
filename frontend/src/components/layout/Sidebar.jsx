@@ -183,12 +183,12 @@ const Sidebar = () => {
         { title: 'Rekap Keuangan', path: '/admin/keuangan' }
       ]
     },
-    {
-      title: 'System',
-      path: '/super-admin/system',
-      icon: <SystemIcon />,
-      submenu: []
-    }
+    // {
+    //   title: 'System',
+    //   path: '/super-admin/system',
+    //   icon: <SystemIcon />,
+    //   submenu: []
+    // }
   ];
 
   // Menu untuk Admin
@@ -366,7 +366,7 @@ const Sidebar = () => {
       {/* Footer */}
       <div className="p-4 border-t border-green-200">
         {/* Switch Dashboard Button for Super Admin */}
-        {isSuperAdmin && !isCollapsed && (
+        {/* {isSuperAdmin && !isCollapsed && (
           <Link
             to={location.pathname.includes('/super-admin') ? '/admin' : '/super-admin'}
             className="flex items-center space-x-3 px-4 py-3 text-sm font-medium text-green-600 hover:bg-green-100 hover:text-green-900 rounded-lg transition-all duration-200 mb-2"
@@ -388,7 +388,7 @@ const Sidebar = () => {
           >
             <SwitchIcon />
           </Link>
-        )}
+        )} */}
 
         {/* Logout Button */}
         <button

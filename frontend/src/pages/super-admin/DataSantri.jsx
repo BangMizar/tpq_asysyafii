@@ -562,7 +562,7 @@ const DataSantri = () => {
 
   if (error && !hasPermission('view_santri')) {
     return (
-      <AuthDashboardLayout>
+      <AuthDashboardLayout title="Data Santri">
         <div className="p-6">
           <div className="text-center py-8">
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -579,26 +579,8 @@ const DataSantri = () => {
   }
 
   return (
-    <AuthDashboardLayout>
-      <div className="p-6">
-
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800">Data Santri</h1>
-            <p className="text-gray-600 mt-1">Kelola data santri TPQ</p>
-          </div>
-          {hasPermission('create_santri') && (
-            <button 
-              onClick={openCreateModal}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Tambah Santri
-            </button>
-          )}
-        </div>
+    <AuthDashboardLayout title="Data Santri">
+      <div className="p-6">  
 
         {/* Statistik */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -660,8 +642,8 @@ const DataSantri = () => {
         </div>
 
         {/* Filter dan Search Section */}
-        <div className="bg-white p-4 rounded-lg shadow-md mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white p-4 rounded-lg shadow-md mb-2">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div className="md:col-span-2">
               <input
                 type="text"
@@ -689,6 +671,19 @@ const DataSantri = () => {
               <option value="L">Laki-laki</option>
               <option value="P">Perempuan</option>
             </select>
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
+          {hasPermission('create_santri') && (
+            <button 
+              onClick={openCreateModal}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Tambah Santri
+            </button>
+          )}
+        </div>
           </div>
         </div>
 

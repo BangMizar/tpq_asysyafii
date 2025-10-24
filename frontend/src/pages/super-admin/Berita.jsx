@@ -491,7 +491,7 @@ const BeritaManagement = () => {
   }
 
   return (
-    <AuthDashboardLayout>
+    <AuthDashboardLayout title="Berita">
       <div className="p-6">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
           <div>
