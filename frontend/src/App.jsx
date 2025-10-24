@@ -25,11 +25,12 @@ import BeritaManagement from './pages/super-admin/Berita';
 import InformasiTPQ from './pages/super-admin/InformasiTPQ';
 import ProgramUnggulanManagement from './pages/super-admin/ProgramUnggulan';
 import SystemManagement from './pages/super-admin/System';
-import DataSantri from './pages/super-admin/DataSantri'; // Import DataSantri
+import DataSantri from './pages/super-admin/DataSantri';
 
 import DataDonasi from './pages/admin/DataDonasi';
 import DataKeuangan from './pages/admin/DataKeuangan';
 import DataSyahriah from './pages/admin/DataSyahriah';
+import ProgramDetail from './components/ProgramDetail';
 
 const AppContent = () => {
   const { user } = useAuth();
@@ -57,6 +58,7 @@ const AppContent = () => {
       <Route path="/donasi" element={<DonasiPage />} />
       <Route path="/berita" element={<BeritaList />} />
       <Route path="/berita/:slug" element={<BeritaDetail />} />
+      <Route path="/program/:slug" element={<ProgramDetail />} />
       
       {/* Super Admin Routes */}
       <Route 

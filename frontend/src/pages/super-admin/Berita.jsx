@@ -81,7 +81,6 @@ const BeritaManagement = () => {
         gambar_cover: item.gambar_cover ? `/image/berita/${item.gambar_cover}` : null,
         dibuat_pada: item.dibuat_pada,
         diperbarui_pada: item.diperbarui_pada,
-        views: 0
       }));
       
       setBerita(transformedBerita);
@@ -585,9 +584,6 @@ const BeritaManagement = () => {
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Views
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Aksi
                   </th>
                 </tr>
@@ -654,9 +650,6 @@ const BeritaManagement = () => {
                         }`}>
                           {formatStatus(item.status)}
                         </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">{item.views}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex items-center gap-2">

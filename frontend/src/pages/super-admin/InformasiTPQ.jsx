@@ -404,7 +404,7 @@ const InformasiTPQ = () => {
     try {
       setSaving(true);
       
-      const response = await fetch(`${API_URL}/api/sosial-media/${id}`, {
+      const response = await fetch(`${API_URL}/api/super-admin/sosial-media/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
