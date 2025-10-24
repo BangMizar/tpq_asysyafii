@@ -17,3 +17,7 @@ type ProgramUnggulan struct {
 	
 	DiupdateOleh *User `json:"diupdate_oleh,omitempty" gorm:"foreignKey:DiupdateOlehID;references:IDUser"`
 }
+
+func (ProgramUnggulan) TableName() string {
+	return "program_unggulan"
+}
