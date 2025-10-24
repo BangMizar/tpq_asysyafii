@@ -82,7 +82,7 @@ const SuperAdminDashboard = () => {
       setLoading(true);
       const token = localStorage.getItem('token');
   
-      // Fetch all data in parallel - PERBAIKAN ENDPOINT
+      // Fetch all data in parallel
       const [
         santriResponse,
         donasiResponse,
@@ -90,7 +90,7 @@ const SuperAdminDashboard = () => {
         keuanganResponse,
         usersResponse,
         pemakaianResponse,
-        // Hapus duplikat donasiMonthlyResponse dan syahriahMonthlyResponse
+
       ] = await Promise.all([
         fetch(`${API_URL}/api/super-admin/santri`, {
           headers: { 'Authorization': `Bearer ${token}` }
@@ -98,8 +98,7 @@ const SuperAdminDashboard = () => {
         fetch(`${API_URL}/api/admin/donasi/summary`, {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        // PERBAIKAN: Gunakan endpoint yang sama seperti di DataKeuangan
-        fetch(`${API_URL}/api/admin/syahriah?limit=1000`, { // atau endpoint summary jika ada
+        fetch(`${API_URL}/api/admin/syahriah?limit=1000`, {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
         fetch(`${API_URL}/api/admin/rekap/summary`, {
@@ -113,7 +112,6 @@ const SuperAdminDashboard = () => {
         }),
       ]);
   
-      // Process responses dengan error handling yang lebih baik
       const santriData = await santriResponse.json();
       const donasiData = await donasiResponse.json();
       const syahriahData = await syahriahResponse.json();
@@ -132,8 +130,7 @@ const SuperAdminDashboard = () => {
       const totalAdmins = usersList.filter(u => u.role === 'admin').length;
   
       const totalDonasi = donasiData.data?.total_nominal || donasiData.total_nominal || 0;
-      
-      // PERBAIKAN: Hitung total syahriah dari data array seperti di DataKeuangan
+
       let totalSyahriah = 0;
       if (Array.isArray(syahriahData)) {
         totalSyahriah = syahriahData.reduce((sum, item) => sum + (item.nominal || 0), 0);
@@ -181,21 +178,6 @@ const SuperAdminDashboard = () => {
   
     } catch (error) {
       console.error('Error fetching stats:', error);
-      // Fallback to static data if API fails - PERBAIKAN: sertakan syahriah
-      const fallbackStats = {
-        totalSantri: 150,
-        santriAktif: 120,
-        santriNonaktif: 30,
-        totalDonasi: 12500000,
-        totalSyahriah: 8800000, // Pastikan ada nilai fallback
-        totalPemasukan: 21300000,
-        totalPengeluaran: 18500000,
-        saldoAkhir: 2800000,
-        totalUsers: 45,
-        totalAdmins: 8
-      };
-      setStats(fallbackStats);
-      generateChartData([], fallbackStats, []);
     } finally {
       setLoading(false);
     }

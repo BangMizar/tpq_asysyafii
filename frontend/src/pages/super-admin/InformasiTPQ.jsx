@@ -504,7 +504,7 @@ const InformasiTPQ = () => {
 
   if (loading) {
     return (
-      <AuthDashboardLayout>
+      <AuthDashboardLayout title="Informasi TPQ">
         <div className="p-6">
           <div className="animate-pulse space-y-6">
             <div className="h-8 bg-gray-200 rounded w-64"></div>
@@ -523,61 +523,9 @@ const InformasiTPQ = () => {
   }
 
   return (
-    <AuthDashboardLayout>
+    <AuthDashboardLayout title="Informasi TPQ">
       <div className="p-6">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800">Informasi TPQ</h1>
-            <p className="text-gray-600 mt-1">Kelola informasi dan profil TPQ</p>
-          </div>
-          
-          {user?.role === 'super_admin' && (
-            <div className="flex gap-2">
-              {isEditing ? (
-                <>
-                  <button
-                    onClick={cancelEdit}
-                    disabled={saving}
-                    className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors disabled:opacity-50"
-                  >
-                    Batal
-                  </button>
-                  <button
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center gap-2"
-                  >
-                    {saving ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        Menyimpan...
-                      </>
-                    ) : (
-                      'Simpan Perubahan'
-                    )}
-                  </button>
-                </>
-              ) : (
-                <>
-                  {informasi && (
-                    <button
-                      onClick={handleDelete}
-                      className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
-                    >
-                      Hapus
-                    </button>
-                  )}
-                  <button
-                    onClick={() => setIsEditing(true)}
-                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-                  >
-                    {informasi ? 'Edit Informasi' : 'Tambah Informasi'}
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-        </div>
+        
 
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
@@ -607,9 +555,9 @@ const InformasiTPQ = () => {
             )}
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-2">
             {/* Informasi TPQ Section dengan Layout Baru */}
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="bg-white rounded-lg shadow-md p-2">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Logo Section - Kiri */}
                 <div className="lg:col-span-1">
@@ -668,6 +616,54 @@ const InformasiTPQ = () => {
                       )}
                     </div>
                   </div>
+                  <div className="flex justify-center items-center mb-6">
+                  {user?.role === 'super_admin' && (
+                    <div className="flex gap-2">
+                      {isEditing ? (
+                        <>
+                          <button
+                            onClick={cancelEdit}
+                            disabled={saving}
+                            className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors disabled:opacity-50"
+                          >
+                            Batal
+                          </button>
+                          <button
+                            onClick={handleSave}
+                            disabled={saving}
+                            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                          >
+                            {saving ? (
+                              <>
+                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                Menyimpan...
+                              </>
+                            ) : (
+                              'Simpan Perubahan'
+                            )}
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          {/* {informasi && (
+                            <button
+                              onClick={handleDelete}
+                              className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+                            >
+                              Hapus
+                            </button>
+                          )} */}
+                          <button
+                            onClick={() => setIsEditing(true)}
+                            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                          >
+                            {informasi ? 'Edit Informasi' : 'Tambah Informasi'}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
                 </div>
 
                 {/* Informasi Text - Kanan */}
