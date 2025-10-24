@@ -98,54 +98,62 @@ const KeuanganTPQ = () => {
     // Filter data berdasarkan periode yang dipilih
     const currentPeriod = selectedPeriod === 'semua' ? null : selectedPeriod;
     
-    // Filter donasi data berdasarkan periode
-    const filteredDonasi = currentPeriod
-      ? donasiData.filter(item => {
-          const itemPeriod = new Date(item.waktu_catat).toISOString().slice(0, 7);
-          return itemPeriod === currentPeriod;
-        })
-      : donasiData;
-  
-    // Filter syahriah data berdasarkan periode dan HANYA status 'lunas'
+    // PERBAIKAN: Ambil data dari rekap untuk summary
+    let totalPemasukanSyahriah = 0;
+    let totalPemasukanDonasi = 0;
+    let totalPengeluaranSyahriah = 0;
+    let totalPengeluaranDonasi = 0;
+    let totalPemasukan = 0;
+    let totalPengeluaran = 0;
+    let saldoAkhir = 0;
+
+    if (currentPeriod) {
+      // Jika periode tertentu dipilih, cari data rekap untuk periode tersebut
+      const rekapForPeriod = rekapData.find(item => item.periode === currentPeriod);
+      if (rekapForPeriod) {
+        totalPemasukanSyahriah = rekapForPeriod.pemasukan_syahriah || 0;
+        totalPemasukanDonasi = rekapForPeriod.pemasukan_donasi || 0;
+        totalPengeluaranSyahriah = rekapForPeriod.pengeluaran_syahriah || 0;
+        totalPengeluaranDonasi = rekapForPeriod.pengeluaran_donasi || 0;
+        totalPemasukan = rekapForPeriod.pemasukan_total || 0;
+        totalPengeluaran = rekapForPeriod.pengeluaran_total || 0;
+        saldoAkhir = rekapForPeriod.saldo_akhir_total || 0;
+      }
+    } else {
+      // Jika "semua periode" dipilih, jumlahkan dari semua data rekap
+      totalPemasukanSyahriah = rekapData.reduce((sum, item) => sum + (item.pemasukan_syahriah || 0), 0);
+      totalPemasukanDonasi = rekapData.reduce((sum, item) => sum + (item.pemasukan_donasi || 0), 0);
+      totalPengeluaranSyahriah = rekapData.reduce((sum, item) => sum + (item.pengeluaran_syahriah || 0), 0);
+      totalPengeluaranDonasi = rekapData.reduce((sum, item) => sum + (item.pengeluaran_donasi || 0), 0);
+      totalPemasukan = rekapData.reduce((sum, item) => sum + (item.pemasukan_total || 0), 0);
+      totalPengeluaran = rekapData.reduce((sum, item) => sum + (item.pengeluaran_total || 0), 0);
+      
+      // Untuk saldo akhir di semua periode, ambil saldo terakhir
+      const latestPeriod = rekapData.length > 0 ? rekapData[0].periode : null;
+      const latestRekap = rekapData.find(item => item.periode === latestPeriod);
+      saldoAkhir = latestRekap?.saldo_akhir_total || 0;
+    }
+
+    // PERBAIKAN: Hitung total syahriah wali sendiri dari data syahriah
     const filteredSyahriah = currentPeriod
       ? syahriahData.filter(item => {
-          // Format bulan: "2025-10" -> cocok dengan format periode "2025-10"
-          // HANYA hitung yang statusnya 'lunas'
-          return item.bulan === currentPeriod && item.status === 'lunas';
+          return item.bulan === currentPeriod && item.wali?.id === user?.id && item.status === 'lunas';
         })
-      : syahriahData.filter(item => item.status === 'lunas'); // Filter hanya yang lunas untuk semua periode
-  
-    // Filter pemakaian data berdasarkan periode
-    const filteredPemakaian = currentPeriod
-      ? pemakaianData.filter(item => {
-          const itemPeriod = item.tanggal_pemakaian 
-            ? new Date(item.tanggal_pemakaian).toISOString().slice(0, 7)
-            : new Date(item.created_at).toISOString().slice(0, 7);
-          return itemPeriod === currentPeriod;
-        })
-      : pemakaianData;
-  
-    // Total Donasi: Sum dari semua donasi dalam periode yang dipilih
-    const totalDonasi = filteredDonasi.reduce((sum, item) => sum + (item.nominal || 0), 0);
-  
-    // Total Syahriah: Sum dari semua syahriah dalam periode yang dipilih (HANYA yang lunas)
-    const totalSyahriah = filteredSyahriah.reduce((sum, item) => sum + (item.nominal || 0), 0);
-  
-    // Total Pemasukan: Total Donasi + Total Syahriah
-    const totalPemasukan = totalDonasi + totalSyahriah;
-  
-    // PERBAIKAN: Total Pengeluaran menggunakan nominal_total (bukan nominal)
-    const totalPengeluaran = filteredPemakaian.reduce((sum, item) => sum + (item.nominal_total || 0), 0);
-  
-    // Saldo Akhir: Total Pemasukan - Total Pengeluaran
-    const saldoAkhir = totalPemasukan - totalPengeluaran;
-  
+      : syahriahData.filter(item => item.wali?.id === user?.id && item.status === 'lunas');
+
+    const totalSyahriahOwn = filteredSyahriah.reduce((sum, item) => sum + (item.nominal || 0), 0);
+
     setSummaryData({
       totalPemasukan,
       totalPengeluaran,
       saldoAkhir,
-      totalDonasi,
-      totalSyahriah
+      totalDonasi: totalPemasukanDonasi,
+      totalSyahriah: totalPemasukanSyahriah, // PERBAIKAN: Ambil dari rekap, bukan dari data syahriah
+      totalSyahriahOwn, // Total syahriah milik wali sendiri
+      totalPemasukanSyahriah,
+      totalPemasukanDonasi,
+      totalPengeluaranSyahriah,
+      totalPengeluaranDonasi
     });
   };
 
@@ -270,11 +278,19 @@ const KeuanganTPQ = () => {
 
   const getFilteredSyahriah = () => {
     if (selectedPeriod === 'semua') {
-      return syahriahData;
+      // PERBAIKAN: Untuk tab syahriah, hanya tampilkan data milik wali sendiri
+      return syahriahData.filter(item => item.wali?.id === user?.id);
     }
+    // PERBAIKAN: Untuk tab syahriah, hanya tampilkan data milik wali sendiri dengan filter periode
     return syahriahData.filter(item => {
-      return item.bulan === selectedPeriod;
+      return item.bulan === selectedPeriod && item.wali?.id === user?.id;
     });
+  };
+
+  // FUNGSI BARU: Untuk mendapatkan total syahriah wali sendiri (hanya untuk informasi)
+  const getOwnSyahriahTotal = () => {
+    const filteredSyahriah = getFilteredSyahriah();
+    return filteredSyahriah.reduce((sum, item) => sum + (item.nominal || 0), 0);
   };
 
   const getCurrentPeriodText = () => {
@@ -516,92 +532,44 @@ const KeuanganTPQ = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-green-100">
-                  {filteredSyahriah.map((item, index) => {
-                    // Cek apakah ini data syahriah milik user yang login
-                    const isOwnData = item.wali?.id === user?.id;
-                    
-                    // Fungsi untuk menyamarkan data sensitif
-                    const maskName = (name) => {
-                      if (!name) return '-';
-                      if (isOwnData) return name; // Tampilkan asli jika milik sendiri
-                      
-                      // Samarkan nama: ambil inisial pertama dan terakhir
-                      const names = name.split(' ');
-                      if (names.length === 1) {
-                        return `${names[0].charAt(0)}***`;
-                      } else {
-                        return `${names[0].charAt(0)}***${names[names.length - 1].charAt(0)}`;
-                      }
-                    };
-  
-                    const maskEmail = (email) => {
-                      if (!email) return '-';
-                      if (isOwnData) return email; // Tampilkan asli jika milik sendiri
-                      
-                      // Samarkan email: tampilkan hanya 3 karakter pertama domain
-                      const [localPart, domain] = email.split('@');
-                      if (!domain) return '***@***';
-                      
-                      const maskedLocal = localPart.length > 2 
-                        ? `${localPart.substring(0, 2)}***` 
-                        : '***';
-                      const maskedDomain = domain.length > 3 
-                        ? `${domain.substring(0, 3)}***` 
-                        : '***';
-                      
-                      return `${maskedLocal}@${maskedDomain}`;
-                    };
-  
-                    const maskPhone = (phone) => {
-                      if (!phone) return '-';
-                      if (isOwnData) return phone; // Tampilkan asli jika milik sendiri
-                      
-                      // Samarkan nomor telepon: tampilkan hanya 4 digit terakhir
-                      if (phone.length <= 4) return '***';
-                      return `***-${phone.slice(-4)}`;
-                    };
-  
-                    return (
-                      <tr key={index} className="hover:bg-green-50 transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {formatDateTime(item.waktu_catat)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          <div className="flex items-center">
-                            {maskName(item.wali?.nama_lengkap || '-')}
-                            {isOwnData && (
-                              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                Anda
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {maskEmail(item.wali?.email || '-')}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {maskPhone(item.wali?.no_telp || '-')}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {formatPeriod(item.bulan)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-                          {formatCurrency(item.nominal)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            item.status === 'lunas' ? 'bg-green-100 text-green-800' :
-                            'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {item.status}
+                  {filteredSyahriah.map((item, index) => (
+                    <tr key={index} className="hover:bg-green-50 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {formatDateTime(item.waktu_catat)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <div className="flex items-center">
+                          {item.wali?.nama_lengkap || '-'}
+                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            Anda
                           </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {item.admin?.nama_lengkap || 'Admin'}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {item.wali?.email || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {item.wali?.no_telp || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {formatPeriod(item.bulan)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                        {formatCurrency(item.nominal)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          item.status === 'lunas' ? 'bg-green-100 text-green-800' :
+                          'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {item.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {item.admin?.nama_lengkap || 'Admin'}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             )}
@@ -711,6 +679,10 @@ const KeuanganTPQ = () => {
                 {formatCurrencyShort(summaryData?.totalSyahriah || 0)}
               </p>
               <p className="text-xs text-orange-500 mt-1">{getCurrentPeriodText()}</p>
+              {/* Informasi tambahan untuk syahriah wali sendiri */}
+              <p className="text-xs text-orange-400 mt-1">
+                Kontribusi Anda: {formatCurrencyShort(summaryData?.totalSyahriahOwn || 0)}
+              </p>
             </div>
           </div>
         </div>
@@ -851,8 +823,15 @@ const KeuanganTPQ = () => {
           </div>
           <div>
             <p className="text-sm text-blue-800">
-              <strong>Informasi:</strong> Semua data summary dan saldo sekarang mengikuti filter periode yang dipilih. 
-              Data dihitung berdasarkan transaksi aktual dalam periode tersebut. Data syahriah hanya menampilkan pembayaran yang statusnya "lunas".
+              <strong>Informasi:</strong> 
+              <br />
+              • <strong>Summary Card</strong> menampilkan data keuangan <strong>seluruh TPQ</strong> yang diambil dari tabel rekap saldo
+              <br />
+              • <strong>Total Syahriah</strong> menunjukkan pemasukan syahriah dari <strong>semua wali</strong>
+              <br />
+              • <strong>Tab Syahriah</strong> hanya menampilkan <strong>pembayaran Anda sendiri</strong>
+              <br />
+              • Data mengikuti filter periode yang dipilih dan konsisten dengan data di tabel rekap
             </p>
           </div>
         </div>
