@@ -55,6 +55,7 @@ func (ctrl *SosialMediaController) CreateSosialMedia(c *gin.Context) {
 	// Bind JSON
 	var request struct {
 		NamaSosmed string  `json:"nama_sosmed" binding:"required"`
+		Username string  `json:"username" binding:"required"`
 		IconSosmed *string `json:"icon_sosmed,omitempty"`
 		LinkSosmed *string `json:"link_sosmed,omitempty"`
 	}
@@ -68,6 +69,7 @@ func (ctrl *SosialMediaController) CreateSosialMedia(c *gin.Context) {
 	sosialMedia := models.SosialMedia{
 		IDSosmed:       uuid.New().String(),
 		NamaSosmed:     request.NamaSosmed,
+		Username:       request.Username,
 		IconSosmed:     request.IconSosmed,
 		LinkSosmed:     request.LinkSosmed,
 		DiupdateOlehID: &adminID,
@@ -195,6 +197,7 @@ func (ctrl *SosialMediaController) UpdateSosialMedia(c *gin.Context) {
 	// Bind JSON
 	var request struct {
 		NamaSosmed string  `json:"nama_sosmed"`
+		Username string  `json:"username"`
 		IconSosmed *string `json:"icon_sosmed,omitempty"`
 		LinkSosmed *string `json:"link_sosmed,omitempty"`
 	}
@@ -207,6 +210,9 @@ func (ctrl *SosialMediaController) UpdateSosialMedia(c *gin.Context) {
 	// Update fields
 	if request.NamaSosmed != "" {
 		existingSosmed.NamaSosmed = request.NamaSosmed
+	}
+	if request.Username != "" {
+		existingSosmed.Username = request.Username
 	}
 	if request.IconSosmed != nil {
 		existingSosmed.IconSosmed = request.IconSosmed
