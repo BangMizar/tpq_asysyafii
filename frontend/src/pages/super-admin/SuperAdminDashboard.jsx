@@ -73,281 +73,311 @@ const SuperAdminDashboard = () => {
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
       </svg>
-    )
+    ),
+    Expense: () => (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+      </svg>
+    ),
   };
 
   // Fetch real data from APIs
-  const fetchStats = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem('token');
-  
-      // Fetch all data in parallel
-      const [
-        santriResponse,
-        donasiResponse,
-        syahriahResponse,
-        keuanganResponse,
-        usersResponse,
-        pemakaianResponse,
+const fetchStats = async () => {
+  try {
+    setLoading(true);
+    const token = localStorage.getItem('token');
 
-      ] = await Promise.all([
-        fetch(`${API_URL}/api/super-admin/santri`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        fetch(`${API_URL}/api/admin/donasi/summary`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        fetch(`${API_URL}/api/admin/syahriah?limit=1000`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        fetch(`${API_URL}/api/admin/rekap/summary`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        fetch(`${API_URL}/api/super-admin/users`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        fetch(`${API_URL}/api/admin/pemakaian?limit=1000`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-      ]);
-  
-      const santriData = await santriResponse.json();
-      const donasiData = await donasiResponse.json();
-      const syahriahData = await syahriahResponse.json();
-      const keuanganData = await keuanganResponse.json();
-      const usersData = await usersResponse.json();
-      const pemakaianData = await pemakaianResponse.json();
-  
-      console.log('Syahriah API Response:', syahriahData); // Debug log
-  
-      // Calculate stats from real data dengan handling yang lebih robust
-      const santriList = Array.isArray(santriData) ? santriData : santriData.data || [];
-      const santriAktif = santriList.filter(s => s.status === 'aktif').length;
-      const santriNonaktif = santriList.filter(s => s.status === 'nonaktif').length;
-  
-      const usersList = Array.isArray(usersData) ? usersData : usersData.data || [];
-      const totalAdmins = usersList.filter(u => u.role === 'admin').length;
-  
-      const totalDonasi = donasiData.data?.total_nominal || donasiData.total_nominal || 0;
+    // Fetch all data in parallel
+    const [
+      santriResponse,
+      donasiResponse,
+      syahriahResponse,
+      keuanganResponse,
+      usersResponse,
+      pemakaianResponse,
+    ] = await Promise.all([
+      fetch(`${API_URL}/api/super-admin/santri`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      }),
+      fetch(`${API_URL}/api/admin/donasi/summary`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      }),
+      fetch(`${API_URL}/api/admin/syahriah?limit=1000`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      }),
+      fetch(`${API_URL}/api/admin/rekap/summary`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      }),
+      fetch(`${API_URL}/api/super-admin/users`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      }),
+      fetch(`${API_URL}/api/admin/pemakaian?limit=1000`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      }),
+    ]);
 
-      let totalSyahriah = 0;
-      if (Array.isArray(syahriahData)) {
-        totalSyahriah = syahriahData.reduce((sum, item) => sum + (item.nominal || 0), 0);
-      } else if (Array.isArray(syahriahData.data)) {
-        totalSyahriah = syahriahData.data.reduce((sum, item) => sum + (item.nominal || 0), 0);
-      } else if (syahriahData.data?.total_nominal) {
-        totalSyahriah = syahriahData.data.total_nominal;
-      } else if (syahriahData.total_nominal) {
-        totalSyahriah = syahriahData.total_nominal;
-      }
-      
-      const totalPemasukan = keuanganData.data?.total_pemasukan || (totalDonasi + totalSyahriah);
-      
-      // Calculate total pengeluaran from pemakaian data
-      const pemakaianList = Array.isArray(pemakaianData) ? pemakaianData : pemakaianData.data || [];
-      const totalPengeluaran = pemakaianList.reduce((sum, item) => sum + (item.nominal || 0), 0);
-      
-      const saldoAkhir = totalPemasukan - totalPengeluaran;
-  
-      const newStats = {
-        totalSantri: santriList.length,
-        santriAktif,
-        santriNonaktif,
-        totalDonasi,
-        totalSyahriah,
-        totalPemasukan,
-        totalPengeluaran,
-        saldoAkhir,
-        totalUsers: usersList.length,
-        totalAdmins
-      };
-  
-      console.log('Calculated Stats:', newStats); // Debug log
-  
-      setStats(newStats);
-  
-      // Generate chart data
-      generateChartData(
-        santriList,
-        newStats,
-        pemakaianList,
-        donasiData, // Pass donasi data untuk monthly
-        syahriahData // Pass syahriah data untuk monthly
-      );
-  
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-    } finally {
-      setLoading(false);
+    const santriData = await santriResponse.json();
+    const donasiData = await donasiResponse.json();
+    const syahriahData = await syahriahResponse.json();
+    const keuanganData = await keuanganResponse.json();
+    const usersData = await usersResponse.json();
+    const pemakaianData = await pemakaianResponse.json();
+
+    console.log('Pemakaian API Response:', pemakaianData); // Debug log
+
+    // Calculate stats from real data dengan handling yang lebih robust
+    const santriList = Array.isArray(santriData) ? santriData : santriData.data || [];
+    const santriAktif = santriList.filter(s => s.status === 'aktif').length;
+    const santriNonaktif = santriList.filter(s => s.status === 'nonaktif').length;
+
+    const usersList = Array.isArray(usersData) ? usersData : usersData.data || [];
+    const totalAdmins = usersList.filter(u => u.role === 'admin').length;
+
+    const totalDonasi = donasiData.data?.total_nominal || donasiData.total_nominal || 0;
+
+    let totalSyahriah = 0;
+    if (Array.isArray(syahriahData)) {
+      totalSyahriah = syahriahData
+        .filter(item => item.status === 'lunas') // Hanya yang lunas
+        .reduce((sum, item) => sum + (item.nominal || 0), 0);
+    } else if (Array.isArray(syahriahData.data)) {
+      totalSyahriah = syahriahData.data
+        .filter(item => item.status === 'lunas') // Hanya yang lunas
+        .reduce((sum, item) => sum + (item.nominal || 0), 0);
+    } else if (syahriahData.data?.total_nominal) {
+      totalSyahriah = syahriahData.data.total_nominal;
+    } else if (syahriahData.total_nominal) {
+      totalSyahriah = syahriahData.total_nominal;
     }
-  };
+    
+    const totalPemasukan = keuanganData.data?.total_pemasukan || (totalDonasi + totalSyahriah);
+    
+    // PERBAIKAN: Calculate total pengeluaran dari pemakaian data dengan struktur baru
+    let totalPengeluaran = 0;
+    const pemakaianList = Array.isArray(pemakaianData) ? pemakaianData : pemakaianData.data || [];
+    
+    if (pemakaianList.length > 0) {
+      // Gunakan nominal_total sebagai dasar perhitungan
+      totalPengeluaran = pemakaianList.reduce((sum, item) => {
+        // Prioritaskan nominal_total, fallback ke nominal jika tidak ada
+        return sum + (item.nominal_total || item.nominal || 0);
+      }, 0);
+      
+      console.log('Total Pengeluaran calculated:', totalPengeluaran);
+      console.log('Pemakaian items:', pemakaianList.map(item => ({
+        judul: item.judul_pemakaian,
+        nominal_total: item.nominal_total,
+        nominal_syahriah: item.nominal_syahriah,
+        nominal_donasi: item.nominal_donasi
+      })));
+    } else {
+      // Fallback jika tidak ada data pemakaian
+      totalPengeluaran = keuanganData.data?.total_pengeluaran || 0;
+    }
+    
+    const saldoAkhir = totalPemasukan - totalPengeluaran;
+
+    const newStats = {
+      totalSantri: santriList.length,
+      santriAktif,
+      santriNonaktif,
+      totalDonasi,
+      totalSyahriah,
+      totalPemasukan,
+      totalPengeluaran,
+      saldoAkhir,
+      totalUsers: usersList.length,
+      totalAdmins
+    };
+
+    console.log('Calculated Stats:', newStats); // Debug log
+
+    setStats(newStats);
+
+    // Generate chart data
+    generateChartData(
+      santriList,
+      newStats,
+      pemakaianList,
+      donasiData,
+      syahriahData
+    );
+
+  } catch (error) {
+    console.error('Error fetching stats:', error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Generate chart data from real API data
-  const generateChartData = (
-    santriList,
-    statsData,
-    pemakaianList = [],
-    donasiData = {},
-    syahriahData = {}
-  ) => {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const currentMonth = new Date().getMonth();
-    const displayedMonths = months.slice(0, currentMonth + 1);
-  
-    // Santri by status chart
-    const santriByStatus = {
-      labels: ['Aktif', 'Nonaktif'],
-      datasets: [
-        {
-          data: [
-            statsData.santriAktif,
-            statsData.santriNonaktif
-          ],
-          backgroundColor: ['#10B981', '#EF4444'],
-          borderWidth: 2,
-          borderColor: '#fff'
-        }
-      ]
-    };
+const generateChartData = (
+  santriList,
+  statsData,
+  pemakaianList = [],
+  donasiData = {},
+  syahriahData = {}
+) => {
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const currentMonth = new Date().getMonth();
+  const displayedMonths = months.slice(0, currentMonth + 1);
 
-    // Process monthly financial data from APIs
-    const processMonthlyData = (apiData, dataType = 'donasi') => {
-      // Jika data adalah array (seperti di DataKeuangan)
-      if (Array.isArray(apiData)) {
-        const monthlyData = displayedMonths.map((month, index) => {
-          const monthNum = index + 1;
-          const monthStr = monthNum.toString().padStart(2, '0');
-          const year = new Date().getFullYear();
-          
-          const monthlyItems = apiData.filter(item => {
-            const itemDate = dataType === 'donasi' ? 
-              (item.waktu_catat || item.created_at) : 
-              (item.waktu_catat || item.created_at);
-            
-            if (!itemDate) return false;
-            
-            const date = new Date(itemDate);
-            return date.getMonth() === index && date.getFullYear() === year;
-          });
-          
-          return monthlyItems.reduce((sum, item) => sum + (item.nominal || 0), 0);
-        });
-        return monthlyData;
+  // Santri by status chart
+  const santriByStatus = {
+    labels: ['Aktif', 'Nonaktif'],
+    datasets: [
+      {
+        data: [
+          statsData.santriAktif,
+          statsData.santriNonaktif
+        ],
+        backgroundColor: ['#10B981', '#EF4444'],
+        borderWidth: 2,
+        borderColor: '#fff'
       }
-      
-      // Jika data memiliki struktur summary
-      if (apiData.data && Array.isArray(apiData.data)) {
-        return apiData.data.map(item => item.total || 0);
-      }
-      
-      // Fallback: generate realistic data based on total
-      const total = dataType === 'donasi' ? statsData.totalDonasi : statsData.totalSyahriah;
-      const monthlyAvg = total / (currentMonth + 1);
-      return displayedMonths.map((_, index) => 
-        Math.round(monthlyAvg * (0.7 + Math.random() * 0.6))
-      );
-    };
-  
-    const monthlyDonasi = processMonthlyData(donasiData, 'donasi');
-    const monthlySyahriah = processMonthlyData(syahriahData, 'syahriah');
-  
-    // Calculate monthly pemasukan (donasi + syahriah)
-    const monthlyPemasukan = displayedMonths.map((_, index) => 
-      (monthlyDonasi[index] || 0) + (monthlySyahriah[index] || 0)
-    );
-  
-    // Process monthly pengeluaran dari pemakaian data
-    let monthlyPengeluaran = displayedMonths.map((month, index) => {
-      const monthNum = index + 1;
-      const monthStr = monthNum.toString().padStart(2, '0');
-      const year = new Date().getFullYear();
-      
-      const monthlyPemakaian = pemakaianList.filter(item => {
-        const itemDate = item.tanggal_pemakaian || item.created_at;
-        if (!itemDate) return false;
-        
-        const date = new Date(itemDate);
-        return date.getMonth() === index && date.getFullYear() === year;
-      });
-      
-      return monthlyPemakaian.reduce((sum, item) => sum + (item.nominal || 0), 0);
-    });
-  
-    // Jika no pemakaian data, generate realistic data
-    const hasPengeluaranData = monthlyPengeluaran.some(amount => amount > 0);
-    if (!hasPengeluaranData) {
-      const monthlyAvg = statsData.totalPengeluaran / (currentMonth + 1);
-      monthlyPengeluaran = displayedMonths.map((_, index) => 
-        Math.round(monthlyAvg * (0.6 + Math.random() * 0.8))
-      );
-    }
-  
-    const pemasukanByMonth = {
-      labels: displayedMonths,
-      datasets: [
-        {
-          label: 'Pemasukan',
-          data: monthlyPemasukan,
-          borderColor: '#10B981',
-          backgroundColor: 'rgba(16, 185, 129, 0.1)',
-          fill: true,
-          tension: 0.4
-        }
-      ]
-    };
-  
-    const pengeluaranByMonth = {
-      labels: displayedMonths,
-      datasets: [
-        {
-          label: 'Pengeluaran',
-          data: monthlyPengeluaran,
-          borderColor: '#EF4444',
-          backgroundColor: 'rgba(239, 68, 68, 0.1)',
-          fill: true,
-          tension: 0.4
-        }
-      ]
-    };
-  
-    // Financial comparison chart
-    const keuanganComparison = {
-      labels: ['Pemasukan', 'Pengeluaran'],
-      datasets: [
-        {
-          data: [statsData.totalPemasukan, statsData.totalPengeluaran],
-          backgroundColor: ['#10B981', '#EF4444'],
-          borderWidth: 2,
-          borderColor: '#fff'
-        }
-      ]
-    };
-  
-    // Revenue sources chart - PERBAIKAN: Pastikan data syahriah ada
-    const revenueSources = {
-      labels: ['Donasi', 'Syahriah'],
-      datasets: [
-        {
-          data: [
-            statsData.totalDonasi || 0, 
-            statsData.totalSyahriah || 0 // Pastikan tidak undefined
-          ],
-          backgroundColor: ['#8B5CF6', '#3B82F6'],
-          borderWidth: 2,
-          borderColor: '#fff'
-        }
-      ]
-    };
-  
-    setChartData({
-      santriByStatus,
-      pemasukanByMonth,
-      pengeluaranByMonth,
-      keuanganComparison,
-      revenueSources
-    });
+    ]
   };
+
+  // Process monthly financial data from APIs
+  const processMonthlyData = (apiData, dataType = 'donasi') => {
+    // Jika data adalah array (seperti di DataKeuangan)
+    if (Array.isArray(apiData)) {
+      const monthlyData = displayedMonths.map((month, index) => {
+        const monthNum = index + 1;
+        const monthStr = monthNum.toString().padStart(2, '0');
+        const year = new Date().getFullYear();
+        
+        const monthlyItems = apiData.filter(item => {
+          const itemDate = dataType === 'donasi' ? 
+            (item.waktu_catat || item.created_at) : 
+            (item.waktu_catat || item.created_at);
+          
+          if (!itemDate) return false;
+          
+          const date = new Date(itemDate);
+          return date.getMonth() === index && date.getFullYear() === year;
+        });
+        
+        return monthlyItems.reduce((sum, item) => sum + (item.nominal || 0), 0);
+      });
+      return monthlyData;
+    }
+    
+    // Jika data memiliki struktur summary
+    if (apiData.data && Array.isArray(apiData.data)) {
+      return apiData.data.map(item => item.total || 0);
+    }
+    
+    // Fallback: generate realistic data based on total
+    const total = dataType === 'donasi' ? statsData.totalDonasi : statsData.totalSyahriah;
+    const monthlyAvg = total / (currentMonth + 1);
+    return displayedMonths.map((_, index) => 
+      Math.round(monthlyAvg * (0.7 + Math.random() * 0.6))
+    );
+  };
+
+  const monthlyDonasi = processMonthlyData(donasiData, 'donasi');
+  const monthlySyahriah = processMonthlyData(syahriahData, 'syahriah');
+
+  // Calculate monthly pemasukan (donasi + syahriah)
+  const monthlyPemasukan = displayedMonths.map((_, index) => 
+    (monthlyDonasi[index] || 0) + (monthlySyahriah[index] || 0)
+  );
+
+  // PERBAIKAN: Process monthly pengeluaran dari pemakaian data dengan struktur baru
+  let monthlyPengeluaran = displayedMonths.map((month, index) => {
+    const monthNum = index + 1;
+    const monthStr = monthNum.toString().padStart(2, '0');
+    const year = new Date().getFullYear();
+    
+    const monthlyPemakaian = pemakaianList.filter(item => {
+      const itemDate = item.tanggal_pemakaian || item.created_at;
+      if (!itemDate) return false;
+      
+      const date = new Date(itemDate);
+      return date.getMonth() === index && date.getFullYear() === year;
+    });
+    
+    // PERBAIKAN: Gunakan nominal_total sebagai dasar perhitungan
+    return monthlyPemakaian.reduce((sum, item) => {
+      return sum + (item.nominal_total || item.nominal || 0);
+    }, 0);
+  });
+
+  // Jika no pemakaian data, generate realistic data
+  const hasPengeluaranData = monthlyPengeluaran.some(amount => amount > 0);
+  if (!hasPengeluaranData) {
+    const monthlyAvg = statsData.totalPengeluaran / (currentMonth + 1);
+    monthlyPengeluaran = displayedMonths.map((_, index) => 
+      Math.round(monthlyAvg * (0.6 + Math.random() * 0.8))
+    );
+  }
+
+  const pemasukanByMonth = {
+    labels: displayedMonths,
+    datasets: [
+      {
+        label: 'Pemasukan',
+        data: monthlyPemasukan,
+        borderColor: '#10B981',
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        fill: true,
+        tension: 0.4
+      }
+    ]
+  };
+
+  const pengeluaranByMonth = {
+    labels: displayedMonths,
+    datasets: [
+      {
+        label: 'Pengeluaran',
+        data: monthlyPengeluaran,
+        borderColor: '#EF4444',
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        fill: true,
+        tension: 0.4
+      }
+    ]
+  };
+
+  // Financial comparison chart
+  const keuanganComparison = {
+    labels: ['Pemasukan', 'Pengeluaran'],
+    datasets: [
+      {
+        data: [statsData.totalPemasukan, statsData.totalPengeluaran],
+        backgroundColor: ['#10B981', '#EF4444'],
+        borderWidth: 2,
+        borderColor: '#fff'
+      }
+    ]
+  };
+
+  // Revenue sources chart - PERBAIKAN: Pastikan data syahriah ada
+  const revenueSources = {
+    labels: ['Donasi', 'Syahriah'],
+    datasets: [
+      {
+        data: [
+          statsData.totalDonasi || 0, 
+          statsData.totalSyahriah || 0 // Pastikan tidak undefined
+        ],
+        backgroundColor: ['#8B5CF6', '#3B82F6'],
+        borderWidth: 2,
+        borderColor: '#fff'
+      }
+    ]
+  };
+
+  setChartData({
+    santriByStatus,
+    pemasukanByMonth,
+    pengeluaranByMonth,
+    keuanganComparison,
+    revenueSources
+  });
+};
 
   useEffect(() => {
     fetchStats();
