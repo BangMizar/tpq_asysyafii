@@ -553,3 +553,138 @@ func (ctrl *SyahriahController) GetSyahriahSummary(c *gin.Context) {
 		},
 	})
 }
+
+// BatchCreateSyahriah membuat data syahriah untuk semua wali yang belum memiliki data di bulan tertentu
+func (ctrl *SyahriahController) BatchCreateSyahriah(c *gin.Context) {
+	// Hanya admin yang bisa create batch
+	if !ctrl.isAdmin(c) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden: hanya admin yang dapat membuat data syahriah batch"})
+		return
+	}
+
+	// Get admin ID dari token
+	adminID, exists := ctrl.getUserID(c)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized: user ID tidak ditemukan"})
+		return
+	}
+
+	var req struct {
+		Bulan   string  `json:"bulan" binding:"required"` // format YYYY-MM
+		Nominal float64 `json:"nominal"`
+		Status  string  `json:"status"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Validasi format bulan (YYYY-MM)
+	_, err := time.Parse("2006-01", req.Bulan)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Format bulan tidak valid. Gunakan format YYYY-MM"})
+		return
+	}
+
+	// Set default nominal jika tidak diisi
+	if req.Nominal == 0 {
+		req.Nominal = 110000 // default value
+	}
+
+	// Validasi status
+	var status models.StatusSyahriah
+	if req.Status != "" {
+		status = models.StatusSyahriah(req.Status)
+		if status != models.StatusBelum && status != models.StatusLunas {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Status tidak valid. Gunakan 'belum' atau 'lunas'"})
+			return
+		}
+	} else {
+		status = models.StatusBelum // default
+	}
+
+	// Dapatkan semua wali
+	var waliList []models.User
+	if err := ctrl.db.Where("role = ?", "wali").Find(&waliList).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data wali: " + err.Error()})
+		return
+	}
+
+	if len(waliList) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Tidak ada data wali yang tersedia"})
+		return
+	}
+
+	// Dapatkan wali yang sudah memiliki syahriah di bulan ini
+	var existingWali []string
+	if err := ctrl.db.Model(&models.Syahriah{}).
+		Where("bulan = ?", req.Bulan).
+		Pluck("id_wali", &existingWali).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memeriksa data syahriah yang sudah ada: " + err.Error()})
+		return
+	}
+
+	// Buat map untuk pengecekan cepat
+	existingMap := make(map[string]bool)
+	for _, id := range existingWali {
+		existingMap[id] = true
+	}
+
+	// Buat data syahriah untuk wali yang belum memiliki
+	var syahriahList []models.Syahriah
+	var createdCount int
+
+	for _, wali := range waliList {
+		// Skip jika wali sudah memiliki syahriah di bulan ini
+		if existingMap[wali.IDUser] {
+			continue
+		}
+
+		syahriah := models.Syahriah{
+			IDSyahriah:  uuid.New().String(),
+			IDWali:      wali.IDUser,
+			Bulan:       req.Bulan,
+			Nominal:     req.Nominal,
+			Status:      status,
+			DicatatOleh: adminID,
+			WaktuCatat:  time.Now(),
+		}
+		syahriahList = append(syahriahList, syahriah)
+		createdCount++
+	}
+
+	if len(syahriahList) == 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Semua wali sudah memiliki data syahriah untuk bulan ini",
+			"data": gin.H{
+				"created": 0,
+				"total_wali": len(waliList),
+			},
+		})
+		return
+	}
+
+	// Simpan ke database dalam batch
+	if err := ctrl.db.CreateInBatches(&syahriahList, 100).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat data syahriah batch: " + err.Error()})
+		return
+	}
+
+	// Update rekap untuk bulan ini
+	rekapController := NewRekapController(ctrl.db)
+	bulanTime, _ := time.Parse("2006-01", req.Bulan)
+	if err := rekapController.UpdateRekapOtomatis(bulanTime); err != nil {
+		fmt.Printf("Gagal update rekap: %v\n", err)
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message": fmt.Sprintf("Berhasil membuat data syahriah untuk %d wali", createdCount),
+		"data": gin.H{
+			"created":     createdCount,
+			"total_wali": len(waliList),
+			"skipped":    len(waliList) - createdCount,
+			"bulan":      req.Bulan,
+		},
+	})
+}

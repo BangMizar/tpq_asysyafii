@@ -2,11 +2,14 @@ import React, { useState, useEffect } from 'react';
 import AuthDashboardLayout from '../../components/layout/AuthDashboardLayout';
 import { useAuth } from '../../context/AuthContext';
 import { Link } from 'react-router-dom';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 
 const DataSyahriah = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('pembayaran');
   const [loading, setLoading] = useState(true);
+  const [exportLoading, setExportLoading] = useState(false);
   const [error, setError] = useState('');
   const [pembayaranData, setPembayaranData] = useState([]);
   const [summaryData, setSummaryData] = useState({
@@ -215,38 +218,569 @@ const DataSyahriah = () => {
   const tunggakanData = filteredData.filter(item => item.status === 'belum');
 
   // Show alert modal
-  const showAlert = (title, message, type = 'success') => {
-    setAlertMessage({ title, message, type });
+  const showAlert = (title, message, type = 'success', onConfirm = null, onCancel = null) => {
+    setAlertMessage({ 
+      title, 
+      message, 
+      type,
+      onConfirm,
+      onCancel
+    });
     setShowAlertModal(true);
   };
 
   // Handle pembayaran
-  const handleBayarSyahriah = async (idSyahriah) => {
-    try {
-      setLoading(true);
+const handleBayarSyahriah = async (idSyahriah, syahriahData) => {
+  try {
+    setLoading(true);
+    
+    const response = await fetch(`${API_URL}/api/admin/syahriah/${idSyahriah}/bayar`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ status: 'lunas' })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMessage = `HTTP error! status: ${response.status}`;
       
-      const response = await fetch(`${API_URL}/api/admin/syahriah/${idSyahriah}/bayar`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ status: 'lunas' })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      try {
+        const errorData = JSON.parse(errorText);
+        errorMessage = errorData.error || errorMessage;
+      } catch {
+        errorMessage = errorText || errorMessage;
       }
-
-      await fetchAllData();
-      showAlert('Berhasil', 'Pembayaran berhasil dilakukan', 'success');
-    } catch (err) {
-      console.error('Error paying syahriah:', err);
-      showAlert('Gagal', 'Gagal melakukan pembayaran', 'error');
-    } finally {
-      setLoading(false);
+      
+      throw new Error(errorMessage);
     }
-  };
+
+    await fetchAllData();
+    showAlert('Berhasil', `Pembayaran syahriah untuk ${syahriahData.wali?.nama_lengkap || 'wali'} berhasil`, 'success');
+  } catch (err) {
+    console.error('Error paying syahriah:', err);
+    showAlert('Gagal', err.message || 'Gagal melakukan pembayaran', 'error');
+  } finally {
+    setLoading(false);
+  }
+};
+
+  // ========== EXPORT FUNCTIONS ==========
+const exportToXLSX = async () => {
+  setExportLoading(true);
+  try {
+    // Ambil informasi TPQ terlebih dahulu
+    const token = localStorage.getItem('token');
+    const infoResponse = await fetch(`${API_URL}/api/informasi-tpq`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    let tpqInfo = null;
+    if (infoResponse.ok) {
+      const infoResult = await infoResponse.json();
+      tpqInfo = infoResult.data;
+    }
+
+    const wb = XLSX.utils.book_new();
+    let fileName = 'Laporan_Syahriah';
+
+    // Sheet 1: Summary/Statistik dengan kop surat
+    const summarySheetData = [
+      // Kop Surat
+      ['', '', '', '', '', ''],
+      ['', '', '', '', '', ''],
+      ['', 'LAPORAN SYAHRIYAH', '', '', '', ''],
+      ['', `TPQ ${tpqInfo?.nama_tpq || 'ASY-SYAFI\''}`, '', '', '', ''],
+      ['', `Periode: ${getCurrentPeriodText()}`, '', '', '', ''],
+      ['', '', '', '', '', ''],
+      ['', '', '', '', '', ''],
+      // Informasi TPQ
+      ['INFORMASI TPQ:', '', '', 'PERIODE LAPORAN:', '', ''],
+      [`Nama: ${tpqInfo?.nama_tpq || 'TPQ Asy-Syafi\''}`, '', '', `Periode: ${getCurrentPeriodText()}`, '', ''],
+      [`Alamat: ${tpqInfo?.alamat || '-'}`, '', '', `Tanggal Export: ${new Date().toLocaleDateString('id-ID')}`, '', ''],
+      [`Telp: ${tpqInfo?.no_telp || '-'}`, '', '', '', '', ''],
+      [`Email: ${tpqInfo?.email || '-'}`, '', '', '', '', ''],
+      ['', '', '', '', '', ''],
+      // Summary Syahriah
+      ['RINGKASAN SYAHRIYAH', '', '', '', '', ''],
+      ['Kategori', 'Jumlah', '', '', '', ''],
+      ['Total Pembayaran', summaryData?.total_nominal || 0, '', '', '', ''],
+      ['Santri Lunas', summaryData?.lunas || 0, '', '', '', ''],
+      ['Santri Menunggak', summaryData?.belum_lunas || 0, '', '', '', ''],
+      ['', '', '', '', '', ''],
+      ['DATA SYAHRIYAH', '', '', '', '', '']
+    ];
+
+    const wsSummary = XLSX.utils.aoa_to_sheet(summarySheetData);
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Ringkasan');
+
+    // Merge cells untuk kop surat
+    if (!wsSummary['!merges']) wsSummary['!merges'] = [];
+    wsSummary['!merges'].push(
+      { s: { r: 2, c: 1 }, e: { r: 2, c: 4 } }, // LAPORAN SYAHRIYAH
+      { s: { r: 3, c: 1 }, e: { r: 3, c: 4 } }, // Nama TPQ
+      { s: { r: 4, c: 1 }, e: { r: 4, c: 4 } }  // Periode
+    );
+
+    // Sheet 2: Data Syahriah dengan header
+    if (filteredData.length > 0) {
+      const syahriahHeader = [
+        ['DATA SYAHRIYAH'],
+        ['TPQ ASY-SYAFI\'I'],
+        [`Periode: ${getCurrentPeriodText()}`],
+        []
+      ];
+
+      const syahriahDataToExport = filteredData.map(item => ({
+        'Nama Wali': item.wali?.nama_lengkap || 'N/A',
+        'Email': item.wali?.email || '-',
+        'No. Telepon': item.wali?.no_telp || '-',
+        'Bulan': formatBulan(item.bulan),
+        'Nominal': item.nominal,
+        'Status': item.status === 'lunas' ? 'Lunas' : 'Belum Bayar',
+        'Tanggal Bayar': item.status === 'lunas' ? formatDateTime(item.waktu_catat) : '-',
+        'Dicatat Oleh': item.admin?.nama_lengkap || 'Admin'
+      }));
+
+      const wsSyahriah = XLSX.utils.aoa_to_sheet(syahriahHeader);
+      XLSX.utils.sheet_add_json(wsSyahriah, syahriahDataToExport, { origin: 'A5', skipHeader: false });
+      XLSX.utils.book_append_sheet(wb, wsSyahriah, 'Data Syahriah');
+    }
+
+    XLSX.writeFile(wb, `${fileName}_${tpqInfo?.nama_tpq?.replace(/\s+/g, '_') || 'TPQ_Asy_Syafii'}_${getCurrentPeriodText().replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`);
+    showAlert('Berhasil', `Laporan syahriah berhasil diexport ke Excel`, 'success');
+  } catch (err) {
+    console.error('Error exporting to Excel:', err);
+    showAlert('Gagal', `Gagal export data: ${err.message}`, 'error');
+  } finally {
+    setExportLoading(false);
+  }
+};
+
+const exportToCSV = async () => {
+  setExportLoading(true);
+  try {
+    // Ambil informasi TPQ
+    const token = localStorage.getItem('token');
+    const infoResponse = await fetch(`${API_URL}/api/informasi-tpq`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    let tpqInfo = null;
+    if (infoResponse.ok) {
+      const infoResult = await infoResponse.json();
+      tpqInfo = infoResult.data;
+    }
+
+    let allData = [];
+    let fileName = 'Laporan_Syahriah';
+
+    // Header untuk file CSV dengan informasi TPQ
+    const header = [
+      'LAPORAN SYAHRIYAH - TPQ ASY-SYAFI\'I',
+      `Nama TPQ: ${tpqInfo?.nama_tpq || 'TPQ Asy-Syafi\'i'}`,
+      `Alamat: ${tpqInfo?.alamat || '-'}`,
+      `No. Telepon: ${tpqInfo?.no_telp || '-'}`,
+      `Email: ${tpqInfo?.email || '-'}`,
+      `Hari & Jam Belajar: ${tpqInfo?.hari_jam_belajar || '-'}`,
+      '',
+      `Periode: ${getCurrentPeriodText()}`,
+      `Tanggal Export: ${new Date().toLocaleDateString('id-ID')}`,
+      ''
+    ];
+
+    // Section 1: Summary
+    const summarySection = [
+      'SUMMARY SYAHRIYAH',
+      'Kategori,Jumlah',
+      `Total Pembayaran,${summaryData?.total_nominal || 0}`,
+      `Santri Lunas,${summaryData?.lunas || 0}`,
+      `Santri Menunggak,${summaryData?.belum_lunas || 0}`,
+      ''
+    ];
+
+    allData = [...header, ...summarySection];
+
+    // Section 2: Data Syahriah
+    if (filteredData.length > 0) {
+      allData.push('DATA SYAHRIYAH');
+      allData.push('No,Nama Wali,Email,No. Telepon,Bulan,Nominal,Status,Tanggal Bayar,Dicatat Oleh');
+      filteredData.forEach((item, index) => {
+        allData.push([
+          index + 1,
+          `"${item.wali?.nama_lengkap || 'N/A'}"`,
+          item.wali?.email || '-',
+          item.wali?.no_telp || '-',
+          formatBulan(item.bulan),
+          item.nominal,
+          item.status === 'lunas' ? 'Lunas' : 'Belum Bayar',
+          item.status === 'lunas' ? formatDateTime(item.waktu_catat) : '-',
+          item.admin?.nama_lengkap || 'Admin'
+        ].join(','));
+      });
+    }
+
+    const csvContent = allData.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    saveAs(blob, `${fileName}_${getCurrentPeriodText().replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`);
+    showAlert('Berhasil', `Laporan syahriah berhasil diexport ke CSV`, 'success');
+  } catch (err) {
+    console.error('Error exporting to CSV:', err);
+    showAlert('Gagal', `Gagal export data: ${err.message}`, 'error');
+  } finally {
+    setExportLoading(false);
+  }
+};
+
+const exportToDOCX = async () => {
+  setExportLoading(true);
+  try {
+    // Ambil informasi TPQ
+    const token = localStorage.getItem('token');
+    const infoResponse = await fetch(`${API_URL}/api/informasi-tpq`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    let tpqInfo = null;
+    if (infoResponse.ok) {
+      const infoResult = await infoResponse.json();
+      tpqInfo = infoResult.data;
+    }
+
+    // Create comprehensive HTML content for DOCX dengan format surat resmi
+    const htmlContent = `
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Laporan Syahriah - ${tpqInfo?.nama_tpq || 'TPQ Asy-Syafi\'i'}</title>
+          <style>
+            @page {
+              margin: 2cm;
+              size: A4;
+            }
+            body { 
+              font-family: 'Times New Roman', Times, serif; 
+              margin: 0;
+              padding: 0;
+              line-height: 1.6;
+              font-size: 12pt;
+              color: #000;
+            }
+            .kop-surat {
+              border-bottom: 3px double #000;
+              padding-bottom: 10px;
+              margin-bottom: 20px;
+              text-align: center;
+            }
+            .header-info {
+              text-align: center;
+            }
+            .nama-tpq {
+              font-size: 16pt;
+              font-weight: bold;
+              margin: 5px 0;
+              text-transform: uppercase;
+            }
+            .alamat-tpq {
+              font-size: 11pt;
+              margin: 2px 0;
+            }
+            .kontak-tpq {
+              font-size: 10pt;
+              margin: 2px 0;
+            }
+            .judul-laporan {
+              text-align: center;
+              margin: 25px 0;
+              font-size: 14pt;
+              font-weight: bold;
+              text-decoration: underline;
+            }
+            .periode-info {
+              text-align: center;
+              margin: 15px 0;
+              font-size: 11pt;
+            }
+            table { 
+              width: 100%; 
+              border-collapse: collapse; 
+              margin: 15px 0;
+              font-size: 10pt;
+            }
+            th, td { 
+              border: 1px solid #000; 
+              padding: 8px; 
+              text-align: left; 
+              vertical-align: top;
+            }
+            th { 
+              background-color: #f0f0f0; 
+              font-weight: bold;
+              text-align: center;
+            }
+            .summary-section { 
+              background: #f9f9f9; 
+              padding: 15px;
+              border: 1px solid #000;
+              margin: 20px 0;
+            }
+            .summary-grid {
+              display: table;
+              width: 100%;
+              margin: 10px 0;
+            }
+            .summary-item {
+              display: table-row;
+            }
+            .summary-label {
+              display: table-cell;
+              padding: 5px 10px;
+              font-weight: bold;
+              width: 40%;
+            }
+            .summary-value {
+              display: table-cell;
+              padding: 5px 10px;
+            }
+            .currency {
+              font-family: 'Courier New', monospace;
+              font-weight: bold;
+            }
+            .section-title {
+              margin: 25px 0 10px 0;
+              font-size: 12pt;
+              font-weight: bold;
+              border-bottom: 1px solid #000;
+              padding-bottom: 5px;
+            }
+            .footer {
+              margin-top: 40px;
+              text-align: right;
+              font-size: 10pt;
+            }
+            .ttd {
+              margin-top: 60px;
+              text-align: center;
+            }
+            .ttd-space {
+              height: 60px;
+            }
+            .ttd-name {
+              font-weight: bold;
+              text-decoration: underline;
+            }
+            .ttd-position {
+              font-size: 10pt;
+            }
+          </style>
+        </head>
+        <body>
+          <!-- Kop Surat -->
+          <div class="kop-surat">
+            <div class="header-info">
+              <div class="nama-tpq">${tpqInfo?.nama_tpq || 'TAMAN PENDIDIKAN QURAN ASY-SYAFI\'I'}</div>
+              <div class="alamat-tpq">${tpqInfo?.alamat || 'Jl. Raya Sangkanayu - Pengalusan KM 1 Campakoah RT 03 RW 01 Kec. Mrebet - Purbalingga'}</div>
+              <div class="kontak-tpq">
+                Telp: ${tpqInfo?.no_telp || '085643955667'} | Email: ${tpqInfo?.email || 'tpqasysyafiicampakoah@gmail.com'} | 
+              </div>
+            </div>
+          </div>
+
+          <!-- Judul Laporan -->
+          <div class="judul-laporan">LAPORAN SYAHRIYAH</div>
+          
+          <!-- Periode -->
+          <div class="periode-info">
+            Periode: <strong>${getCurrentPeriodText()}</strong><br>
+            Tanggal Cetak: ${new Date().toLocaleDateString('id-ID', { 
+              day: 'numeric', 
+              month: 'long', 
+              year: 'numeric' 
+            })}
+          </div>
+
+          <!-- Ringkasan Syahriah -->
+          <div class="section-title">RINGKASAN SYAHRIYAH</div>
+          <div class="summary-section">
+            <div class="summary-grid">
+              <div class="summary-item">
+                <div class="summary-label">Total Pembayaran:</div>
+                <div class="summary-value currency">${formatCurrency(summaryData?.total_nominal || 0)}</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-label">Santri Lunas:</div>
+                <div class="summary-value">${summaryData?.lunas || 0}</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-label">Santri Menunggak:</div>
+                <div class="summary-value">${summaryData?.belum_lunas || 0}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Data Syahriah -->
+          ${filteredData.length > 0 ? `
+            <div class="section-title">DATA SYAHRIYAH</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>No</th>
+                  <th>Nama Wali</th>
+                  <th>Kontak</th>
+                  <th>Bulan</th>
+                  <th>Nominal</th>
+                  <th>Status</th>
+                  <th>Tanggal Bayar</th>
+                  <th>Dicatat Oleh</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${filteredData.map((item, index) => `
+                  <tr>
+                    <td style="text-align: center;">${index + 1}</td>
+                    <td>${item.wali?.nama_lengkap || 'N/A'}</td>
+                    <td>
+                      ${item.wali?.email || '-'}<br>
+                      <small>${item.wali?.no_telp || '-'}</small>
+                    </td>
+                    <td>${formatBulan(item.bulan)}</td>
+                    <td class="currency">${formatCurrency(item.nominal)}</td>
+                    <td style="text-transform: capitalize;">${item.status === 'lunas' ? 'Lunas' : 'Belum Bayar'}</td>
+                    <td>${item.status === 'lunas' ? formatDateTime(item.waktu_catat) : '-'}</td>
+                    <td>${item.admin?.nama_lengkap || 'Admin'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          ` : '<p style="text-align: center; font-style: italic;">Tidak ada data syahriah</p>'}
+
+          <!-- Footer dan TTD -->
+          <div class="footer">
+            <div class="ttd">
+              <div>Purbalingga, ${new Date().toLocaleDateString('id-ID', { 
+                day: 'numeric', 
+                month: 'long', 
+                year: 'numeric' 
+              })}</div>
+              <div class="ttd-space"></div>
+              <div class="ttd-name">Bendahara TPQ</div>
+              <div class="ttd-position">${tpqInfo?.nama_tpq || 'TPQ Asy-Syafi\''}</div>
+            </div>
+          </div>
+
+          <!-- Informasi Dokumen -->
+          <div style="margin-top: 30px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 9pt; color: #666; text-align: center;">
+            <p>Dokumen ini dihasilkan secara otomatis oleh Sistem Keuangan ${tpqInfo?.nama_tpq || 'TPQ Asy-Syafi\''}</p>
+            <p>Total Data: ${filteredData.length} syahriah</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const blob = new Blob([htmlContent], { type: 'application/msword' });
+    saveAs(blob, `Laporan_Syahriah_${tpqInfo?.nama_tpq?.replace(/\s+/g, '_') || 'TPQ_Asy_Syafii'}_${getCurrentPeriodText().replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.doc`);
+    showAlert('Berhasil', `Laporan syahriah berhasil diexport ke Word dengan format surat resmi`, 'success');
+  } catch (err) {
+    console.error('Error exporting to DOCX:', err);
+    showAlert('Gagal', `Gagal export data: ${err.message}`, 'error');
+  } finally {
+    setExportLoading(false);
+  }
+};
+
+// Helper functions untuk export
+const getCurrentPeriodText = () => {
+  if (filterBulanTahun) {
+    return formatBulan(filterBulanTahun);
+  }
+  return 'Semua Periode';
+};
+
+const formatDateTime = (dateString) => {
+  if (!dateString) return '-';
+  try {
+    return new Date(dateString).toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch (e) {
+    return dateString;
+  }
+};
+
+const handleInputAllWali = async () => {
+  try {
+    setLoading(true);
+    
+    // Konfirmasi menggunakan modal custom
+    setAlertMessage({
+      title: 'Konfirmasi Input Batch',
+      message: `Apakah Anda yakin ingin membuat data syahriah untuk semua wali (${waliData.length} wali) bulan ${formatBulan(getCurrentMonth())}?`,
+      type: 'confirm',
+      onConfirm: async () => {
+        try {
+          const response = await fetch(`${API_URL}/api/admin/syahriah/batch`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              bulan: getCurrentMonth(),
+              nominal: 110000,
+              status: 'belum'
+            })
+          });
+
+          if (!response.ok) {
+            let errorMessage = `HTTP error! status: ${response.status}`;
+            try {
+              const errorData = await response.json();
+              errorMessage = errorData.error || errorMessage;
+            } catch {
+              // Jika response bukan JSON, gunakan text biasa
+              const errorText = await response.text();
+              errorMessage = errorText || errorMessage;
+            }
+            throw new Error(errorMessage);
+          }
+
+          const result = await response.json();
+          await fetchAllData();
+          showAlert('Berhasil', result.message || `Berhasil membuat data syahriah untuk ${result.data?.created || waliData.length} wali`, 'success');
+        } catch (err) {
+          console.error('Error creating batch syahriah:', err);
+          showAlert('Gagal', err.message || 'Gagal membuat data syahriah untuk semua wali', 'error');
+        } finally {
+          setLoading(false);
+        }
+      },
+      onCancel: () => {
+        setLoading(false);
+        setShowAlertModal(false);
+      }
+    });
+    setShowAlertModal(true);
+
+  } catch (err) {
+    console.error('Error in confirmation:', err);
+    setLoading(false);
+  }
+};
 
   // Handle create syahriah
   const handleCreateSyahriah = async (e) => {
@@ -507,7 +1041,32 @@ const DataSyahriah = () => {
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
       </svg>
-    )
+    ),
+    export: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+    ),
+    excel: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+    ),
+    word: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+    ),
+    users: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+      </svg>
+    ),
+    confirm: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
   };
 
   const renderContent = () => {
@@ -580,15 +1139,23 @@ const DataSyahriah = () => {
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                  {item.status === 'belum' ? (
-                    <button 
-                      onClick={() => handleBayarSyahriah(item.id_syahriah)}
-                      className="text-green-600 hover:text-green-900"
-                      disabled={loading}
-                    >
-                      Bayar
-                    </button>
-                  ) : ("")}
+                {item.status === 'belum' ? (
+                  <button 
+                    onClick={() => {
+                      showAlert(
+                        'Konfirmasi Pembayaran',
+                        `Apakah Anda yakin ingin menandai pembayaran syahriah untuk ${item.wali?.nama_lengkap || 'wali'} bulan ${formatBulan(item.bulan)} sebagai lunas?`,
+                        'confirm',
+                        () => handleBayarSyahriah(item.id_syahriah, item),
+                        () => setShowAlertModal(false)
+                      );
+                    }}
+                    className="text-green-600 hover:text-green-900"
+                    disabled={loading}
+                  >
+                    Bayar
+                  </button>
+                ) : ("")}
                   <button 
                     onClick={() => openEditModal(item)}
                     className="text-yellow-600 hover:text-yellow-900 ml-2"
@@ -676,6 +1243,54 @@ const DataSyahriah = () => {
       <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-gray-800">Data Pembayaran Syahriah</h2>
+          <div className="flex space-x-2">
+        <button
+          onClick={exportToXLSX}
+          disabled={exportLoading}
+          className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium text-sm flex items-center disabled:opacity-50"
+        >
+          {exportLoading ? (
+            <>
+              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Exporting...
+            </>
+          ) : (
+            <>
+              {icons.excel}
+              <span className="ml-2">Excel</span>
+            </>
+          )}
+        </button>
+        <button
+          onClick={exportToCSV}
+          disabled={exportLoading}
+          className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors font-medium text-sm flex items-center disabled:opacity-50"
+        >
+          {icons.export}
+          <span className="ml-2">CSV</span>
+        </button>
+        <button
+          onClick={exportToDOCX}
+          disabled={exportLoading}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm flex items-center disabled:opacity-50"
+        >
+          {icons.word}
+          <span className="ml-2">Word</span>
+        </button>
+      </div>
+      
+      {/* Tombol Input untuk Semua Wali */}
+      <button 
+        onClick={handleInputAllWali}
+        disabled={loading || waliData.length === 0}
+        className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors flex items-center disabled:opacity-50"
+      >
+        {icons.users}
+        <span className="ml-2">Input Semua Wali</span>
+      </button>
           <button 
             onClick={openCreateModal}
             className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center"
@@ -968,38 +1583,76 @@ const DataSyahriah = () => {
         <div className="fixed inset-0 backdrop-blur drop-shadow-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
             <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
-              alertMessage.type === 'success' ? 'bg-green-100' : 'bg-red-100'
+              alertMessage.type === 'success' ? 'bg-green-100' : 
+              alertMessage.type === 'error' ? 'bg-red-100' :
+              alertMessage.type === 'confirm' ? 'bg-blue-100' : 'bg-gray-100'
             }`}>
               {alertMessage.type === 'success' ? (
                 <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-              ) : (
+              ) : alertMessage.type === 'error' ? (
                 <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              ) : alertMessage.type === 'confirm' ? (
+                <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              ) : (
+                <svg className="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               )}
             </div>
             <h3 className={`text-xl font-bold text-center mb-2 ${
-              alertMessage.type === 'success' ? 'text-green-800' : 'text-red-800'
+              alertMessage.type === 'success' ? 'text-green-800' : 
+              alertMessage.type === 'error' ? 'text-red-800' :
+              alertMessage.type === 'confirm' ? 'text-blue-800' : 'text-gray-800'
             }`}>
               {alertMessage.title}
             </h3>
             <p className={`text-center mb-6 ${
-              alertMessage.type === 'success' ? 'text-green-600' : 'text-red-600'
+              alertMessage.type === 'success' ? 'text-green-600' : 
+              alertMessage.type === 'error' ? 'text-red-600' :
+              alertMessage.type === 'confirm' ? 'text-blue-600' : 'text-gray-600'
             }`}>
               {alertMessage.message}
             </p>
-            <div className="flex justify-center">
+            <div className={`flex ${alertMessage.type === 'confirm' ? 'justify-between' : 'justify-center'} space-x-3`}>
+              {alertMessage.type === 'confirm' && (
+                <button
+                  onClick={() => {
+                    if (alertMessage.onCancel) {
+                      alertMessage.onCancel();
+                    } else {
+                      setShowAlertModal(false);
+                    }
+                  }}
+                  className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                >
+                  Batal
+                </button>
+              )}
               <button
-                onClick={() => setShowAlertModal(false)}
+                onClick={() => {
+                  if (alertMessage.type === 'confirm' && alertMessage.onConfirm) {
+                    alertMessage.onConfirm();
+                  } else {
+                    setShowAlertModal(false);
+                  }
+                }}
                 className={`px-6 py-2 rounded-lg text-white ${
                   alertMessage.type === 'success' 
                     ? 'bg-green-600 hover:bg-green-700' 
-                    : 'bg-red-600 hover:bg-red-700'
+                    : alertMessage.type === 'error'
+                    ? 'bg-red-600 hover:bg-red-700'
+                    : alertMessage.type === 'confirm'
+                    ? 'bg-blue-600 hover:bg-blue-700'
+                    : 'bg-gray-600 hover:bg-gray-700'
                 } transition-colors`}
               >
-                Tutup
+                {alertMessage.type === 'confirm' ? 'Ya, Lanjutkan' : 'Tutup'}
               </button>
             </div>
           </div>

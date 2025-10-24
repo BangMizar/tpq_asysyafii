@@ -19,15 +19,14 @@ func SetupRoutes(r *gin.Engine) {
     	api.GET("/donasi-public/summary", donasiController.GetDonasiSummaryPublic)
 
 		beritaController := controllers.NewBeritaController(config.DB)
-		api.GET("/berita", beritaController.GetBeritaPublic)           // Untuk dashboard website
-		api.GET("/berita/:slug", beritaController.GetBeritaBySlug)     // Detail berita by slug
-		api.GET("/berita/id/:id", beritaController.GetBeritaByID)      // Detail berita by ID
+		api.GET("/berita", beritaController.GetBeritaPublic)
+		api.GET("/berita/:slug", beritaController.GetBeritaBySlug)
+		api.GET("/berita/id/:id", beritaController.GetBeritaByID) 
 
 		programUnggulanController := controllers.NewProgramUnggulanController(config.DB)
-		api.GET("/program-unggulan", programUnggulanController.GetProgramUnggulanPublic)           // Untuk dashboard website
-		api.GET("/program-unggulan/:slug", programUnggulanController.GetProgramUnggulanBySlug)     // Detail program by slug
-		api.GET("/program-unggulan/id/:id", programUnggulanController.GetProgramUnggulanByID)      // Detail program by ID
-
+		api.GET("/program-unggulan", programUnggulanController.GetProgramUnggulanPublic) 
+		api.GET("/program-unggulan/:slug", programUnggulanController.GetProgramUnggulanBySlug)
+		api.GET("/program-unggulan/id/:id", programUnggulanController.GetProgramUnggulanByID)
 		informasiTPQController := controllers.NewInformasiTPQController(config.DB)
 		api.GET("/informasi-tpq", informasiTPQController.GetInformasiTPQ)
 
@@ -103,6 +102,7 @@ func SetupRoutes(r *gin.Engine) {
 
 			syahriahController := controllers.NewSyahriahController(config.DB)
 			admin.POST("/syahriah", syahriahController.CreateSyahriah)
+			admin.POST("/syahriah/batch", syahriahController.BatchCreateSyahriah)
         	admin.PUT("/syahriah/:id", syahriahController.UpdateSyahriah)
         	admin.DELETE("/syahriah/:id", syahriahController.DeleteSyahriah)
 			admin.GET("/syahriah", syahriahController.GetAllSyahriah)
