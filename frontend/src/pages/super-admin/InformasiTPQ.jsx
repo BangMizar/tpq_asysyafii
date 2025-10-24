@@ -1030,7 +1030,7 @@ const InformasiTPQ = () => {
                           {renderSocialMediaIcon(sosmedForm.icon_sosmed, "w-4 h-4 text-blue-600")}
                         </div>
                         <span className="text-sm text-gray-600">
-                          {sosmedForm.nama_sosmed} - {sosmedForm.icon_sosmed}
+                          {sosmedForm.nama_sosmed}
                         </span>
                       </>
                     ) : (

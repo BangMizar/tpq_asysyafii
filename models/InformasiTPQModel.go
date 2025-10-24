@@ -14,7 +14,7 @@ type InformasiTPQ struct {
 	Email           *string    `json:"email,omitempty" gorm:"type:varchar(100)"`
 	Alamat          *string    `json:"alamat,omitempty" gorm:"type:text"`
 	LinkAlamat      *string    `json:"link_alamat,omitempty" gorm:"type:varchar(500)"`
-	HariJamBelajar  *string    `json:"hari_jam_belajar,omitempty" gorm:"type:text"` // Contoh: "Senin: 08:00-10:00, Rabu: 08:00-10:00, Jumat: 08:00-10:00"
+	HariJamBelajar  *string    `json:"hari_jam_belajar,omitempty" gorm:"type:text"`
 	DiupdateOlehID  *string    `json:"diupdate_oleh_id,omitempty" gorm:"column:diupdate_oleh_id;type:char(36)"`
 	DibuatPada      time.Time  `json:"dibuat_pada" gorm:"autoCreateTime"`
 	DiperbaruiPada  time.Time  `json:"diperbarui_pada" gorm:"autoUpdateTime"`
