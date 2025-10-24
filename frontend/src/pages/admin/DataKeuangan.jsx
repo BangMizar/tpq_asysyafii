@@ -693,7 +693,7 @@ const exportToCSV = async () => {
                 <div class="nama-tpq">${tpqInfo?.nama_tpq || 'TAMAN PENDIDIKAN QURAN ASY-SYAFI\'I'}</div>
                 <div class="alamat-tpq">${tpqInfo?.alamat || 'Jl. Raya Sangkanayu - Pengalusan KM 1 Campakoah RT 03 RW 01 Kec. Mrebet - Purbalingga'}</div>
                 <div class="kontak-tpq">
-                  Telp: ${tpqInfo?.no_telp || '085643955667'} | Email: ${tpqInfo?.email || 'tpqasysyafiicampakoah@gmail.com'} | 
+                  Telp: ${tpqInfo?.no_telp || '085643955667'} | Email: ${tpqInfo?.email || 'tpqasysyafiicampakoah@gmail.com'} 
                 </div>
               </div>
             </div>
@@ -903,7 +903,7 @@ const exportToCSV = async () => {
   
       const blob = new Blob([htmlContent], { type: 'application/msword' });
       saveAs(blob, `Laporan_Keuangan_${tpqInfo?.nama_tpq?.replace(/\s+/g, '_') || 'TPQ_Asy_Syafii'}_${selectedPeriod === 'semua' ? 'Semua_Periode' : selectedPeriod}_${new Date().toISOString().split('T')[0]}.doc`);
-      showAlert('Berhasil', `Laporan keuangan lengkap berhasil diexport ke Word dengan format surat resmi`, 'success');
+      showAlert('Berhasil', `Laporan keuangan lengkap berhasil diexport ke Word`, 'success');
     } catch (err) {
       console.error('Error exporting to DOCX:', err);
       showAlert('Gagal', `Gagal export data: ${err.message}`, 'error');

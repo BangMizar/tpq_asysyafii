@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import AuthDashboardLayout from '../../components/layout/AuthDashboardLayout';
 import { useAuth } from '../../context/AuthContext';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 
 const DataDonasi = () => {
   const { user } = useAuth();
@@ -158,305 +160,541 @@ const DataDonasi = () => {
     }
   };
 
-  // Handle export to Excel/CSV
-  const handleExportExcel = async () => {
-    try {
-      setLoading(true);
-      
-      // Fetch semua data untuk export (tanpa pagination)
-      let exportUrl = `${API_URL}/api/admin/donasi`;
-      const params = new URLSearchParams();
-      
-      if (filterSearch) params.append('search', filterSearch);
-      if (filterStartDate && filterEndDate) {
-        exportUrl = `${API_URL}/api/admin/donasi/by-date`;
-        params.append('start_date', filterStartDate);
-        params.append('end_date', filterEndDate);
+  // ========== EXPORT FUNCTIONS ==========
+const exportToXLSX = async () => {
+  setLoading(true);
+  try {
+    // Ambil informasi TPQ terlebih dahulu
+    const token = localStorage.getItem('token');
+    const infoResponse = await fetch(`${API_URL}/api/informasi-tpq`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
       }
-      
-      const response = await fetch(`${exportUrl}?${params.toString()}&limit=1000`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-  
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-  
-      const data = await response.json();
-      const donasiForExport = data.data || [];
+    });
 
-      // Create CSV data
-      const csvData = [
-        ['LAPORAN DATA DONASI'],
-        [`Periode: ${formatDateForExport(filterStartDate)} - ${formatDateForExport(filterEndDate)}`],
-        [''],
-        ['No', 'Nama Donatur', 'No. Telepon', 'Nominal', 'Tanggal Donasi', 'Dicatat Oleh']
+    let tpqInfo = null;
+    if (infoResponse.ok) {
+      const infoResult = await infoResponse.json();
+      tpqInfo = infoResult.data;
+    }
+
+    // Fetch semua data untuk export
+    let exportUrl = `${API_URL}/api/admin/donasi`;
+    const params = new URLSearchParams();
+    
+    if (filterSearch) params.append('search', filterSearch);
+    if (filterStartDate && filterEndDate) {
+      exportUrl = `${API_URL}/api/admin/donasi/by-date`;
+      params.append('start_date', filterStartDate);
+      params.append('end_date', filterEndDate);
+    }
+    
+    const response = await fetch(`${exportUrl}?${params.toString()}&limit=1000`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const donasiForExport = data.data || [];
+
+    const wb = XLSX.utils.book_new();
+    let fileName = 'Laporan_Donasi';
+
+    // Sheet 1: Summary/Statistik dengan kop surat
+    const summarySheetData = [
+      // Kop Surat
+      ['', '', '', '', '', ''],
+      ['', '', '', '', '', ''],
+      ['', 'LAPORAN DONASI', '', '', '', ''],
+      ['', `TPQ ${tpqInfo?.nama_tpq || 'ASY-SYAFI\''}`, '', '', '', ''],
+      ['', `Periode: ${getCurrentPeriodText()}`, '', '', '', ''],
+      ['', '', '', '', '', ''],
+      ['', '', '', '', '', ''],
+      // Informasi TPQ
+      ['INFORMASI TPQ:', '', '', 'PERIODE LAPORAN:', '', ''],
+      [`Nama: ${tpqInfo?.nama_tpq || 'TPQ Asy-Syafi\''}`, '', '', `Periode: ${getCurrentPeriodText()}`, '', ''],
+      [`Alamat: ${tpqInfo?.alamat || '-'}`, '', '', `Tanggal Export: ${new Date().toLocaleDateString('id-ID')}`, '', ''],
+      [`Telp: ${tpqInfo?.no_telp || '-'}`, '', '', '', '', ''],
+      [`Email: ${tpqInfo?.email || '-'}`, '', '', '', '', ''],
+      ['', '', '', '', '', ''],
+      // Summary Donasi
+      ['RINGKASAN DONASI', '', '', '', '', ''],
+      ['Kategori', 'Nominal', '', '', '', ''],
+      ['Total Donasi', summaryData?.total_nominal || 0, '', '', '', ''],
+      ['Total Donatur', summaryData?.total_donatur || 0, '', '', '', ''],
+      ['Rata-rata Donasi', summaryData?.rata_rata || 0, '', '', '', ''],
+      ['', '', '', '', '', ''],
+      ['DATA DONASI', '', '', '', '', '']
+    ];
+
+    const wsSummary = XLSX.utils.aoa_to_sheet(summarySheetData);
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Ringkasan');
+
+    // Merge cells untuk kop surat
+    if (!wsSummary['!merges']) wsSummary['!merges'] = [];
+    wsSummary['!merges'].push(
+      { s: { r: 2, c: 1 }, e: { r: 2, c: 4 } }, // LAPORAN DONASI
+      { s: { r: 3, c: 1 }, e: { r: 3, c: 4 } }, // Nama TPQ
+      { s: { r: 4, c: 1 }, e: { r: 4, c: 4 } }  // Periode
+    );
+
+    // Sheet 2: Data Donasi dengan header
+    if (donasiForExport.length > 0) {
+      const donasiHeader = [
+        ['DATA DONASI'],
+        ['TPQ ASY-SYAFI\'I'],
+        [`Periode: ${getCurrentPeriodText()}`],
+        []
       ];
 
-      // Add data rows
-      donasiForExport.forEach((item, index) => {
-        csvData.push([
-          index + 1,
-          item.nama_donatur || 'Hamba Allah',
-          item.no_telp || '-',
-          formatCurrencyForExport(item.nominal),
-          formatDateForExport(item.waktu_catat),
-          item.admin?.nama_lengkap || 'System'
-        ]);
-      });
+      const donasiDataToExport = donasiForExport.map(item => ({
+        'Tanggal': formatDateTime(item.waktu_catat),
+        'Nama Donatur': item.nama_donatur || 'Hamba Allah',
+        'No. Telepon': item.no_telp || '-',
+        'Nominal': item.nominal,
+        'Dicatat Oleh': item.admin?.nama_lengkap || 'Admin'
+      }));
 
-      // Add summary row
-      csvData.push(['']);
-      csvData.push(['TOTAL DONASI:', '', '', formatCurrencyForExport(summaryData.total_nominal), '', '']);
-      csvData.push(['TOTAL DONATUR:', '', '', summaryData.total_donatur, '', '']);
-      csvData.push(['RATA-RATA:', '', '', formatCurrencyForExport(summaryData.rata_rata), '', '']);
-
-      // Convert to CSV
-      const csvContent = csvData.map(row => 
-        row.map(field => `"${field}"`).join(',')
-      ).join('\n');
-
-      // Create and download CSV file
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', `laporan-donasi-${filterStartDate}-${filterEndDate}.csv`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      showAlert('Berhasil', 'Data berhasil diexport ke CSV', 'success');
-    } catch (err) {
-      console.error('Error exporting data:', err);
-      showAlert('Gagal', 'Gagal mengexport data: ' + err.message, 'error');
-    } finally {
-      setLoading(false);
+      const wsDonasi = XLSX.utils.aoa_to_sheet(donasiHeader);
+      XLSX.utils.sheet_add_json(wsDonasi, donasiDataToExport, { origin: 'A5', skipHeader: false });
+      XLSX.utils.book_append_sheet(wb, wsDonasi, 'Data Donasi');
     }
-  };
 
-  // Handle export to Word
-  const handleExportWord = async () => {
-    try {
-      setLoading(true);
-      
-      // Fetch semua data untuk export (tanpa pagination)
-      let wordExportUrl = `${API_URL}/api/admin/donasi`;
-      const params = new URLSearchParams();
-      
-      if (filterSearch) params.append('search', filterSearch);
-      if (filterStartDate && filterEndDate) {
-        wordExportUrl = `${API_URL}/api/admin/donasi/by-date`;
-        params.append('start_date', filterStartDate);
-        params.append('end_date', filterEndDate);
+    XLSX.writeFile(wb, `${fileName}_${tpqInfo?.nama_tpq?.replace(/\s+/g, '_') || 'TPQ_Asy_Syafii'}_${getCurrentPeriodText().replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`);
+    showAlert('Berhasil', `Laporan donasi berhasil diexport ke Excel`, 'success');
+  } catch (err) {
+    console.error('Error exporting to Excel:', err);
+    showAlert('Gagal', `Gagal export data: ${err.message}`, 'error');
+  } finally {
+    setLoading(false);
+  }
+};
+
+const exportToCSV = async () => {
+  setLoading(true);
+  try {
+    // Ambil informasi TPQ
+    const token = localStorage.getItem('token');
+    const infoResponse = await fetch(`${API_URL}/api/informasi-tpq`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
       }
-      
-      const response = await fetch(`${wordExportUrl}?${params.toString()}&limit=1000`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
+    });
+
+    let tpqInfo = null;
+    if (infoResponse.ok) {
+      const infoResult = await infoResponse.json();
+      tpqInfo = infoResult.data;
+    }
+
+    // Fetch semua data untuk export
+    let exportUrl = `${API_URL}/api/admin/donasi`;
+    const params = new URLSearchParams();
+    
+    if (filterSearch) params.append('search', filterSearch);
+    if (filterStartDate && filterEndDate) {
+      exportUrl = `${API_URL}/api/admin/donasi/by-date`;
+      params.append('start_date', filterStartDate);
+      params.append('end_date', filterEndDate);
+    }
+    
+    const response = await fetch(`${exportUrl}?${params.toString()}&limit=1000`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const donasiForExport = data.data || [];
+
+    let allData = [];
+    let fileName = 'Laporan_Donasi';
+
+    // Header untuk file CSV dengan informasi TPQ
+    const header = [
+      'LAPORAN DONASI - TPQ ASY-SYAFI\'I',
+      `Nama TPQ: ${tpqInfo?.nama_tpq || 'TPQ Asy-Syafi\'i'}`,
+      `Alamat: ${tpqInfo?.alamat || '-'}`,
+      `No. Telepon: ${tpqInfo?.no_telp || '-'}`,
+      `Email: ${tpqInfo?.email || '-'}`,
+      `Hari & Jam Belajar: ${tpqInfo?.hari_jam_belajar || '-'}`,
+      '',
+      `Periode: ${getCurrentPeriodText()}`,
+      `Tanggal Export: ${new Date().toLocaleDateString('id-ID')}`,
+      ''
+    ];
+
+    // Section 1: Summary
+    const summarySection = [
+      'SUMMARY DONASI',
+      'Kategori,Nilai',
+      `Total Donasi,${summaryData?.total_nominal || 0}`,
+      `Total Donatur,${summaryData?.total_donatur || 0}`,
+      `Rata-rata Donasi,${summaryData?.rata_rata || 0}`,
+      ''
+    ];
+
+    allData = [...header, ...summarySection];
+
+    // Section 2: Data Donasi
+    if (donasiForExport.length > 0) {
+      allData.push('DATA DONASI');
+      allData.push('No,Tanggal,Nama Donatur,No. Telepon,Nominal,Dicatat Oleh');
+      donasiForExport.forEach((item, index) => {
+        allData.push([
+          index + 1,
+          formatDateTime(item.waktu_catat),
+          `"${item.nama_donatur || 'Hamba Allah'}"`,
+          item.no_telp || '-',
+          item.nominal,
+          item.admin?.nama_lengkap || 'Admin'
+        ].join(','));
       });
-  
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-  
-      const data = await response.json();
-      const donasiForExport = data.data || [];
+    }
 
-      // Create HTML content for Word
-      const htmlContent = `
-        <html xmlns:o="urn:schemas-microsoft-com:office:office" 
-              xmlns:w="urn:schemas-microsoft-com:office:word" 
-              xmlns="http://www.w3.org/TR/REC-html40">
+    const csvContent = allData.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    saveAs(blob, `${fileName}_${getCurrentPeriodText().replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`);
+    showAlert('Berhasil', `Laporan donasi berhasil diexport ke CSV`, 'success');
+  } catch (err) {
+    console.error('Error exporting to CSV:', err);
+    showAlert('Gagal', `Gagal export data: ${err.message}`, 'error');
+  } finally {
+    setLoading(false);
+  }
+};
+
+const exportToDOCX = async () => {
+  setLoading(true);
+  try {
+    // Ambil informasi TPQ
+    const token = localStorage.getItem('token');
+    const infoResponse = await fetch(`${API_URL}/api/informasi-tpq`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    let tpqInfo = null;
+    if (infoResponse.ok) {
+      const infoResult = await infoResponse.json();
+      tpqInfo = infoResult.data;
+    }
+
+    // Fetch semua data untuk export
+    let exportUrl = `${API_URL}/api/admin/donasi`;
+    const params = new URLSearchParams();
+    
+    if (filterSearch) params.append('search', filterSearch);
+    if (filterStartDate && filterEndDate) {
+      exportUrl = `${API_URL}/api/admin/donasi/by-date`;
+      params.append('start_date', filterStartDate);
+      params.append('end_date', filterEndDate);
+    }
+    
+    const response = await fetch(`${exportUrl}?${params.toString()}&limit=1000`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const donasiForExport = data.data || [];
+
+    // Create comprehensive HTML content for DOCX dengan format surat resmi
+    const htmlContent = `
+      <html>
         <head>
           <meta charset="utf-8">
-          <title>Laporan Donasi</title>
+          <title>Laporan Donasi - ${tpqInfo?.nama_tpq || 'TPQ Asy-Syafi\'i'}</title>
           <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
-            h1 { color: #2c5aa0; text-align: center; }
-            h2 { color: #555; }
-            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #f2f2f2; font-weight: bold; }
-            .summary { margin-top: 30px; padding: 15px; background-color: #f9f9f9; border-left: 4px solid #2c5aa0; }
+            @page {
+              margin: 2cm;
+              size: A4;
+            }
+            body { 
+              font-family: 'Times New Roman', Times, serif; 
+              margin: 0;
+              padding: 0;
+              line-height: 1.6;
+              font-size: 12pt;
+              color: #000;
+            }
+            .kop-surat {
+              border-bottom: 3px double #000;
+              padding-bottom: 10px;
+              margin-bottom: 20px;
+              text-align: center;
+            }
+            .header-info {
+              text-align: center;
+            }
+            .nama-tpq {
+              font-size: 16pt;
+              font-weight: bold;
+              margin: 5px 0;
+              text-transform: uppercase;
+            }
+            .alamat-tpq {
+              font-size: 11pt;
+              margin: 2px 0;
+            }
+            .kontak-tpq {
+              font-size: 10pt;
+              margin: 2px 0;
+            }
+            .judul-laporan {
+              text-align: center;
+              margin: 25px 0;
+              font-size: 14pt;
+              font-weight: bold;
+              text-decoration: underline;
+            }
+            .periode-info {
+              text-align: center;
+              margin: 15px 0;
+              font-size: 11pt;
+            }
+            table { 
+              width: 100%; 
+              border-collapse: collapse; 
+              margin: 15px 0;
+              font-size: 10pt;
+            }
+            th, td { 
+              border: 1px solid #000; 
+              padding: 8px; 
+              text-align: left; 
+              vertical-align: top;
+            }
+            th { 
+              background-color: #f0f0f0; 
+              font-weight: bold;
+              text-align: center;
+            }
+            .summary-section { 
+              background: #f9f9f9; 
+              padding: 15px;
+              border: 1px solid #000;
+              margin: 20px 0;
+            }
+            .summary-grid {
+              display: table;
+              width: 100%;
+              margin: 10px 0;
+            }
+            .summary-item {
+              display: table-row;
+            }
+            .summary-label {
+              display: table-cell;
+              padding: 5px 10px;
+              font-weight: bold;
+              width: 40%;
+            }
+            .summary-value {
+              display: table-cell;
+              padding: 5px 10px;
+            }
+            .currency {
+              font-family: 'Courier New', monospace;
+              font-weight: bold;
+            }
+            .section-title {
+              margin: 25px 0 10px 0;
+              font-size: 12pt;
+              font-weight: bold;
+              border-bottom: 1px solid #000;
+              padding-bottom: 5px;
+            }
+            .footer {
+              margin-top: 40px;
+              text-align: right;
+              font-size: 10pt;
+            }
+            .ttd {
+              margin-top: 60px;
+              text-align: center;
+            }
+            .ttd-space {
+              height: 60px;
+            }
+            .ttd-name {
+              font-weight: bold;
+              text-decoration: underline;
+            }
+            .ttd-position {
+              font-size: 10pt;
+            }
           </style>
         </head>
         <body>
-          <h1>LAPORAN DATA DONASI</h1>
-          <h2>Periode: ${formatDateForExport(filterStartDate)} - ${formatDateForExport(filterEndDate)}</h2>
-          
-          <table>
-            <thead>
-              <tr>
-                <th>No</th>
-                <th>Nama Donatur</th>
-                <th>No. Telepon</th>
-                <th>Nominal</th>
-                <th>Tanggal Donasi</th>
-                <th>Dicatat Oleh</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${donasiForExport.map((item, index) => `
-                <tr>
-                  <td>${index + 1}</td>
-                  <td>${item.nama_donatur || 'Hamba Allah'}</td>
-                  <td>${item.no_telp || '-'}</td>
-                  <td>${formatCurrencyForExport(item.nominal)}</td>
-                  <td>${formatDateForExport(item.waktu_catat)}</td>
-                  <td>${item.admin?.nama_lengkap || 'System'}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
+          <!-- Kop Surat -->
+          <div class="kop-surat">
+            <div class="header-info">
+              <div class="nama-tpq">${tpqInfo?.nama_tpq || 'TAMAN PENDIDIKAN QURAN ASY-SYAFI\'I'}</div>
+              <div class="alamat-tpq">${tpqInfo?.alamat || 'Jl. Raya Sangkanayu - Pengalusan KM 1 Campakoah RT 03 RW 01 Kec. Mrebet - Purbalingga'}</div>
+              <div class="kontak-tpq">
+                Telp: ${tpqInfo?.no_telp || '085643955667'} | Email: ${tpqInfo?.email || 'tpqasysyafiicampakoah@gmail.com'} 
+              </div>
+            </div>
+          </div>
 
-          <div class="summary">
-            <h3>Ringkasan Donasi</h3>
-            <p><strong>Total Donasi:</strong> ${formatCurrencyForExport(summaryData.total_nominal)}</p>
-            <p><strong>Total Donatur:</strong> ${summaryData.total_donatur}</p>
-            <p><strong>Rata-rata Donasi:</strong> ${formatCurrencyForExport(summaryData.rata_rata)}</p>
+          <!-- Judul Laporan -->
+          <div class="judul-laporan">LAPORAN DONASI</div>
+          
+          <!-- Periode -->
+          <div class="periode-info">
+            Periode: <strong>${getCurrentPeriodText()}</strong><br>
+            Tanggal Cetak: ${new Date().toLocaleDateString('id-ID', { 
+              day: 'numeric', 
+              month: 'long', 
+              year: 'numeric' 
+            })}
+          </div>
+
+          <!-- Ringkasan Donasi -->
+          <div class="section-title">RINGKASAN DONASI</div>
+          <div class="summary-section">
+            <div class="summary-grid">
+              <div class="summary-item">
+                <div class="summary-label">Total Donasi:</div>
+                <div class="summary-value currency">${formatCurrency(summaryData?.total_nominal || 0)}</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-label">Total Donatur:</div>
+                <div class="summary-value">${summaryData?.total_donatur || 0}</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-label">Rata-rata Donasi:</div>
+                <div class="summary-value currency">${formatCurrency(summaryData?.rata_rata || 0)}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Data Donasi -->
+          ${donasiForExport.length > 0 ? `
+            <div class="section-title">DATA DONASI</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>No</th>
+                  <th>Tanggal</th>
+                  <th>Nama Donatur</th>
+                  <th>No. Telepon</th>
+                  <th>Nominal</th>
+                  <th>Dicatat Oleh</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${donasiForExport.map((item, index) => `
+                  <tr>
+                    <td style="text-align: center;">${index + 1}</td>
+                    <td>${formatDateTime(item.waktu_catat)}</td>
+                    <td>${item.nama_donatur || 'Hamba Allah'}</td>
+                    <td>${item.no_telp || '-'}</td>
+                    <td class="currency">${formatCurrency(item.nominal)}</td>
+                    <td>${item.admin?.nama_lengkap || 'Admin'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          ` : '<p style="text-align: center; font-style: italic;">Tidak ada data donasi</p>'}
+
+          <!-- Footer dan TTD -->
+          <div class="footer">
+            <div class="ttd">
+              <div>Purbalingga, ${new Date().toLocaleDateString('id-ID', { 
+                day: 'numeric', 
+                month: 'long', 
+                year: 'numeric' 
+              })}</div>
+              <div class="ttd-space"></div>
+              <div class="ttd-name">Bendahara TPQ</div>
+              <div class="ttd-position">${tpqInfo?.nama_tpq || 'TPQ Asy-Syafi\''}</div>
+            </div>
+          </div>
+
+          <!-- Informasi Dokumen -->
+          <div style="margin-top: 30px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 9pt; color: #666; text-align: center;">
+            <p>Dokumen ini dihasilkan secara otomatis oleh Sistem Keuangan ${tpqInfo?.nama_tpq || 'TPQ Asy-Syafi\''}</p>
+            <p>Total Data: ${donasiForExport.length} donasi</p>
           </div>
         </body>
-        </html>
-      `;
+      </html>
+    `;
 
-      // Create and download Word file
-      const blob = new Blob([htmlContent], { type: 'application/msword' });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', `laporan-donasi-${filterStartDate}-${filterEndDate}.doc`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+    const blob = new Blob([htmlContent], { type: 'application/msword' });
+    saveAs(blob, `Laporan_Donasi_${tpqInfo?.nama_tpq?.replace(/\s+/g, '_') || 'TPQ_Asy_Syafii'}_${getCurrentPeriodText().replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.doc`);
+    showAlert('Berhasil', `Laporan donasi berhasil diexport ke Word`, 'success');
+  } catch (err) {
+    console.error('Error exporting to DOCX:', err);
+    showAlert('Gagal', `Gagal export data: ${err.message}`, 'error');
+  } finally {
+    setLoading(false);
+  }
+};
 
-      showAlert('Berhasil', 'Data berhasil diexport ke Word', 'success');
-    } catch (err) {
-      console.error('Error exporting data to Word:', err);
-      showAlert('Gagal', 'Gagal mengexport data ke Word: ' + err.message, 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handle export to Excel (XLSX)
-  const handleExportXLSX = async () => {
-    try {
-      setLoading(true);
-      
-      // Fetch semua data untuk export (tanpa pagination)
-      let xlsxExportUrl = `${API_URL}/api/admin/donasi`;
-      const params = new URLSearchParams();
-      
-      if (filterSearch) params.append('search', filterSearch);
-      if (filterStartDate && filterEndDate) {
-        xlsxExportUrl = `${API_URL}/api/admin/donasi/by-date`;
-        params.append('start_date', filterStartDate);
-        params.append('end_date', filterEndDate);
-      }
-      
-      const response = await fetch(`${xlsxExportUrl}?${params.toString()}&limit=1000`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-  
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-  
-      const data = await response.json();
-      const donasiForExport = data.data || [];
-
-      // Create Excel data in HTML table format (simple approach)
-      const excelHTML = `
-        <table>
-          <tr><td colspan="6" style="text-align: center; font-size: 16px; font-weight: bold;">LAPORAN DATA DONASI</td></tr>
-          <tr><td colspan="6" style="text-align: center;">Periode: ${formatDateForExport(filterStartDate)} - ${formatDateForExport(filterEndDate)}</td></tr>
-          <tr></tr>
-          <tr style="background-color: #f2f2f2; font-weight: bold;">
-            <td>No</td>
-            <td>Nama Donatur</td>
-            <td>No. Telepon</td>
-            <td>Nominal</td>
-            <td>Tanggal Donasi</td>
-            <td>Dicatat Oleh</td>
-          </tr>
-          ${donasiForExport.map((item, index) => `
-            <tr>
-              <td>${index + 1}</td>
-              <td>${item.nama_donatur || 'Hamba Allah'}</td>
-              <td>${item.no_telp || '-'}</td>
-              <td>${formatCurrencyForExport(item.nominal)}</td>
-              <td>${formatDateForExport(item.waktu_catat)}</td>
-              <td>${item.admin?.nama_lengkap || 'System'}</td>
-            </tr>
-          `).join('')}
-          <tr></tr>
-          <tr style="font-weight: bold;">
-            <td colspan="3">TOTAL DONASI:</td>
-            <td>${formatCurrencyForExport(summaryData.total_nominal)}</td>
-            <td colspan="2"></td>
-          </tr>
-          <tr style="font-weight: bold;">
-            <td colspan="3">TOTAL DONATUR:</td>
-            <td>${summaryData.total_donatur}</td>
-            <td colspan="2"></td>
-          </tr>
-          <tr style="font-weight: bold;">
-            <td colspan="3">RATA-RATA:</td>
-            <td>${formatCurrencyForExport(summaryData.rata_rata)}</td>
-            <td colspan="2"></td>
-          </tr>
-        </table>
-      `;
-
-      // Create and download HTML file (can be opened in Excel)
-      const blob = new Blob([excelHTML], { type: 'application/vnd.ms-excel' });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', `laporan-donasi-${filterStartDate}-${filterEndDate}.xls`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      showAlert('Berhasil', 'Data berhasil diexport ke Excel', 'success');
-    } catch (err) {
-      console.error('Error exporting data to Excel:', err);
-      showAlert('Gagal', 'Gagal mengexport data ke Excel: ' + err.message, 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Format currency for export
   const formatCurrencyForExport = (amount) => {
     return `Rp ${(amount || 0).toLocaleString('id-ID')}`;
   };
 
-  // Format date for export
-  const formatDateForExport = (dateString) => {
-    if (!dateString) return '-';
-    try {
-      return new Date(dateString).toLocaleDateString('id-ID', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-    } catch (e) {
-      return dateString;
-    }
-  };
+  // Helper functions untuk export
+const getCurrentPeriodText = () => {
+  if (filterStartDate && filterEndDate) {
+    return `${formatDateForExport(filterStartDate)} - ${formatDateForExport(filterEndDate)}`;
+  }
+  return 'Semua Periode';
+};
+
+const formatDateTime = (dateString) => {
+  if (!dateString) return '-';
+  try {
+    return new Date(dateString).toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch (e) {
+    return dateString;
+  }
+};
+
+const formatDateForExport = (dateString) => {
+  if (!dateString) return '-';
+  try {
+    return new Date(dateString).toLocaleDateString('id-ID', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  } catch (e) {
+    return dateString;
+  }
+};
 
   // Show alert modal
   const showAlert = (title, message, type = 'success') => {
@@ -1064,30 +1302,48 @@ const DataDonasi = () => {
           <h2 className="text-xl font-bold text-gray-800">Manajemen Donasi</h2>
           <div className="flex space-x-2">
             <div className="dropdown relative">
-            <div className="grid grid-cols-3 gap-2">
-              <button 
-                onClick={handleExportXLSX}
+            <div className="flex space-x-2">
+              <button
+                onClick={exportToXLSX}
                 disabled={loading}
-                className="bg-green-600 text-white py-2 px-3 rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center disabled:opacity-50 text-sm"
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium text-sm flex items-center disabled:opacity-50"
               >
-                {icons.excel}
-                <span className="ml-1">Excel</span>
+                {loading ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Excel
+                  </>
+                )}
               </button>
-              <button 
-                onClick={handleExportWord}
+              <button
+                onClick={exportToCSV}
                 disabled={loading}
-                className="bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center disabled:opacity-50 text-sm"
+                className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors font-medium text-sm flex items-center disabled:opacity-50"
               >
-                {icons.word}
-                <span className="ml-1">Word</span>
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                CSV
               </button>
-              <button 
-                onClick={handleExportExcel}
+              <button
+                onClick={exportToDOCX}
                 disabled={loading}
-                className="bg-purple-600 text-white py-2 px-3 rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center justify-center disabled:opacity-50 text-sm"
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm flex items-center disabled:opacity-50"
               >
-                {icons.export}
-                <span className="ml-1">CSV</span>
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Word
               </button>
             </div>
             </div>
