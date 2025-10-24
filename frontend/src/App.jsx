@@ -30,6 +30,7 @@ import DataSantri from './pages/super-admin/DataSantri';
 import DataDonasi from './pages/admin/DataDonasi';
 import DataKeuangan from './pages/admin/DataKeuangan';
 import DataSyahriah from './pages/admin/DataSyahriah';
+import ProgramPage from './components/allProgramPage';
 import ProgramDetail from './components/ProgramDetail';
 
 const AppContent = () => {
@@ -57,6 +58,7 @@ const AppContent = () => {
       <Route path="/register" element={<Register />} />
       <Route path="/donasi" element={<DonasiPage />} />
       <Route path="/berita" element={<BeritaList />} />
+      <Route path="/program" element={<ProgramPage />} />
       <Route path="/berita/:slug" element={<BeritaDetail />} />
       <Route path="/program/:slug" element={<ProgramDetail />} />
       

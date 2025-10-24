@@ -417,29 +417,7 @@ const Header = () => {
                 <p className="text-sm text-green-600 mb-4">
                   Membentuk generasi Qur'ani yang berakhlak mulia dan berprestasi
                 </p>
-                <div className="flex space-x-3">
-                  <div className="flex-1 text-center bg-white rounded-xl p-3 border border-green-200">
-                    <div className="text-green-600 font-bold flex items-center justify-center space-x-1">
-                      {icons.users}
-                      <span>50+</span>
-                    </div>
-                    <div className="text-xs text-green-500 mt-1">Santri</div>
-                  </div>
-                  <div className="flex-1 text-center bg-white rounded-xl p-3 border border-green-200">
-                    <div className="text-green-600 font-bold flex items-center justify-center space-x-1">
-                      {icons.user}
-                      <span>10+</span>
-                    </div>
-                    <div className="text-xs text-green-500 mt-1">Pengajar</div>
-                  </div>
-                  <div className="flex-1 text-center bg-white rounded-xl p-3 border border-green-200">
-                    <div className="text-green-600 font-bold flex items-center justify-center space-x-1">
-                      {icons.academic}
-                      <span>5+</span>
-                    </div>
-                    <div className="text-xs text-green-500 mt-1">Program</div>
-                  </div>
-                </div>
+                
               </div>
             </div>
           </div>

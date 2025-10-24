@@ -317,7 +317,7 @@ const ProgramDetail = () => {
               
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link 
-                  to="/#program"
+                  to="/program"
                   className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold flex items-center space-x-2"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
