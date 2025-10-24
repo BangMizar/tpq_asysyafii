@@ -25,6 +25,14 @@ const InformasiTPQ = () => {
     link_sosmed: ''
   });
 
+  // State untuk modal alert
+  const [showAlertModal, setShowAlertModal] = useState(false);
+  const [alertData, setAlertData] = useState({
+    title: '',
+    message: '',
+    type: 'success'
+  });
+
   const popularSocialMedia = [
     {
       name: 'Instagram',
@@ -59,7 +67,7 @@ const InformasiTPQ = () => {
     {
       name: 'Telegram',
       icon: 'telegram',
-      svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.14.141-.259.259-.374.261l.213-3.053 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.136-.954l11.566-4.458c.538-.196 1.006.128.832.941z"/></svg>'
+      svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.140.141-.259.259-.374.261l.213-3.053 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.136-.954l11.566-4.458c.538-.196 1.006.128.832.941z"/></svg>'
     },
     {
       name: 'LinkedIn',
@@ -79,6 +87,21 @@ const InformasiTPQ = () => {
   ];
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
+  // Fungsi untuk menampilkan modal alert
+  const showAlert = (title, message, type = 'success') => {
+    setAlertData({
+      title,
+      message,
+      type
+    });
+    setShowAlertModal(true);
+  };
+
+  // Fungsi untuk menutup modal alert
+  const closeAlertModal = () => {
+    setShowAlertModal(false);
+  };
 
   // Fetch data informasi TPQ
   const fetchInformasiTPQ = async () => {
@@ -249,42 +272,48 @@ const InformasiTPQ = () => {
 
   // Delete informasi TPQ
   const handleDelete = async () => {
-    if (!informasi || !window.confirm('Apakah Anda yakin ingin menghapus informasi TPQ?')) {
-      return;
-    }
+    if (!informasi) return;
 
-    try {
-      setSaving(true);
-      
-      const response = await fetch(`${API_URL}/api/super-admin/informasi-tpq/${informasi.id_tpq}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
+    // Tampilkan modal konfirmasi
+    setAlertData({
+      title: 'Konfirmasi Hapus',
+      message: 'Apakah Anda yakin ingin menghapus informasi TPQ? Tindakan ini tidak dapat dibatalkan.',
+      type: 'confirm',
+      onConfirm: async () => {
+        try {
+          setSaving(true);
+          
+          const response = await fetch(`${API_URL}/api/super-admin/informasi-tpq/${informasi.id_tpq}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => null);
+            throw new Error(errorData?.error || `HTTP error! status: ${response.status}`);
+          }
+
+          setInformasi(null);
+          setFormData({});
+          setLogoPreview('');
+          setIsEditing(false);
+          
+          showAlert('Berhasil', 'Informasi TPQ berhasil dihapus!', 'success');
+
+        } catch (err) {
+          console.error('Error deleting informasi TPQ:', err);
+          setError(`Gagal menghapus informasi TPQ: ${err.message}`);
+        } finally {
+          setSaving(false);
         }
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.error || `HTTP error! status: ${response.status}`);
       }
-
-      setInformasi(null);
-      setFormData({});
-      setLogoPreview('');
-      setIsEditing(false);
-      
-      showAlert('Berhasil', 'Informasi TPQ berhasil dihapus!', 'success');
-
-    } catch (err) {
-      console.error('Error deleting informasi TPQ:', err);
-      setError(`Gagal menghapus informasi TPQ: ${err.message}`);
-    } finally {
-      setSaving(false);
-    }
+    });
+    setShowAlertModal(true);
   };
 
-  // SOSIAL MEDIA FUNCTIONS
   // SOSIAL MEDIA FUNCTIONS
   const handleSosmedInputChange = (e) => {
     const { name, value } = e.target;
@@ -397,39 +426,40 @@ const InformasiTPQ = () => {
   };
 
   const deleteSosialMedia = async (id) => {
-    if (!window.confirm('Apakah Anda yakin ingin menghapus sosial media ini?')) {
-      return;
-    }
+    // Tampilkan modal konfirmasi
+    setAlertData({
+      title: 'Konfirmasi Hapus',
+      message: 'Apakah Anda yakin ingin menghapus sosial media ini?',
+      type: 'confirm',
+      onConfirm: async () => {
+        try {
+          setSaving(true);
+          
+          const response = await fetch(`${API_URL}/api/super-admin/sosial-media/${id}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              'Content-Type': 'application/json'
+            }
+          });
 
-    try {
-      setSaving(true);
-      
-      const response = await fetch(`${API_URL}/api/super-admin/sosial-media/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => null);
+            throw new Error(errorData?.error || `HTTP error! status: ${response.status}`);
+          }
+
+          await fetchSosialMedia();
+          showAlert('Berhasil', 'Sosial media berhasil dihapus!', 'success');
+
+        } catch (err) {
+          console.error('Error deleting sosial media:', err);
+          setError(`Gagal menghapus sosial media: ${err.message}`);
+        } finally {
+          setSaving(false);
         }
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.error || `HTTP error! status: ${response.status}`);
       }
-
-      await fetchSosialMedia();
-      showAlert('Berhasil', 'Sosial media berhasil dihapus!', 'success');
-
-    } catch (err) {
-      console.error('Error deleting sosial media:', err);
-      setError(`Gagal menghapus sosial media: ${err.message}`);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const showAlert = (title, message, type = 'success') => {
-    alert(`${title}: ${message}`);
+    });
+    setShowAlertModal(true);
   };
 
   const cancelEdit = () => {
@@ -1063,10 +1093,75 @@ const InformasiTPQ = () => {
             </div>
           </div>
         )}
+
+        {/* Modal Alert */}
+        {showAlertModal && (
+          <div className="fixed inset-0 backdrop-blur drop-shadow-2xl bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+              <div className="flex items-center p-6">
+                <div className={`flex-shrink-0 rounded-full p-3 ${
+                  alertData.type === 'success' ? 'bg-green-100' : 
+                  alertData.type === 'error' ? 'bg-red-100' : 'bg-blue-100'
+                }`}>
+                  <svg className={`w-6 h-6 ${
+                    alertData.type === 'success' ? 'text-green-600' : 
+                    alertData.type === 'error' ? 'text-red-600' : 'text-blue-600'
+                  }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    {alertData.type === 'success' ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    ) : alertData.type === 'error' ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    ) : (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    )}
+                  </svg>
+                </div>
+                <div className="ml-4">
+                  <h3 className="text-lg font-medium text-gray-900">{alertData.title}</h3>
+                  <div className="mt-2">
+                    <p className="text-sm text-gray-500">{alertData.message}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className={`flex ${
+                alertData.type === 'confirm' ? 'justify-between' : 'justify-end'
+              } gap-3 p-6 border-t border-gray-200`}>
+                {alertData.type === 'confirm' ? (
+                  <>
+                    <button
+                      onClick={closeAlertModal}
+                      className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (alertData.onConfirm) {
+                          alertData.onConfirm();
+                        }
+                        closeAlertModal();
+                      }}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    >
+                      Hapus
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={closeAlertModal}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Tutup
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </AuthDashboardLayout>
   );
 };
-
 
 export default InformasiTPQ;
