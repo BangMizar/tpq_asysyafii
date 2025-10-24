@@ -2,27 +2,28 @@ package models
 
 import "time"
 
-type TipeSaldo string
-
-const (
-	SaldoSyahriah    TipeSaldo = "syahriah"
-	SaldoDonasi      TipeSaldo = "donasi"
-	SaldoTotal       TipeSaldo = "total"
-	SaldoSyahriahNow TipeSaldo = "syahriah_now"
-	SaldoDonasiNow   TipeSaldo = "donasi_now"
-	SaldoTotalNow    TipeSaldo = "total_now"
-)
-
 type RekapSaldo struct {
-	IDSaldo          string    `json:"id_saldo" gorm:"type:char(36);primaryKey"`
-	TipeSaldo        TipeSaldo `json:"tipe_saldo" gorm:"type:enum('syahriah','donasi','total','syahriah_now','donasi_now','total_now');not null"`
-	Periode          string    `json:"periode" gorm:"type:varchar(7);not null"` // format YYYY-MM
-	PemasukanTotal   float64   `json:"pemasukan_total" gorm:"type:decimal(14,2);default:0"`
-	PengeluaranTotal float64   `json:"pengeluaran_total" gorm:"type:decimal(14,2);default:0"`
-	SaldoAkhir       float64   `json:"saldo_akhir" gorm:"type:decimal(14,2);default:0"`
-	TerakhirUpdate   time.Time `json:"terakhir_update" gorm:"autoUpdateTime"`
+	IDSaldo            string    `json:"id_saldo" gorm:"type:char(36);primaryKey"`
+	Periode            string    `json:"periode" gorm:"type:varchar(7);not null"` // format YYYY-MM
+	
+	// Saldo Syahriah
+	PemasukanSyahriah  float64   `json:"pemasukan_syahriah" gorm:"type:decimal(14,2);default:0"`
+	PengeluaranSyahriah float64   `json:"pengeluaran_syahriah" gorm:"type:decimal(14,2);default:0"`
+	SaldoAkhirSyahriah float64   `json:"saldo_akhir_syahriah" gorm:"type:decimal(14,2);default:0"`
+	
+	// Saldo Donasi
+	PemasukanDonasi    float64   `json:"pemasukan_donasi" gorm:"type:decimal(14,2);default:0"`
+	PengeluaranDonasi  float64   `json:"pengeluaran_donasi" gorm:"type:decimal(14,2);default:0"`
+	SaldoAkhirDonasi   float64   `json:"saldo_akhir_donasi" gorm:"type:decimal(14,2);default:0"`
+	
+	// Saldo Total
+	PemasukanTotal     float64   `json:"pemasukan_total" gorm:"type:decimal(14,2);default:0"`
+	PengeluaranTotal   float64   `json:"pengeluaran_total" gorm:"type:decimal(14,2);default:0"`
+	SaldoAkhirTotal    float64   `json:"saldo_akhir_total" gorm:"type:decimal(14,2);default:0"`
+	
+	TerakhirUpdate     time.Time `json:"terakhir_update" gorm:"autoUpdateTime"`
 }
 
 func (RekapSaldo) TableName() string {
-	return "rekapsaldo"
+	return "rekap_saldo"
 }

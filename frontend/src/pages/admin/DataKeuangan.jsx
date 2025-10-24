@@ -204,14 +204,14 @@ const DataKeuangan = () => {
         maximumFractionDigits: 0
       }).format(amount);
     }
-  
+
     // Format singkatan hanya untuk angka di atas threshold (miliar)
     const units = [
       { value: 1e12, symbol: 'T' },
       { value: 1e9, symbol: 'M' },
       { value: 1e6, symbol: 'Jt' },
     ];
-  
+
     const unit = units.find(unit => Math.abs(amount) >= unit.value) || { value: 1, symbol: '' };
     
     const formatted = (amount / unit.value).toFixed(1).replace(/\.0$/, '');
@@ -250,13 +250,19 @@ const DataKeuangan = () => {
       const wsSummary = XLSX.utils.aoa_to_sheet(summarySheetData);
       XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
 
-      // Sheet 2: Rekap Keuangan
+      // Sheet 2: Rekap Keuangan - PERBAIKAN: Sesuaikan dengan struktur baru
       if (getFilteredRekap().length > 0) {
         const rekapDataToExport = getFilteredRekap().map(item => ({
           'Periode': formatPeriod(item.periode),
+          'Pemasukan Syahriah': item.pemasukan_syahriah,
+          'Pengeluaran Syahriah': item.pengeluaran_syahriah,
+          'Saldo Akhir Syahriah': item.saldo_akhir_syahriah,
+          'Pemasukan Donasi': item.pemasukan_donasi,
+          'Pengeluaran Donasi': item.pengeluaran_donasi,
+          'Saldo Akhir Donasi': item.saldo_akhir_donasi,
           'Pemasukan Total': item.pemasukan_total,
           'Pengeluaran Total': item.pengeluaran_total,
-          'Saldo Akhir': item.saldo_akhir,
+          'Saldo Akhir Total': item.saldo_akhir_total,
           'Update Terakhir': formatDateTime(item.terakhir_update)
         }));
         const wsRekap = XLSX.utils.json_to_sheet(rekapDataToExport);
@@ -340,400 +346,418 @@ const DataKeuangan = () => {
     }
   };
 
-const exportToCSV = () => {
-  setExportLoading(true);
-  try {
-    let allData = [];
-    let fileName = 'Laporan_Keuangan_Lengkap';
+  const exportToCSV = () => {
+    setExportLoading(true);
+    try {
+      let allData = [];
+      let fileName = 'Laporan_Keuangan_Lengkap';
 
-    // Header untuk file CSV
-    const header = [
-      'LAPORAN KEUANGAN LENGKAP',
-      `Periode: ${getCurrentPeriodText()}`,
-      `Tanggal Export: ${new Date().toLocaleDateString('id-ID')}`,
-      ''
-    ];
+      // Header untuk file CSV
+      const header = [
+        'LAPORAN KEUANGAN LENGKAP',
+        `Periode: ${getCurrentPeriodText()}`,
+        `Tanggal Export: ${new Date().toLocaleDateString('id-ID')}`,
+        ''
+      ];
 
-    // Section 1: Summary
-    const summarySection = [
-      'SUMMARY KEUANGAN',
-      'Kategori,Nilai',
-      `Total Pemasukan,${summaryData?.totalPemasukan || 0}`,
-      `Total Pengeluaran,${summaryData?.totalPengeluaran || 0}`,
-      `Saldo Akhir,${summaryData?.saldoAkhir || 0}`,
-      `Total Donasi,${summaryData?.totalDonasi || 0}`,
-      `Total Syahriah,${summaryData?.totalSyahriah || 0}`,
-      ''
-    ];
+      // Section 1: Summary
+      const summarySection = [
+        'SUMMARY KEUANGAN',
+        'Kategori,Nilai',
+        `Total Pemasukan,${summaryData?.totalPemasukan || 0}`,
+        `Total Pengeluaran,${summaryData?.totalPengeluaran || 0}`,
+        `Saldo Akhir,${summaryData?.saldoAkhir || 0}`,
+        `Total Donasi,${summaryData?.totalDonasi || 0}`,
+        `Total Syahriah,${summaryData?.totalSyahriah || 0}`,
+        ''
+      ];
 
-    allData = [...header, ...summarySection];
+      allData = [...header, ...summarySection];
 
-    // Section 2: Rekap Keuangan
-    const rekapData = getFilteredRekap();
-    if (rekapData.length > 0) {
-      allData.push('REKAP KEUANGAN');
-      allData.push('Periode,Pemasukan Total,Pengeluaran Total,Saldo Akhir,Update Terakhir');
-      rekapData.forEach(item => {
-        allData.push([
-          formatPeriod(item.periode),
-          item.pemasukan_total,
-          item.pengeluaran_total,
-          item.saldo_akhir,
-          formatDateTime(item.terakhir_update)
-        ].join(','));
-      });
-      allData.push('');
+      // Section 2: Rekap Keuangan - PERBAIKAN: Sesuaikan dengan struktur baru
+      const rekapData = getFilteredRekap();
+      if (rekapData.length > 0) {
+        allData.push('REKAP KEUANGAN');
+        allData.push('Periode,Pemasukan Syahriah,Pengeluaran Syahriah,Saldo Akhir Syahriah,Pemasukan Donasi,Pengeluaran Donasi,Saldo Akhir Donasi,Pemasukan Total,Pengeluaran Total,Saldo Akhir Total,Update Terakhir');
+        rekapData.forEach(item => {
+          allData.push([
+            formatPeriod(item.periode),
+            item.pemasukan_syahriah,
+            item.pengeluaran_syahriah,
+            item.saldo_akhir_syahriah,
+            item.pemasukan_donasi,
+            item.pengeluaran_donasi,
+            item.saldo_akhir_donasi,
+            item.pemasukan_total,
+            item.pengeluaran_total,
+            item.saldo_akhir_total,
+            formatDateTime(item.terakhir_update)
+          ].join(','));
+        });
+        allData.push('');
+      }
+
+      // Section 3: Pengeluaran
+      const pemakaianData = getFilteredPemakaian();
+      if (pemakaianData.length > 0) {
+        allData.push('DATA PENGELUARAN');
+        allData.push('Tanggal,Judul Pengeluaran,Deskripsi,Tipe Pengeluaran,Sumber Dana,Nominal,Keterangan,Diajukan Oleh');
+        pemakaianData.forEach(item => {
+          allData.push([
+            item.tanggal_pemakaian ? formatDate(item.tanggal_pemakaian) : formatDate(item.created_at),
+            `"${item.judul_pemakaian}"`,
+            `"${item.deskripsi}"`,
+            item.tipe_pemakaian,
+            item.sumber_dana,
+            item.nominal,
+            `"${item.keterangan || '-'}"`,
+            item.pengaju?.nama_lengkap || 'Admin'
+          ].join(','));
+        });
+        allData.push('');
+      }
+
+      // Section 4: Pemasukan Donasi
+      const donasiData = getFilteredDonasi();
+      if (donasiData.length > 0) {
+        allData.push('DATA PEMASUKAN DONASI');
+        allData.push('Tanggal,Nama Donatur,No. Telepon,Nominal,Dicatat Oleh');
+        donasiData.forEach(item => {
+          allData.push([
+            formatDateTime(item.waktu_catat),
+            `"${item.nama_donatur}"`,
+            item.no_telp || '-',
+            item.nominal,
+            item.admin?.nama_lengkap || 'Admin'
+          ].join(','));
+        });
+        allData.push('');
+      }
+
+      // Section 5: Pemasukan Syahriah
+      const syahriahData = getFilteredSyahriah();
+      if (syahriahData.length > 0) {
+        allData.push('DATA PEMASUKAN SYAHRIYAH');
+        allData.push('Tanggal Bayar,Nama Wali,Email,No. Telepon,Bulan,Nominal,Status,Dicatat Oleh');
+        syahriahData.forEach(item => {
+          allData.push([
+            formatDateTime(item.waktu_catat),
+            `"${item.wali?.nama_lengkap || '-'}"`,
+            item.wali?.email || '-',
+            item.wali?.no_telp || '-',
+            formatPeriod(item.bulan),
+            item.nominal,
+            item.status,
+            item.admin?.nama_lengkap || 'Admin'
+          ].join(','));
+        });
+      }
+
+      const csvContent = allData.join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      saveAs(blob, `${fileName}_${selectedPeriod === 'semua' ? 'Semua_Periode' : selectedPeriod}_${new Date().toISOString().split('T')[0]}.csv`);
+      showAlert('Berhasil', `Laporan keuangan lengkap berhasil diexport ke CSV`, 'success');
+    } catch (err) {
+      console.error('Error exporting to CSV:', err);
+      showAlert('Gagal', `Gagal export data: ${err.message}`, 'error');
+    } finally {
+      setExportLoading(false);
     }
+  };
 
-    // Section 3: Pengeluaran
-    const pemakaianData = getFilteredPemakaian();
-    if (pemakaianData.length > 0) {
-      allData.push('DATA PENGELUARAN');
-      allData.push('Tanggal,Judul Pengeluaran,Deskripsi,Tipe Pengeluaran,Sumber Dana,Nominal,Keterangan,Diajukan Oleh');
-      pemakaianData.forEach(item => {
-        allData.push([
-          item.tanggal_pemakaian ? formatDate(item.tanggal_pemakaian) : formatDate(item.created_at),
-          `"${item.judul_pemakaian}"`,
-          `"${item.deskripsi}"`,
-          item.tipe_pemakaian,
-          item.sumber_dana,
-          item.nominal,
-          `"${item.keterangan || '-'}"`,
-          item.pengaju?.nama_lengkap || 'Admin'
-        ].join(','));
-      });
-      allData.push('');
+  const exportToDOCX = () => {
+    setExportLoading(true);
+    try {
+      // Create comprehensive HTML content for DOCX
+      const htmlContent = `
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <title>Laporan Keuangan Lengkap</title>
+            <style>
+              body { 
+                font-family: Arial, sans-serif; 
+                margin: 20px; 
+                line-height: 1.6;
+              }
+              h1 { 
+                color: #2d3748; 
+                border-bottom: 3px solid #4a5568; 
+                padding-bottom: 10px;
+                text-align: center;
+              }
+              h2 {
+                color: #4a5568;
+                border-bottom: 2px solid #cbd5e0;
+                padding-bottom: 8px;
+                margin-top: 30px;
+              }
+              h3 {
+                color: #718096;
+                margin-top: 20px;
+              }
+              table { 
+                width: 100%; 
+                border-collapse: collapse; 
+                margin: 15px 0;
+                font-size: 14px;
+              }
+              th, td { 
+                border: 1px solid #cbd5e0; 
+                padding: 12px; 
+                text-align: left; 
+              }
+              th { 
+                background-color: #f7fafc; 
+                font-weight: bold;
+                color: #4a5568;
+              }
+              tr:nth-child(even) { 
+                background-color: #f7fafc; 
+              }
+              .summary-section { 
+                background: #f0fff4; 
+                padding: 20px; 
+                border-radius: 8px; 
+                margin: 20px 0;
+                border-left: 4px solid #48bb78;
+              }
+              .stat-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 15px;
+                margin: 15px 0;
+              }
+              .stat-card {
+                background: white;
+                padding: 15px;
+                border-radius: 8px;
+                border-left: 4px solid #4299e1;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+              }
+              .stat-value {
+                font-size: 24px;
+                font-weight: bold;
+                color: #2d3748;
+              }
+              .stat-label {
+                font-size: 14px;
+                color: #718096;
+                margin-top: 5px;
+              }
+              .positive { color: #38a169; }
+              .negative { color: #e53e3e; }
+              .section {
+                margin: 30px 0;
+              }
+              .header-info {
+                text-align: center;
+                margin-bottom: 30px;
+                color: #718096;
+              }
+              .currency {
+                font-family: 'Courier New', monospace;
+                font-weight: bold;
+              }
+            </style>
+          </head>
+          <body>
+            <h1>LAPORAN KEUANGAN LENGKAP</h1>
+            
+            <div class="header-info">
+              <p><strong>Periode:</strong> ${getCurrentPeriodText()}</p>
+              <p><strong>Tanggal Export:</strong> ${new Date().toLocaleDateString('id-ID', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              })}</p>
+            </div>
+
+            <!-- Summary Section -->
+            <div class="summary-section">
+              <h2>SUMMARY KEUANGAN</h2>
+              <div class="stat-grid">
+                <div class="stat-card">
+                  <div class="stat-value positive">${formatCurrency(summaryData?.totalPemasukan || 0)}</div>
+                  <div class="stat-label">Total Pemasukan</div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-value negative">${formatCurrency(summaryData?.totalPengeluaran || 0)}</div>
+                  <div class="stat-label">Total Pengeluaran</div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-value" style="color: #3182ce;">${formatCurrency(summaryData?.saldoAkhir || 0)}</div>
+                  <div class="stat-label">Saldo Akhir</div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-value positive">${formatCurrency(summaryData?.totalDonasi || 0)}</div>
+                  <div class="stat-label">Total Donasi</div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-value positive">${formatCurrency(summaryData?.totalSyahriah || 0)}</div>
+                  <div class="stat-label">Total Syahriah</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Rekap Keuangan Section - PERBAIKAN: Sesuaikan dengan struktur baru -->
+            ${getFilteredRekap().length > 0 ? `
+              <div class="section">
+                <h2>REKAP KEUANGAN</h2>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Periode</th>
+                      <th>Pemasukan Syahriah</th>
+                      <th>Pengeluaran Syahriah</th>
+                      <th>Saldo Syahriah</th>
+                      <th>Pemasukan Donasi</th>
+                      <th>Pengeluaran Donasi</th>
+                      <th>Saldo Donasi</th>
+                      <th>Pemasukan Total</th>
+                      <th>Pengeluaran Total</th>
+                      <th>Saldo Total</th>
+                      <th>Update Terakhir</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${getFilteredRekap().map(item => `
+                      <tr>
+                        <td>${formatPeriod(item.periode)}</td>
+                        <td class="currency positive">${formatCurrency(item.pemasukan_syahriah)}</td>
+                        <td class="currency negative">${formatCurrency(item.pengeluaran_syahriah)}</td>
+                        <td class="currency">${formatCurrency(item.saldo_akhir_syahriah)}</td>
+                        <td class="currency positive">${formatCurrency(item.pemasukan_donasi)}</td>
+                        <td class="currency negative">${formatCurrency(item.pengeluaran_donasi)}</td>
+                        <td class="currency">${formatCurrency(item.saldo_akhir_donasi)}</td>
+                        <td class="currency positive">${formatCurrency(item.pemasukan_total)}</td>
+                        <td class="currency negative">${formatCurrency(item.pengeluaran_total)}</td>
+                        <td class="currency">${formatCurrency(item.saldo_akhir_total)}</td>
+                        <td>${formatDateTime(item.terakhir_update)}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            ` : ''}
+
+            <!-- Pengeluaran Section -->
+            ${getFilteredPemakaian().length > 0 ? `
+              <div class="section">
+                <h2>DATA PENGELUARAN</h2>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Tanggal</th>
+                      <th>Judul Pengeluaran</th>
+                      <th>Deskripsi</th>
+                      <th>Tipe</th>
+                      <th>Sumber Dana</th>
+                      <th>Nominal</th>
+                      <th>Diajukan Oleh</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${getFilteredPemakaian().map(item => `
+                      <tr>
+                        <td>${item.tanggal_pemakaian ? formatDate(item.tanggal_pemakaian) : formatDate(item.created_at)}</td>
+                        <td>${item.judul_pemakaian}</td>
+                        <td>${item.deskripsi}</td>
+                        <td>${item.tipe_pemakaian}</td>
+                        <td>${item.sumber_dana}</td>
+                        <td class="currency negative">${formatCurrency(item.nominal)}</td>
+                        <td>${item.pengaju?.nama_lengkap || 'Admin'}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            ` : ''}
+
+            <!-- Pemasukan Donasi Section -->
+            ${getFilteredDonasi().length > 0 ? `
+              <div class="section">
+                <h2>DATA PEMASUKAN DONASI</h2>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Tanggal</th>
+                      <th>Nama Donatur</th>
+                      <th>No. Telepon</th>
+                      <th>Nominal</th>
+                      <th>Dicatat Oleh</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${getFilteredDonasi().map(item => `
+                      <tr>
+                        <td>${formatDateTime(item.waktu_catat)}</td>
+                        <td>${item.nama_donatur}</td>
+                        <td>${item.no_telp || '-'}</td>
+                        <td class="currency positive">${formatCurrency(item.nominal)}</td>
+                        <td>${item.admin?.nama_lengkap || 'Admin'}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            ` : ''}
+
+            <!-- Pemasukan Syahriah Section -->
+            ${getFilteredSyahriah().length > 0 ? `
+              <div class="section">
+                <h2>DATA PEMASUKAN SYAHRIYAH</h2>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Tanggal Bayar</th>
+                      <th>Nama Wali</th>
+                      <th>Email</th>
+                      <th>No. Telepon</th>
+                      <th>Bulan</th>
+                      <th>Nominal</th>
+                      <th>Status</th>
+                      <th>Dicatat Oleh</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${getFilteredSyahriah().map(item => `
+                      <tr>
+                        <td>${formatDateTime(item.waktu_catat)}</td>
+                        <td>${item.wali?.nama_lengkap || '-'}</td>
+                        <td>${item.wali?.email || '-'}</td>
+                        <td>${item.wali?.no_telp || '-'}</td>
+                        <td>${formatPeriod(item.bulan)}</td>
+                        <td class="currency positive">${formatCurrency(item.nominal)}</td>
+                        <td>${item.status}</td>
+                        <td>${item.admin?.nama_lengkap || 'Admin'}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            ` : ''}
+
+            <!-- Footer -->
+            <div style="margin-top: 50px; padding-top: 20px; border-top: 2px solid #e2e8f0; text-align: center; color: #718096;">
+              <p>Dokumen ini dihasilkan secara otomatis oleh Sistem Keuangan</p>
+              <p>Total Data: ${getFilteredRekap().length + getFilteredPemakaian().length + getFilteredDonasi().length + getFilteredSyahriah().length} records</p>
+            </div>
+          </body>
+        </html>
+      `;
+
+      const blob = new Blob([htmlContent], { type: 'application/msword' });
+      saveAs(blob, `Laporan_Keuangan_Lengkap_${selectedPeriod === 'semua' ? 'Semua_Periode' : selectedPeriod}_${new Date().toISOString().split('T')[0]}.doc`);
+      showAlert('Berhasil', `Laporan keuangan lengkap berhasil diexport ke Word`, 'success');
+    } catch (err) {
+      console.error('Error exporting to DOCX:', err);
+      showAlert('Gagal', `Gagal export data: ${err.message}`, 'error');
+    } finally {
+      setExportLoading(false);
     }
-
-    // Section 4: Pemasukan Donasi
-    const donasiData = getFilteredDonasi();
-    if (donasiData.length > 0) {
-      allData.push('DATA PEMASUKAN DONASI');
-      allData.push('Tanggal,Nama Donatur,No. Telepon,Nominal,Dicatat Oleh');
-      donasiData.forEach(item => {
-        allData.push([
-          formatDateTime(item.waktu_catat),
-          `"${item.nama_donatur}"`,
-          item.no_telp || '-',
-          item.nominal,
-          item.admin?.nama_lengkap || 'Admin'
-        ].join(','));
-      });
-      allData.push('');
-    }
-
-    // Section 5: Pemasukan Syahriah
-    const syahriahData = getFilteredSyahriah();
-    if (syahriahData.length > 0) {
-      allData.push('DATA PEMASUKAN SYAHRIYAH');
-      allData.push('Tanggal Bayar,Nama Wali,Email,No. Telepon,Bulan,Nominal,Status,Dicatat Oleh');
-      syahriahData.forEach(item => {
-        allData.push([
-          formatDateTime(item.waktu_catat),
-          `"${item.wali?.nama_lengkap || '-'}"`,
-          item.wali?.email || '-',
-          item.wali?.no_telp || '-',
-          formatPeriod(item.bulan),
-          item.nominal,
-          item.status,
-          item.admin?.nama_lengkap || 'Admin'
-        ].join(','));
-      });
-    }
-
-    const csvContent = allData.join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    saveAs(blob, `${fileName}_${selectedPeriod === 'semua' ? 'Semua_Periode' : selectedPeriod}_${new Date().toISOString().split('T')[0]}.csv`);
-    showAlert('Berhasil', `Laporan keuangan lengkap berhasil diexport ke CSV`, 'success');
-  } catch (err) {
-    console.error('Error exporting to CSV:', err);
-    showAlert('Gagal', `Gagal export data: ${err.message}`, 'error');
-  } finally {
-    setExportLoading(false);
-  }
-};
-
-const exportToDOCX = () => {
-  setExportLoading(true);
-  try {
-    // Create comprehensive HTML content for DOCX
-    const htmlContent = `
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <title>Laporan Keuangan Lengkap</title>
-          <style>
-            body { 
-              font-family: Arial, sans-serif; 
-              margin: 20px; 
-              line-height: 1.6;
-            }
-            h1 { 
-              color: #2d3748; 
-              border-bottom: 3px solid #4a5568; 
-              padding-bottom: 10px;
-              text-align: center;
-            }
-            h2 {
-              color: #4a5568;
-              border-bottom: 2px solid #cbd5e0;
-              padding-bottom: 8px;
-              margin-top: 30px;
-            }
-            h3 {
-              color: #718096;
-              margin-top: 20px;
-            }
-            table { 
-              width: 100%; 
-              border-collapse: collapse; 
-              margin: 15px 0;
-              font-size: 14px;
-            }
-            th, td { 
-              border: 1px solid #cbd5e0; 
-              padding: 12px; 
-              text-align: left; 
-            }
-            th { 
-              background-color: #f7fafc; 
-              font-weight: bold;
-              color: #4a5568;
-            }
-            tr:nth-child(even) { 
-              background-color: #f7fafc; 
-            }
-            .summary-section { 
-              background: #f0fff4; 
-              padding: 20px; 
-              border-radius: 8px; 
-              margin: 20px 0;
-              border-left: 4px solid #48bb78;
-            }
-            .stat-grid {
-              display: grid;
-              grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-              gap: 15px;
-              margin: 15px 0;
-            }
-            .stat-card {
-              background: white;
-              padding: 15px;
-              border-radius: 8px;
-              border-left: 4px solid #4299e1;
-              box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            }
-            .stat-value {
-              font-size: 24px;
-              font-weight: bold;
-              color: #2d3748;
-            }
-            .stat-label {
-              font-size: 14px;
-              color: #718096;
-              margin-top: 5px;
-            }
-            .positive { color: #38a169; }
-            .negative { color: #e53e3e; }
-            .section {
-              margin: 30px 0;
-            }
-            .header-info {
-              text-align: center;
-              margin-bottom: 30px;
-              color: #718096;
-            }
-            .currency {
-              font-family: 'Courier New', monospace;
-              font-weight: bold;
-            }
-          </style>
-        </head>
-        <body>
-          <h1>LAPORAN KEUANGAN LENGKAP</h1>
-          
-          <div class="header-info">
-            <p><strong>Periode:</strong> ${getCurrentPeriodText()}</p>
-            <p><strong>Tanggal Export:</strong> ${new Date().toLocaleDateString('id-ID', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            })}</p>
-          </div>
-
-          <!-- Summary Section -->
-          <div class="summary-section">
-            <h2>SUMMARY KEUANGAN</h2>
-            <div class="stat-grid">
-              <div class="stat-card">
-                <div class="stat-value positive">${formatCurrency(summaryData?.totalPemasukan || 0)}</div>
-                <div class="stat-label">Total Pemasukan</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-value negative">${formatCurrency(summaryData?.totalPengeluaran || 0)}</div>
-                <div class="stat-label">Total Pengeluaran</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-value" style="color: #3182ce;">${formatCurrency(summaryData?.saldoAkhir || 0)}</div>
-                <div class="stat-label">Saldo Akhir</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-value positive">${formatCurrency(summaryData?.totalDonasi || 0)}</div>
-                <div class="stat-label">Total Donasi</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-value positive">${formatCurrency(summaryData?.totalSyahriah || 0)}</div>
-                <div class="stat-label">Total Syahriah</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Rekap Keuangan Section -->
-          ${getFilteredRekap().length > 0 ? `
-            <div class="section">
-              <h2>REKAP KEUANGAN</h2>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Periode</th>
-                    <th>Pemasukan Total</th>
-                    <th>Pengeluaran Total</th>
-                    <th>Saldo Akhir</th>
-                    <th>Update Terakhir</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${getFilteredRekap().map(item => `
-                    <tr>
-                      <td>${formatPeriod(item.periode)}</td>
-                      <td class="currency positive">${formatCurrency(item.pemasukan_total)}</td>
-                      <td class="currency negative">${formatCurrency(item.pengeluaran_total)}</td>
-                      <td class="currency">${formatCurrency(item.saldo_akhir)}</td>
-                      <td>${formatDateTime(item.terakhir_update)}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
-          ` : ''}
-
-          <!-- Pengeluaran Section -->
-          ${getFilteredPemakaian().length > 0 ? `
-            <div class="section">
-              <h2>DATA PENGELUARAN</h2>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Tanggal</th>
-                    <th>Judul Pengeluaran</th>
-                    <th>Deskripsi</th>
-                    <th>Tipe</th>
-                    <th>Sumber Dana</th>
-                    <th>Nominal</th>
-                    <th>Diajukan Oleh</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${getFilteredPemakaian().map(item => `
-                    <tr>
-                      <td>${item.tanggal_pemakaian ? formatDate(item.tanggal_pemakaian) : formatDate(item.created_at)}</td>
-                      <td>${item.judul_pemakaian}</td>
-                      <td>${item.deskripsi}</td>
-                      <td>${item.tipe_pemakaian}</td>
-                      <td>${item.sumber_dana}</td>
-                      <td class="currency negative">${formatCurrency(item.nominal)}</td>
-                      <td>${item.pengaju?.nama_lengkap || 'Admin'}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
-          ` : ''}
-
-          <!-- Pemasukan Donasi Section -->
-          ${getFilteredDonasi().length > 0 ? `
-            <div class="section">
-              <h2>DATA PEMASUKAN DONASI</h2>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Tanggal</th>
-                    <th>Nama Donatur</th>
-                    <th>No. Telepon</th>
-                    <th>Nominal</th>
-                    <th>Dicatat Oleh</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${getFilteredDonasi().map(item => `
-                    <tr>
-                      <td>${formatDateTime(item.waktu_catat)}</td>
-                      <td>${item.nama_donatur}</td>
-                      <td>${item.no_telp || '-'}</td>
-                      <td class="currency positive">${formatCurrency(item.nominal)}</td>
-                      <td>${item.admin?.nama_lengkap || 'Admin'}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
-          ` : ''}
-
-          <!-- Pemasukan Syahriah Section -->
-          ${getFilteredSyahriah().length > 0 ? `
-            <div class="section">
-              <h2>DATA PEMASUKAN SYAHRIYAH</h2>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Tanggal Bayar</th>
-                    <th>Nama Wali</th>
-                    <th>Email</th>
-                    <th>No. Telepon</th>
-                    <th>Bulan</th>
-                    <th>Nominal</th>
-                    <th>Status</th>
-                    <th>Dicatat Oleh</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${getFilteredSyahriah().map(item => `
-                    <tr>
-                      <td>${formatDateTime(item.waktu_catat)}</td>
-                      <td>${item.wali?.nama_lengkap || '-'}</td>
-                      <td>${item.wali?.email || '-'}</td>
-                      <td>${item.wali?.no_telp || '-'}</td>
-                      <td>${formatPeriod(item.bulan)}</td>
-                      <td class="currency positive">${formatCurrency(item.nominal)}</td>
-                      <td>${item.status}</td>
-                      <td>${item.admin?.nama_lengkap || 'Admin'}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
-          ` : ''}
-
-          <!-- Footer -->
-          <div style="margin-top: 50px; padding-top: 20px; border-top: 2px solid #e2e8f0; text-align: center; color: #718096;">
-            <p>Dokumen ini dihasilkan secara otomatis oleh Sistem Keuangan</p>
-            <p>Total Data: ${getFilteredRekap().length + getFilteredPemakaian().length + getFilteredDonasi().length + getFilteredSyahriah().length} records</p>
-          </div>
-        </body>
-      </html>
-    `;
-
-    const blob = new Blob([htmlContent], { type: 'application/msword' });
-    saveAs(blob, `Laporan_Keuangan_Lengkap_${selectedPeriod === 'semua' ? 'Semua_Periode' : selectedPeriod}_${new Date().toISOString().split('T')[0]}.doc`);
-    showAlert('Berhasil', `Laporan keuangan lengkap berhasil diexport ke Word`, 'success');
-  } catch (err) {
-    console.error('Error exporting to DOCX:', err);
-    showAlert('Gagal', `Gagal export data: ${err.message}`, 'error');
-  } finally {
-    setExportLoading(false);
-  }
-};
+  };
 
   // ========== CRUD FUNCTIONS FOR PEMAKAIAN ==========
   const handleCreatePemakaian = async (e) => {
@@ -903,7 +927,7 @@ const exportToDOCX = () => {
     setShowAlertModal(true);
   };
 
-    const formatPeriod = (period) => {
+  const formatPeriod = (period) => {
     try {
       const [year, month] = period.split('-');
       const date = new Date(year, month - 1);
@@ -942,11 +966,12 @@ const exportToDOCX = () => {
     }
   };
 
+  // PERBAIKAN: Filter rekap tidak perlu berdasarkan tipe_saldo lagi
   const getFilteredRekap = () => {
     if (selectedPeriod === 'semua') {
-      return rekapData.filter(item => item.tipe_saldo === 'total');
+      return rekapData;
     }
-    return rekapData.filter(item => item.tipe_saldo === 'total' && item.periode === selectedPeriod);
+    return rekapData.filter(item => item.periode === selectedPeriod);
   };
 
   const getFilteredPemakaian = () => {
@@ -985,6 +1010,36 @@ const exportToDOCX = () => {
       return 'Semua Periode';
     }
     return formatPeriod(selectedPeriod);
+  };
+
+  const handleGenerateRekap = async () => {
+    try {
+      setLoading(true);
+      
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/admin/rekap/generate`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+  
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Gagal generate rekap');
+      }
+  
+      const result = await response.json();
+      showAlert('Berhasil', 'Rekap keuangan berhasil digenerate!', 'success');
+      await fetchAllData(); // Refresh data
+      
+    } catch (err) {
+      console.error('Error generating rekap:', err);
+      showAlert('Gagal', `Gagal generate rekap: ${err.message}`, 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Ikon SVG
@@ -1075,35 +1130,6 @@ const exportToDOCX = () => {
       </button>
     </div>
   );
-  const handleGenerateRekap = async () => {
-    try {
-      setLoading(true);
-      
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/api/admin/rekap/generate`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-  
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Gagal generate rekap');
-      }
-  
-      const result = await response.json();
-      showAlert('Berhasil', 'Rekap keuangan berhasil digenerate!', 'success');
-      await fetchAllData(); // Refresh data
-      
-    } catch (err) {
-      console.error('Error generating rekap:', err);
-      showAlert('Gagal', `Gagal generate rekap: ${err.message}`, 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Render content based on active tab
   const renderContent = () => {
@@ -1146,9 +1172,15 @@ const exportToDOCX = () => {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Periode</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pemasukan</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pengeluaran</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Saldo</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pemasukan Syahriah</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pengeluaran Syahriah</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Saldo Syahriah</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pemasukan Donasi</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pengeluaran Donasi</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Saldo Donasi</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pemasukan Total</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pengeluaran Total</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Saldo Total</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Update Terakhir</th>
                   </tr>
                 </thead>
@@ -1159,14 +1191,31 @@ const exportToDOCX = () => {
                         {formatPeriod(item.periode)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium">
+                        {formatCurrency(item.pemasukan_syahriah)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">
+                        {formatCurrency(item.pengeluaran_syahriah)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 font-medium">
+                        {formatCurrency(item.saldo_akhir_syahriah)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium">
+                        {formatCurrency(item.pemasukan_donasi)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">
+                        {formatCurrency(item.pengeluaran_donasi)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 font-medium">
+                        {formatCurrency(item.saldo_akhir_donasi)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium">
                         {formatCurrency(item.pemasukan_total)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">
-                        {/* PERBAIKAN: Tampilkan pengeluaran dari semua sumber dana */}
                         {formatCurrency(item.pengeluaran_total)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 font-medium">
-                        {formatCurrency(item.saldo_akhir)}
+                        {formatCurrency(item.saldo_akhir_total)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {formatDateTime(item.terakhir_update)}
@@ -1321,82 +1370,82 @@ const exportToDOCX = () => {
           </div>
         );
 
-        case 'syahriah':
-          return (
-            <div className="overflow-x-auto">
-              {filteredSyahriah.length === 0 ? (
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <h3 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Pemasukan Syahriah</h3>
-                  <p className="text-green-600">Data pemasukan syahriah akan muncul setelah ada pembayaran syahriah</p>
+      case 'syahriah':
+        return (
+          <div className="overflow-x-auto">
+            {filteredSyahriah.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
                 </div>
-              ) : (
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal Bayar</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Wali</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">No. Telp</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bulan</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jumlah</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dicatat Oleh</th>
+                <h3 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Pemasukan Syahriah</h3>
+                <p className="text-green-600">Data pemasukan syahriah akan muncul setelah ada pembayaran syahriah</p>
+              </div>
+            ) : (
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal Bayar</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Wali</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">No. Telp</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bulan</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jumlah</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dicatat Oleh</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredSyahriah.map((item, index) => (
+                    <tr key={index} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {formatDateTime(item.waktu_catat)}
+                      </td>
+                      <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                        {item.wali?.nama_lengkap || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {item.wali?.email || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {item.wali?.no_telp || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {formatPeriod(item.bulan)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                        {formatCurrency(item.nominal)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          item.status === 'lunas' ? 'bg-green-100 text-green-800' :
+                          'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {item.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {item.admin?.nama_lengkap || 'Admin'}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredSyahriah.map((item, index) => (
-                      <tr key={index} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {formatDateTime(item.waktu_catat)}
-                        </td>
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                          {item.wali?.nama_lengkap || '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {item.wali?.email || '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {item.wali?.no_telp || '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {formatPeriod(item.bulan)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-                          {formatCurrency(item.nominal)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            item.status === 'lunas' ? 'bg-green-100 text-green-800' :
-                            'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {item.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {item.admin?.nama_lengkap || 'Admin'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          );
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        );
         
-        default:
-          return null;
-      }
-    };
-  
-    return (
-      <AuthDashboardLayout title="Data Keuangan - Admin">
-        {/* Statistics dengan format singkatan untuk nominal besar (hanya di atas miliar) */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <AuthDashboardLayout title="Data Keuangan - Admin">
+      {/* Statistics dengan format singkatan untuk nominal besar (hanya di atas miliar) */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
 
         {/* Total Donasi */}
         <div className="bg-white border border-purple-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
@@ -1407,7 +1456,6 @@ const exportToDOCX = () => {
             <div className="ml-4">
               <p className="text-sm font-medium text-purple-600">Total Donasi</p>
               <p className="text-2xl font-bold text-purple-900">
-                {/* PERBAIKAN: Format singkatan hanya untuk di atas miliar */}
                 {formatCurrencyShort(summaryData?.totalDonasi || 0, 1000000000)}
               </p>
               <p className="text-xs text-purple-500 mt-1">{getCurrentPeriodText()}</p>
@@ -1424,7 +1472,6 @@ const exportToDOCX = () => {
             <div className="ml-4">
               <p className="text-sm font-medium text-orange-600">Total Syahriah</p>
               <p className="text-2xl font-bold text-orange-900">
-                {/* PERBAIKAN: Format singkatan hanya untuk di atas miliar */}
                 {formatCurrencyShort(summaryData?.totalSyahriah || 0, 1000000000)}
               </p>
               <p className="text-xs text-orange-500 mt-1">{getCurrentPeriodText()}</p>
@@ -1441,7 +1488,6 @@ const exportToDOCX = () => {
             <div className="ml-4">
               <p className="text-sm font-medium text-green-600">Total Pemasukan (Donasi + Syahriah)</p>
               <p className="text-2xl font-bold text-green-900">
-                {/* PERBAIKAN: Format singkatan hanya untuk di atas miliar */}
                 {formatCurrencyShort(summaryData?.totalPemasukan || 0, 1000000000)}
               </p>
               <p className="text-xs text-green-500 mt-1">{getCurrentPeriodText()}</p>
@@ -1458,7 +1504,6 @@ const exportToDOCX = () => {
             <div className="ml-4">
               <p className="text-sm font-medium text-red-600">Total Pengeluaran</p>
               <p className="text-2xl font-bold text-red-900">
-                {/* PERBAIKAN: Format singkatan hanya untuk di atas miliar */}
                 {formatCurrencyShort(summaryData?.totalPengeluaran || 0, 1000000000)}
               </p>
               <p className="text-xs text-red-500 mt-1">{getCurrentPeriodText()}</p>
@@ -1475,134 +1520,133 @@ const exportToDOCX = () => {
             <div className="ml-4">
               <p className="text-sm font-medium text-blue-600">Saldo Saat ini <span className='size'>(Pemasukan - Pengeluaran)</span></p>
               <p className="text-2xl font-bold text-blue-900">
-                {/* PERBAIKAN: Format singkatan hanya untuk di atas miliar */}
                 {formatCurrencyShort(summaryData?.saldoAkhir || 0, 1000000000)}
               </p>
               <p className="text-xs text-blue-500 mt-1">{getCurrentPeriodText()}</p>
             </div>
           </div>
         </div>
-        </div>
-  
-        {/* Main Content dengan tombol export */}
-        <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-          <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center mb-6">
-            <h2 className="text-xl font-bold text-gray-800 mb-4 lg:mb-0">Manajemen Keuangan</h2>
-            
-            <div className="flex flex-col lg:flex-row lg:items-center space-y-3 lg:space-y-0 lg:space-x-3">
-              {/* Period Filter */}
-              <div className="flex items-center space-x-2">
-                <label className="text-sm font-medium text-gray-700">Periode:</label>
-                <select
-                  value={selectedPeriod}
-                  onChange={(e) => setSelectedPeriod(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                >
-                  <option value="semua">Semua Periode</option>
-                  {availablePeriods.map(period => (
-                    <option key={period} value={period}>
-                      {formatPeriod(period)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-  
-              {/* Export Buttons */}
-              <div className="flex space-x-2">
-                <button
-                  onClick={exportToXLSX}
-                  disabled={exportLoading}
-                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium text-sm flex items-center disabled:opacity-50"
-                >
-                  {exportLoading ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Exporting...
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      Excel
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={exportToCSV}
-                  disabled={exportLoading}
-                  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors font-medium text-sm flex items-center disabled:opacity-50"
-                >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  CSV
-                </button>
-                <button
-                  onClick={exportToDOCX}
-                  disabled={exportLoading}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm flex items-center disabled:opacity-50"
-                >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Word
-                </button>
-              </div>
-  
-              {/* Action Buttons lainnya */}
-              <div className="flex space-x-3">
-                <button
-                  onClick={handleOpenCreateModal}
-                  className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors font-medium text-sm flex items-center"
-                >
-                  {icons.plus}
-                  <span className="ml-2">Pengeluaran</span>
-                </button>
-                <Link 
-                  to="/admin/donasi"
-                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium text-sm flex items-center"
-                >
-                  {icons.plus}
-                  <span className="ml-2">Donasi</span>
-                </Link>
-                <Link 
-                  to="/admin/syahriah"
-                  className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors font-medium text-sm flex items-center"
-                >
-                  {icons.plus}
-                  <span className="ml-2">Syahriah</span>
-                </Link>
-                
-              </div>
+      </div>
+
+      {/* Main Content dengan tombol export */}
+      <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+        <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center mb-6">
+          <h2 className="text-xl font-bold text-gray-800 mb-4 lg:mb-0">Manajemen Keuangan</h2>
+          
+          <div className="flex flex-col lg:flex-row lg:items-center space-y-3 lg:space-y-0 lg:space-x-3">
+            {/* Period Filter */}
+            <div className="flex items-center space-x-2">
+              <label className="text-sm font-medium text-gray-700">Periode:</label>
+              <select
+                value={selectedPeriod}
+                onChange={(e) => setSelectedPeriod(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              >
+                <option value="semua">Semua Periode</option>
+                {availablePeriods.map(period => (
+                  <option key={period} value={period}>
+                    {formatPeriod(period)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Export Buttons */}
+            <div className="flex space-x-2">
+              <button
+                onClick={exportToXLSX}
+                disabled={exportLoading}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium text-sm flex items-center disabled:opacity-50"
+              >
+                {exportLoading ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Excel
+                  </>
+                )}
+              </button>
+              <button
+                onClick={exportToCSV}
+                disabled={exportLoading}
+                className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors font-medium text-sm flex items-center disabled:opacity-50"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                CSV
+              </button>
+              <button
+                onClick={exportToDOCX}
+                disabled={exportLoading}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm flex items-center disabled:opacity-50"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Word
+              </button>
+            </div>
+
+            {/* Action Buttons lainnya */}
+            <div className="flex space-x-3">
+              <button
+                onClick={handleOpenCreateModal}
+                className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors font-medium text-sm flex items-center"
+              >
+                {icons.plus}
+                <span className="ml-2">Pengeluaran</span>
+              </button>
+              <Link 
+                to="/admin/donasi"
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium text-sm flex items-center"
+              >
+                {icons.plus}
+                <span className="ml-2">Donasi</span>
+              </Link>
+              <Link 
+                to="/admin/syahriah"
+                className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors font-medium text-sm flex items-center"
+              >
+                {icons.plus}
+                <span className="ml-2">Syahriah</span>
+              </Link>
+              
             </div>
           </div>
-  
-          {/* Tabs untuk Admin */}
-          <div className="border-b border-gray-200 mb-6">
-            <nav className="flex -mb-px">
-              {['rekap', 'pengeluaran', 'pemasukan', 'syahriah'].map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`py-4 px-6 text-sm font-medium border-b-2 ${
-                    activeTab === tab
-                      ? 'border-green-500 text-green-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  {tab === 'rekap' && 'Rekap Keuangan'}
-                  {tab === 'pengeluaran' && 'Pengeluaran'}
-                  {tab === 'pemasukan' && 'Pemasukan (Donasi)'}
-                  {tab === 'syahriah' && 'Pemasukan (Syahriah)'}
-                </button>
-              ))}
-            </nav>
-          </div>
-        
+        </div>
+
+        {/* Tabs untuk Admin */}
+        <div className="border-b border-gray-200 mb-6">
+          <nav className="flex -mb-px">
+            {['rekap', 'pengeluaran', 'pemasukan', 'syahriah'].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`py-4 px-6 text-sm font-medium border-b-2 ${
+                  activeTab === tab
+                    ? 'border-green-500 text-green-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                {tab === 'rekap' && 'Rekap Keuangan'}
+                {tab === 'pengeluaran' && 'Pengeluaran'}
+                {tab === 'pemasukan' && 'Pemasukan (Donasi)'}
+                {tab === 'syahriah' && 'Pemasukan (Syahriah)'}
+              </button>
+            ))}
+          </nav>
+        </div>
+      
         {/* Table Content */}
         <div>
           {renderContent()}

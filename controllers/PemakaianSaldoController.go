@@ -23,29 +23,29 @@ func NewPemakaianSaldoController(db *gorm.DB) *PemakaianSaldoController {
 
 // Request structs
 type CreatePemakaianRequest struct {
-	JudulPemakaian string                `json:"judul_pemakaian" binding:"required"`
-	Deskripsi      string                `json:"deskripsi" binding:"required"`
-	Nominal        float64               `json:"nominal" binding:"required,gt=0"`
-	TipePemakaian  models.TipePemakaian  `json:"tipe_pemakaian" binding:"required"`
-	SumberDana     models.SumberDana     `json:"sumber_dana" binding:"required"`
-	TanggalPemakaian *string             `json:"tanggal_pemakaian"`
-	Keterangan     *string               `json:"keterangan"`
+	JudulPemakaian  string                `json:"judul_pemakaian" binding:"required"`
+	Deskripsi       string                `json:"deskripsi" binding:"required"`
+	Nominal         float64               `json:"nominal" binding:"required,gt=0"`
+	TipePemakaian   models.TipePemakaian  `json:"tipe_pemakaian" binding:"required"`
+	SumberDana      models.SumberDana     `json:"sumber_dana" binding:"required"`
+	TanggalPemakaian *string              `json:"tanggal_pemakaian"`
+	Keterangan      *string               `json:"keterangan"`
 }
 
 type UpdatePemakaianRequest struct {
-	JudulPemakaian   *string                `json:"judul_pemakaian"`
-	Deskripsi        *string                `json:"deskripsi"`
-	Nominal          *float64               `json:"nominal"`
-	TipePemakaian    *models.TipePemakaian  `json:"tipe_pemakaian"`
-	SumberDana       *models.SumberDana     `json:"sumber_dana"`
-	TanggalPemakaian *string                `json:"tanggal_pemakaian"`
-	Keterangan       *string                `json:"keterangan"`
+	JudulPemakaian   *string               `json:"judul_pemakaian"`
+	Deskripsi        *string               `json:"deskripsi"`
+	Nominal          *float64              `json:"nominal"`
+	TipePemakaian    *models.TipePemakaian `json:"tipe_pemakaian"`
+	SumberDana       *models.SumberDana    `json:"sumber_dana"`
+	TanggalPemakaian *string               `json:"tanggal_pemakaian"`
+	Keterangan       *string               `json:"keterangan"`
 }
 
 type PemakaianSummary struct {
-	TotalNominal     float64 `json:"total_nominal"`
-	JumlahPemakaian  int64   `json:"jumlah_pemakaian"`
-	RataRata         float64 `json:"rata_rata"`
+	TotalNominal      float64 `json:"total_nominal"`
+	JumlahPemakaian   int64   `json:"jumlah_pemakaian"`
+	RataRata          float64 `json:"rata_rata"`
 	PemakaianTerbanyak float64 `json:"pemakaian_terbanyak"`
 }
 
@@ -522,37 +522,27 @@ func (ctrl *PemakaianSaldoController) GetPemakaianSummary(c *gin.Context) {
 
 // cekSaldoTersedia - Cek apakah saldo mencukupi untuk pemakaian
 func (ctrl *PemakaianSaldoController) cekSaldoTersedia(sumberDana models.SumberDana, nominal float64) bool {
-    var saldoTersedia float64
+	var saldoTersedia float64
     
-    // Get latest rekap saldo berdasarkan sumber dana
+    // Get latest rekap saldo
     var rekap models.RekapSaldo
-    tipeSaldo := getTipeSaldoFromSumberDana(sumberDana)
-    
-    err := ctrl.db.Where("tipe_saldo = ?", tipeSaldo).
-        Order("periode DESC").
-        First(&rekap).Error
+    err := ctrl.db.Order("periode DESC").First(&rekap).Error
     
     if err != nil {
         fmt.Printf("Gagal mendapatkan saldo: %v\n", err)
         return false
     }
     
-    saldoTersedia = rekap.SaldoAkhir
-    
-    // ✅ PERBAIKAN: Untuk sumber dana campuran, perlu cek apakah total saldo cukup
-    if sumberDana == models.SumberCampuran {
-        // Cek saldo total (syahriah + donasi)
-        var rekapTotal models.RekapSaldo
-        err := ctrl.db.Where("tipe_saldo = ?", models.SaldoTotal).
-            Order("periode DESC").
-            First(&rekapTotal).Error
-            
-        if err != nil {
-            fmt.Printf("Gagal mendapatkan saldo total: %v\n", err)
-            return false
-        }
-        
-        saldoTersedia = rekapTotal.SaldoAkhir
+    // Tentukan saldo berdasarkan sumber dana
+    switch sumberDana {
+    case models.SumberSyahriah:
+        saldoTersedia = rekap.SaldoAkhirSyahriah
+    case models.SumberDonasi:
+        saldoTersedia = rekap.SaldoAkhirDonasi
+    case models.SumberCampuran:
+        saldoTersedia = rekap.SaldoAkhirTotal
+    default:
+        saldoTersedia = rekap.SaldoAkhirTotal
     }
     
     return saldoTersedia >= nominal
@@ -570,19 +560,30 @@ func (ctrl *PemakaianSaldoController) updateRekapSaldoSetelahPemakaian(pemakaian
         periode = time.Now().Format("2006-01")
     }
     
-    // Update rekap untuk tipe saldo yang sesuai
-    tipeSaldo := getTipeSaldoFromSumberDana(pemakaian.SumberDana)
-    err := rekapController.updateRekapSaldoDenganPengeluaran(periode, tipeSaldo, pemakaian.Nominal)
-    if err != nil {
-        return err
+    // Tentukan pengeluaran berdasarkan sumber dana
+    var pengeluaranSyahriah, pengeluaranDonasi, pengeluaranTotal float64
+    
+    switch pemakaian.SumberDana {
+    case models.SumberSyahriah:
+        pengeluaranSyahriah = pemakaian.Nominal
+        pengeluaranTotal = pemakaian.Nominal
+    case models.SumberDonasi:
+        pengeluaranDonasi = pemakaian.Nominal
+        pengeluaranTotal = pemakaian.Nominal
+    case models.SumberCampuran:
+        // Untuk campuran, bagi secara proporsional atau sesuai kebijakan
+        // Sementara kita anggap 50-50
+        pengeluaranSyahriah = pemakaian.Nominal * 0.5
+        pengeluaranDonasi = pemakaian.Nominal * 0.5
+        pengeluaranTotal = pemakaian.Nominal
     }
     
-    // ✅ PERBAIKAN: Selalu update saldo campuran juga
-    if tipeSaldo != models.SaldoTotal {
-        err = rekapController.updateRekapSaldoDenganPengeluaran(periode, models.SaldoTotal, pemakaian.Nominal)
-    }
-    
-    return err
+    return rekapController.updateRekapSaldoDenganPengeluaran(
+        periode, 
+        pengeluaranSyahriah, 
+        pengeluaranDonasi, 
+        pengeluaranTotal,
+    )
 }
 
 // updateRekapSaldoSetelahUpdate - Update rekap saldo setelah update pemakaian
@@ -597,64 +598,55 @@ func (ctrl *PemakaianSaldoController) updateRekapSaldoSetelahUpdate(pemakaian mo
         periode = time.Now().Format("2006-01")
     }
     
-    tipeSaldoLama := getTipeSaldoFromSumberDana(sumberDanaLama)
-    tipeSaldoBaru := getTipeSaldoFromSumberDana(pemakaian.SumberDana)
-    
-    // Jika sumber dana berubah
-    if sumberDanaLama != pemakaian.SumberDana {
-        // Kembalikan saldo ke sumber dana lama
-        if err := rekapController.updateRekapSaldoDenganPemasukan(periode, tipeSaldoLama, nominalLama); err != nil {
+    // Jika sumber dana berubah atau nominal berubah
+    if sumberDanaLama != pemakaian.SumberDana || nominalLama != pemakaian.Nominal {
+        // 1. Kembalikan saldo dari sumber dana lama
+        var pengembalianSyahriah, pengembalianDonasi, pengembalianTotal float64
+        
+        switch sumberDanaLama {
+        case models.SumberSyahriah:
+            pengembalianSyahriah = nominalLama
+            pengembalianTotal = nominalLama
+        case models.SumberDonasi:
+            pengembalianDonasi = nominalLama
+            pengembalianTotal = nominalLama
+        case models.SumberCampuran:
+            pengembalianSyahriah = nominalLama * 0.5
+            pengembalianDonasi = nominalLama * 0.5
+            pengembalianTotal = nominalLama
+        }
+        
+        if err := rekapController.updateRekapSaldoDenganPemasukan(
+            periode,
+            pengembalianSyahriah,
+            pengembalianDonasi,
+            pengembalianTotal,
+        ); err != nil {
             return err
         }
         
-        // ✅ PERBAIKAN: Kembalikan juga ke saldo campuran jika bukan campuran
-        if tipeSaldoLama != models.SaldoTotal {
-            if err := rekapController.updateRekapSaldoDenganPemasukan(periode, models.SaldoTotal, nominalLama); err != nil {
-                return err
-            }
+        // 2. Kurangi saldo dari sumber dana baru
+        var pengeluaranSyahriah, pengeluaranDonasi, pengeluaranTotal float64
+        
+        switch pemakaian.SumberDana {
+        case models.SumberSyahriah:
+            pengeluaranSyahriah = pemakaian.Nominal
+            pengeluaranTotal = pemakaian.Nominal
+        case models.SumberDonasi:
+            pengeluaranDonasi = pemakaian.Nominal
+            pengeluaranTotal = pemakaian.Nominal
+        case models.SumberCampuran:
+            pengeluaranSyahriah = pemakaian.Nominal * 0.5
+            pengeluaranDonasi = pemakaian.Nominal * 0.5
+            pengeluaranTotal = pemakaian.Nominal
         }
         
-        // Kurangi saldo dari sumber dana baru
-        if err := rekapController.updateRekapSaldoDenganPengeluaran(periode, tipeSaldoBaru, pemakaian.Nominal); err != nil {
-            return err
-        }
-        
-        // ✅ PERBAIKAN: Kurangi juga dari saldo campuran jika bukan campuran
-        if tipeSaldoBaru != models.SaldoTotal {
-            return rekapController.updateRekapSaldoDenganPengeluaran(periode, models.SaldoTotal, pemakaian.Nominal)
-        }
-        
-        return nil
-    }
-    
-    // Jika hanya nominal berubah
-    if nominalLama != pemakaian.Nominal {
-        selisih := pemakaian.Nominal - nominalLama
-        tipeSaldo := getTipeSaldoFromSumberDana(pemakaian.SumberDana)
-        
-        if selisih > 0 {
-            // Tambahan pengeluaran
-            err := rekapController.updateRekapSaldoDenganPengeluaran(periode, tipeSaldo, selisih)
-            if err != nil {
-                return err
-            }
-            
-            // ✅ PERBAIKAN: Update saldo campuran juga
-            if tipeSaldo != models.SaldoTotal {
-                return rekapController.updateRekapSaldoDenganPengeluaran(periode, models.SaldoTotal, selisih)
-            }
-        } else {
-            // Pengurangan pengeluaran (kembalikan saldo)
-            err := rekapController.updateRekapSaldoDenganPemasukan(periode, tipeSaldo, -selisih)
-            if err != nil {
-                return err
-            }
-            
-            // ✅ PERBAIKAN: Update saldo campuran juga
-            if tipeSaldo != models.SaldoTotal {
-                return rekapController.updateRekapSaldoDenganPemasukan(periode, models.SaldoTotal, -selisih)
-            }
-        }
+        return rekapController.updateRekapSaldoDenganPengeluaran(
+            periode,
+            pengeluaranSyahriah,
+            pengeluaranDonasi,
+            pengeluaranTotal,
+        )
     }
     
     return nil
@@ -673,30 +665,25 @@ func (ctrl *PemakaianSaldoController) updateRekapSaldoSetelahHapus(pemakaian mod
     }
     
     // Kembalikan saldo yang dihapus
-    tipeSaldo := getTipeSaldoFromSumberDana(pemakaian.SumberDana)
-    err := rekapController.updateRekapSaldoDenganPemasukan(periode, tipeSaldo, pemakaian.Nominal)
-    if err != nil {
-        return err
+    var pengembalianSyahriah, pengembalianDonasi, pengembalianTotal float64
+    
+    switch pemakaian.SumberDana {
+    case models.SumberSyahriah:
+        pengembalianSyahriah = pemakaian.Nominal
+        pengembalianTotal = pemakaian.Nominal
+    case models.SumberDonasi:
+        pengembalianDonasi = pemakaian.Nominal
+        pengembalianTotal = pemakaian.Nominal
+    case models.SumberCampuran:
+        pengembalianSyahriah = pemakaian.Nominal * 0.5
+        pengembalianDonasi = pemakaian.Nominal * 0.5
+        pengembalianTotal = pemakaian.Nominal
     }
     
-    // ✅ PERBAIKAN: Kembalikan juga ke saldo campuran
-    if tipeSaldo != models.SaldoTotal {
-        return rekapController.updateRekapSaldoDenganPemasukan(periode, models.SaldoTotal, pemakaian.Nominal)
-    }
-    
-    return nil
-}
-
-// getTipeSaldoFromSumberDana - Map sumber dana ke tipe saldo
-func getTipeSaldoFromSumberDana(sumberDana models.SumberDana) models.TipeSaldo {
-	switch sumberDana {
-	case models.SumberSyahriah:
-		return models.SaldoSyahriah
-	case models.SumberDonasi:
-		return models.SaldoDonasi
-	case models.SumberCampuran:
-		return models.SaldoTotal
-	default:
-		return models.SaldoTotal
-	}
+    return rekapController.updateRekapSaldoDenganPemasukan(
+        periode,
+        pengembalianSyahriah,
+        pengembalianDonasi,
+        pengembalianTotal,
+    )
 }
