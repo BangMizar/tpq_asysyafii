@@ -14,11 +14,11 @@ const KeuanganTPQ = () => {
   const [summaryData, setSummaryData] = useState(null);
   const [selectedPeriod, setSelectedPeriod] = useState('semua');
   const [availablePeriods, setAvailablePeriods] = useState([]);
-  const [activeTab, setActiveTab] = useState('rekap'); // Tab baru untuk navigasi
+  const [activeTab, setActiveTab] = useState('rekap');
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
-  // Fetch all data seperti di admin
+  // Fetch all data seperti di admin - DIPERBAIKI
   const fetchAllData = async () => {
     try {
       setLoading(true);
@@ -26,27 +26,33 @@ const KeuanganTPQ = () => {
 
       const token = localStorage.getItem('token');
       
-      // Load data secara parallel
-      const [rekapResponse, pemakaianResponse, donasiResponse, syahriahResponse] = await Promise.all([
+      // Load data secara parallel untuk wali
+      const [rekapResponse, pemakaianResponse, donasiResponse, syahriahResponse, rekapAllResponse] = await Promise.all([
+        fetch(`${API_URL}/api/rekap?limit=100`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }),
+        fetch(`${API_URL}/api/pemakaian?limit=100`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }),
+        fetch(`${API_URL}/api/donasi?limit=100`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }),
+        fetch(`${API_URL}/api/syahriah?limit=100`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }),
         fetch(`${API_URL}/api/rekap?limit=1000`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }),
-        fetch(`${API_URL}/api/pemakaian?limit=1000`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }),
-        fetch(`${API_URL}/api/donasi?limit=1000`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }),
-        fetch(`${API_URL}/api/syahriah?limit=1000`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -59,20 +65,25 @@ const KeuanganTPQ = () => {
       if (!pemakaianResponse.ok) throw new Error('Gagal memuat data pemakaian');
       if (!donasiResponse.ok) throw new Error('Gagal memuat data donasi');
       if (!syahriahResponse.ok) throw new Error('Gagal memuat data syahriah');
+      if (!rekapAllResponse.ok) throw new Error('Gagal memuat semua data rekap');
 
       const rekapResult = await rekapResponse.json();
       const pemakaianResult = await pemakaianResponse.json();
       const donasiResult = await donasiResponse.json();
       const syahriahResult = await syahriahResponse.json();
+      const rekapAllResult = await rekapAllResponse.json();
 
       setRekapData(rekapResult.data || []);
       setPemakaianData(pemakaianResult.data || []);
       setDonasiData(donasiResult.data || []);
       setSyahriahData(syahriahResult.data || []);
 
-      // Extract unique periods dari data rekap
-      const periods = [...new Set(rekapResult.data.map(item => item.periode))].sort().reverse();
+      // Extract unique periods dari semua data rekap
+      const periods = [...new Set(rekapAllResult.data.map(item => item.periode))].sort().reverse();
       setAvailablePeriods(periods);
+
+      // Calculate summary data untuk wali
+      calculateSummary(rekapAllResult.data, pemakaianResult.data, donasiResult.data, syahriahResult.data);
 
     } catch (err) {
       console.error('Error loading data:', err);
@@ -83,7 +94,7 @@ const KeuanganTPQ = () => {
   };
 
   // LOGIKA PENGHITUNGAN YANG SAMA DENGAN ADMIN - DIPERBAIKI
-  const calculateSummary = () => {
+  const calculateSummary = (rekapData, pemakaianData, donasiData, syahriahData) => {
     // Filter data berdasarkan periode yang dipilih
     const currentPeriod = selectedPeriod === 'semua' ? null : selectedPeriod;
     
@@ -94,15 +105,17 @@ const KeuanganTPQ = () => {
           return itemPeriod === currentPeriod;
         })
       : donasiData;
-
-    // Filter syahriah data berdasarkan periode (menggunakan bulan dari field bulan)
+  
+    // Filter syahriah data berdasarkan periode dan HANYA status 'lunas'
     const filteredSyahriah = currentPeriod
       ? syahriahData.filter(item => {
-          return item.bulan === currentPeriod;
+          // Format bulan: "2025-10" -> cocok dengan format periode "2025-10"
+          // HANYA hitung yang statusnya 'lunas'
+          return item.bulan === currentPeriod && item.status === 'lunas';
         })
-      : syahriahData;
-
-    // Filter pemakaian data berdasarkan periode - semua sumber dana dihitung
+      : syahriahData.filter(item => item.status === 'lunas'); // Filter hanya yang lunas untuk semua periode
+  
+    // Filter pemakaian data berdasarkan periode
     const filteredPemakaian = currentPeriod
       ? pemakaianData.filter(item => {
           const itemPeriod = item.tanggal_pemakaian 
@@ -111,22 +124,22 @@ const KeuanganTPQ = () => {
           return itemPeriod === currentPeriod;
         })
       : pemakaianData;
-
+  
     // Total Donasi: Sum dari semua donasi dalam periode yang dipilih
     const totalDonasi = filteredDonasi.reduce((sum, item) => sum + (item.nominal || 0), 0);
-
-    // Total Syahriah: Sum dari semua syahriah dalam periode yang dipilih
+  
+    // Total Syahriah: Sum dari semua syahriah dalam periode yang dipilih (HANYA yang lunas)
     const totalSyahriah = filteredSyahriah.reduce((sum, item) => sum + (item.nominal || 0), 0);
-
+  
     // Total Pemasukan: Total Donasi + Total Syahriah
     const totalPemasukan = totalDonasi + totalSyahriah;
-
-    // Total Pengeluaran: Sum dari semua pemakaian yang difilter - semua sumber dana dihitung
-    const totalPengeluaran = filteredPemakaian.reduce((sum, item) => sum + (item.nominal || 0), 0);
-
+  
+    // PERBAIKAN: Total Pengeluaran menggunakan nominal_total (bukan nominal)
+    const totalPengeluaran = filteredPemakaian.reduce((sum, item) => sum + (item.nominal_total || 0), 0);
+  
     // Saldo Akhir: Total Pemasukan - Total Pengeluaran
     const saldoAkhir = totalPemasukan - totalPengeluaran;
-
+  
     setSummaryData({
       totalPemasukan,
       totalPengeluaran,
@@ -139,7 +152,7 @@ const KeuanganTPQ = () => {
   // Recalculate summary ketika periode berubah atau data berubah
   useEffect(() => {
     if (rekapData.length > 0 && pemakaianData.length > 0 && donasiData.length > 0 && syahriahData.length > 0) {
-      calculateSummary();
+      calculateSummary(rekapData, pemakaianData, donasiData, syahriahData);
     }
   }, [selectedPeriod, rekapData, pemakaianData, donasiData, syahriahData]);
 
@@ -157,22 +170,30 @@ const KeuanganTPQ = () => {
     }).format(amount || 0);
   };
 
-  // Format currency untuk summary card dengan singkatan - DIPERBAIKI: hanya miliar ke atas
-  const formatCurrencyShort = (amount) => {
-    if (!amount) return 'Rp 0';
-    
-    const num = Number(amount);
-    
-    if (num >= 1000000000) {
-      return `Rp ${(num / 1000000000).toFixed(1)}M`;
-    } else {
-      // Untuk di bawah miliar, tetap tampilkan format normal tanpa penyingkatan
+  // Format currency untuk summary card dengan singkatan - DIPERBAIKI
+  const formatCurrencyShort = (amount, threshold = 1000000000) => {
+    // Jika amount di bawah threshold, tampilkan format normal
+    if (Math.abs(amount) < threshold) {
       return new Intl.NumberFormat('id-ID', {
         style: 'currency',
         currency: 'IDR',
         minimumFractionDigits: 0,
-      }).format(num);
+        maximumFractionDigits: 0
+      }).format(amount);
     }
+
+    // Format singkatan hanya untuk angka di atas threshold (miliar)
+    const units = [
+      { value: 1e12, symbol: 'T' },
+      { value: 1e9, symbol: 'M' },
+      { value: 1e6, symbol: 'Jt' },
+    ];
+
+    const unit = units.find(unit => Math.abs(amount) >= unit.value) || { value: 1, symbol: '' };
+    
+    const formatted = (amount / unit.value).toFixed(1).replace(/\.0$/, '');
+    
+    return `Rp ${formatted}${unit.symbol}`;
   };
 
   // Format period (YYYY-MM to Month Year)
@@ -217,43 +238,12 @@ const KeuanganTPQ = () => {
     }
   };
 
-  // FUNGSI BARU: Get saldo berdasarkan type dan periode yang dipilih
-  const getSaldoByType = (type) => {
-    if (selectedPeriod === 'semua') {
-      // Untuk semua periode, ambil saldo terakhir dari setiap type
-      const filteredByType = rekapData.filter(item => item.tipe_saldo === type);
-      if (filteredByType.length === 0) return 0;
-      
-      const latest = filteredByType.reduce((latestItem, currentItem) => {
-        if (!latestItem || currentItem.periode > latestItem.periode) {
-          return currentItem;
-        }
-        return latestItem;
-      }, null);
-      
-      return latest?.saldo_akhir || 0;
-    } else {
-      // Untuk periode tertentu, ambil saldo dari periode tersebut
-      const filtered = rekapData.find(item => 
-        item.tipe_saldo === type && item.periode === selectedPeriod
-      );
-      return filtered?.saldo_akhir || 0;
-    }
-  };
-
-  const getCurrentPeriodText = () => {
-    if (selectedPeriod === 'semua') {
-      return 'Semua Periode';
-    }
-    return formatPeriod(selectedPeriod);
-  };
-
-  // Get filtered data berdasarkan periode
+  // PERBAIKAN: Filter rekap tidak perlu berdasarkan tipe_saldo lagi
   const getFilteredRekap = () => {
     if (selectedPeriod === 'semua') {
-      return rekapData.filter(item => item.tipe_saldo === 'total');
+      return rekapData;
     }
-    return rekapData.filter(item => item.tipe_saldo === 'total' && item.periode === selectedPeriod);
+    return rekapData.filter(item => item.periode === selectedPeriod);
   };
 
   const getFilteredPemakaian = () => {
@@ -287,7 +277,14 @@ const KeuanganTPQ = () => {
     });
   };
 
-  // Render content berdasarkan active tab
+  const getCurrentPeriodText = () => {
+    if (selectedPeriod === 'semua') {
+      return 'Semua Periode';
+    }
+    return formatPeriod(selectedPeriod);
+  };
+
+  // Render content berdasarkan active tab - DIPERBAIKI struktur tabel
   const renderContent = () => {
     const filteredRekap = getFilteredRekap();
     const filteredPemakaian = getFilteredPemakaian();
@@ -313,9 +310,15 @@ const KeuanganTPQ = () => {
                 <thead className="bg-green-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Periode</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Pemasukan</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Pengeluaran</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Saldo Akhir</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Pemasukan Syahriah</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Pengeluaran Syahriah</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Saldo Syahriah</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Pemasukan Donasi</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Pengeluaran Donasi</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Saldo Donasi</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Pemasukan Total</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Pengeluaran Total</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Saldo Total</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Update Terakhir</th>
                   </tr>
                 </thead>
@@ -326,14 +329,32 @@ const KeuanganTPQ = () => {
                         {formatPeriod(item.periode)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium">
+                        {formatCurrency(item.pemasukan_syahriah)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">
+                        {formatCurrency(item.pengeluaran_syahriah)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 font-medium">
+                        {formatCurrency(item.saldo_akhir_syahriah)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium">
+                        {formatCurrency(item.pemasukan_donasi)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">
+                        {formatCurrency(item.pengeluaran_donasi)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 font-medium">
+                        {formatCurrency(item.saldo_akhir_donasi)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium">
                         {formatCurrency(item.pemasukan_total)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">
                         {formatCurrency(item.pengeluaran_total)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-bold">
-                        <span className={item.saldo_akhir >= 0 ? 'text-green-800' : 'text-red-800'}>
-                          {formatCurrency(item.saldo_akhir)}
+                        <span className={item.saldo_akhir_total >= 0 ? 'text-green-800' : 'text-red-800'}>
+                          {formatCurrency(item.saldo_akhir_total)}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -367,8 +388,9 @@ const KeuanganTPQ = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Tanggal</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Keterangan</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Tipe</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Sumber Dana</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Jumlah</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Dana Syahriah</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Dana Donasi</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Total</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Diajukan Oleh</th>
                   </tr>
                 </thead>
@@ -396,11 +418,14 @@ const KeuanganTPQ = () => {
                           {item.tipe_pemakaian}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">
-                        {item.sumber_dana}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-orange-600">
+                        {formatCurrency(item.nominal_syahriah)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-purple-600">
+                        {formatCurrency(item.nominal_donasi)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">
-                        {formatCurrency(item.nominal)}
+                        {formatCurrency(item.nominal_total)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {item.pengaju?.nama_lengkap || 'Admin'}
@@ -463,125 +488,125 @@ const KeuanganTPQ = () => {
           </div>
         );
 
-        case 'syahriah':
-          return (
-            <div className="overflow-x-auto">
-              {filteredSyahriah.length === 0 ? (
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <h3 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Pemasukan Syahriah</h3>
-                  <p className="text-green-600">Data pemasukan syahriah akan muncul setelah ada pembayaran syahriah</p>
+      case 'syahriah':
+        return (
+          <div className="overflow-x-auto">
+            {filteredSyahriah.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
                 </div>
-              ) : (
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-green-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Tanggal Bayar</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Wali</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Email</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">No. Telp</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Bulan</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Jumlah</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Status</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Dicatat Oleh</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-green-100">
-                    {filteredSyahriah.map((item, index) => {
-                      // Cek apakah ini data syahriah milik user yang login
-                      const isOwnData = item.wali?.id === user?.id;
+                <h3 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Pemasukan Syahriah</h3>
+                <p className="text-green-600">Data pemasukan syahriah akan muncul setelah ada pembayaran syahriah</p>
+              </div>
+            ) : (
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-green-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Tanggal Bayar</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Wali</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Email</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">No. Telp</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Bulan</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Jumlah</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Dicatat Oleh</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-green-100">
+                  {filteredSyahriah.map((item, index) => {
+                    // Cek apakah ini data syahriah milik user yang login
+                    const isOwnData = item.wali?.id === user?.id;
+                    
+                    // Fungsi untuk menyamarkan data sensitif
+                    const maskName = (name) => {
+                      if (!name) return '-';
+                      if (isOwnData) return name; // Tampilkan asli jika milik sendiri
                       
-                      // Fungsi untuk menyamarkan data sensitif
-                      const maskName = (name) => {
-                        if (!name) return '-';
-                        if (isOwnData) return name; // Tampilkan asli jika milik sendiri
-                        
-                        // Samarkan nama: ambil inisial pertama dan terakhir
-                        const names = name.split(' ');
-                        if (names.length === 1) {
-                          return `${names[0].charAt(0)}***`;
-                        } else {
-                          return `${names[0].charAt(0)}***${names[names.length - 1].charAt(0)}`;
-                        }
-                      };
-        
-                      const maskEmail = (email) => {
-                        if (!email) return '-';
-                        if (isOwnData) return email; // Tampilkan asli jika milik sendiri
-                        
-                        // Samarkan email: tampilkan hanya 3 karakter pertama domain
-                        const [localPart, domain] = email.split('@');
-                        if (!domain) return '***@***';
-                        
-                        const maskedLocal = localPart.length > 2 
-                          ? `${localPart.substring(0, 2)}***` 
-                          : '***';
-                        const maskedDomain = domain.length > 3 
-                          ? `${domain.substring(0, 3)}***` 
-                          : '***';
-                        
-                        return `${maskedLocal}@${maskedDomain}`;
-                      };
-        
-                      const maskPhone = (phone) => {
-                        if (!phone) return '-';
-                        if (isOwnData) return phone; // Tampilkan asli jika milik sendiri
-                        
-                        // Samarkan nomor telepon: tampilkan hanya 4 digit terakhir
-                        if (phone.length <= 4) return '***';
-                        return `***-${phone.slice(-4)}`;
-                      };
-        
-                      return (
-                        <tr key={index} className="hover:bg-green-50 transition-colors">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {formatDateTime(item.waktu_catat)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            <div className="flex items-center">
-                              {maskName(item.wali?.nama_lengkap || '-')}
-                              {isOwnData && (
-                                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                  Anda
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {maskEmail(item.wali?.email || '-')}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {maskPhone(item.wali?.no_telp || '-')}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {formatPeriod(item.bulan)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-                            {formatCurrency(item.nominal)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              item.status === 'lunas' ? 'bg-green-100 text-green-800' :
-                              'bg-yellow-100 text-yellow-800'
-                            }`}>
-                              {item.status}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {item.admin?.nama_lengkap || 'Admin'}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          );        
+                      // Samarkan nama: ambil inisial pertama dan terakhir
+                      const names = name.split(' ');
+                      if (names.length === 1) {
+                        return `${names[0].charAt(0)}***`;
+                      } else {
+                        return `${names[0].charAt(0)}***${names[names.length - 1].charAt(0)}`;
+                      }
+                    };
+  
+                    const maskEmail = (email) => {
+                      if (!email) return '-';
+                      if (isOwnData) return email; // Tampilkan asli jika milik sendiri
+                      
+                      // Samarkan email: tampilkan hanya 3 karakter pertama domain
+                      const [localPart, domain] = email.split('@');
+                      if (!domain) return '***@***';
+                      
+                      const maskedLocal = localPart.length > 2 
+                        ? `${localPart.substring(0, 2)}***` 
+                        : '***';
+                      const maskedDomain = domain.length > 3 
+                        ? `${domain.substring(0, 3)}***` 
+                        : '***';
+                      
+                      return `${maskedLocal}@${maskedDomain}`;
+                    };
+  
+                    const maskPhone = (phone) => {
+                      if (!phone) return '-';
+                      if (isOwnData) return phone; // Tampilkan asli jika milik sendiri
+                      
+                      // Samarkan nomor telepon: tampilkan hanya 4 digit terakhir
+                      if (phone.length <= 4) return '***';
+                      return `***-${phone.slice(-4)}`;
+                    };
+  
+                    return (
+                      <tr key={index} className="hover:bg-green-50 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formatDateTime(item.waktu_catat)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          <div className="flex items-center">
+                            {maskName(item.wali?.nama_lengkap || '-')}
+                            {isOwnData && (
+                              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                Anda
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {maskEmail(item.wali?.email || '-')}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {maskPhone(item.wali?.no_telp || '-')}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formatPeriod(item.bulan)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                          {formatCurrency(item.nominal)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            item.status === 'lunas' ? 'bg-green-100 text-green-800' :
+                            'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {item.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {item.admin?.nama_lengkap || 'Admin'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        );        
         
       default:
         return null;
@@ -827,7 +852,7 @@ const KeuanganTPQ = () => {
           <div>
             <p className="text-sm text-blue-800">
               <strong>Informasi:</strong> Semua data summary dan saldo sekarang mengikuti filter periode yang dipilih. 
-              Data dihitung berdasarkan transaksi aktual dalam periode tersebut.
+              Data dihitung berdasarkan transaksi aktual dalam periode tersebut. Data syahriah hanya menampilkan pembayaran yang statusnya "lunas".
             </p>
           </div>
         </div>
