@@ -181,9 +181,6 @@ const Programs = () => {
                   className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition duration-300 hover-lift"
                 >
                   <div className="p-6">
-                    <div className={`text-sm font-medium px-3 py-1 rounded-full inline-block mb-4 ${getStatusColor(program.status)}`}>
-                      {formatStatus(program.status)}
-                    </div>
                     
                     <h3 className="text-2xl font-bold text-green-800 mb-3">
                       {program.nama_program}

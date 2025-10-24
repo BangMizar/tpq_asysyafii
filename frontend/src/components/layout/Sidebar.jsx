@@ -167,7 +167,7 @@ const Sidebar = () => {
       path: '/super-admin/konten',
       icon: <ContentIcon />,
       submenu: [
-        { title: 'Data Pengumuman', path: '/super-admin/pengumuman' },
+        { title: 'Data Program Unggulan', path: '/super-admin/program-unggulan' },
         { title: 'Data Berita', path: '/super-admin/berita' },
         { title: 'Informasi TPQ', path: '/super-admin/informasi-tpq' }
       ]

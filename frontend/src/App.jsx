@@ -23,7 +23,7 @@ import UserManagement from './pages/super-admin/UserManagement';
 import DataMaster from './pages/super-admin/DataMaster';
 import BeritaManagement from './pages/super-admin/Berita';
 import InformasiTPQ from './pages/super-admin/InformasiTPQ';
-import PengumumanManagement from './pages/super-admin/Pengumuman';
+import ProgramUnggulanManagement from './pages/super-admin/ProgramUnggulan';
 import SystemManagement from './pages/super-admin/System';
 import DataSantri from './pages/super-admin/DataSantri'; // Import DataSantri
 
@@ -105,10 +105,10 @@ const AppContent = () => {
       />
       
       <Route 
-        path="/super-admin/pengumuman" 
+        path="/super-admin/program-unggulan" 
         element={
           <ProtectedRoute allowedRoles={['super_admin']}>
-            <PengumumanManagement />
+            <ProgramUnggulanManagement />
           </ProtectedRoute>
         } 
       />
