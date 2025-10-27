@@ -41,6 +41,7 @@ func InitDB() {
 		&models.RekapSaldo{},
 		&models.Pengumuman{},
 		&models.Berita{},
+		&models.Fasilitas{},
 		&models.InformasiTPQ{},
 		&models.SosialMedia{},
 		&models.ProgramUnggulan{},

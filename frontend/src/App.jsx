@@ -1,4 +1,3 @@
-// App.js
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -26,6 +25,7 @@ import InformasiTPQ from './pages/super-admin/InformasiTPQ';
 import ProgramUnggulanManagement from './pages/super-admin/ProgramUnggulan';
 import SystemManagement from './pages/super-admin/System';
 import DataSantri from './pages/super-admin/DataSantri';
+import FasilitasManagement from './pages/super-admin/Fasilitas';
 
 import DataDonasi from './pages/admin/DataDonasi';
 import DataKeuangan from './pages/admin/DataKeuangan';
@@ -95,6 +95,14 @@ const AppContent = () => {
         element={
           <ProtectedRoute allowedRoles={['super_admin']}>
             <BeritaManagement />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/super-admin/fasilitas" 
+        element={
+          <ProtectedRoute allowedRoles={['super_admin']}>
+            <FasilitasManagement />
           </ProtectedRoute>
         } 
       />

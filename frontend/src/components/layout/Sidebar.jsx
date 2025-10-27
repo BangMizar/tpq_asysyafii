@@ -131,6 +131,12 @@ const Sidebar = () => {
     </svg>
   );
 
+  const FacilityIcon = () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+    </svg>
+  );
+
   const ChevronDownIcon = ({ isOpen }) => (
     <svg 
       className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'transform rotate-180' : ''}`} 
@@ -169,6 +175,7 @@ const Sidebar = () => {
       submenu: [
         { title: 'Data Program Unggulan', path: '/super-admin/program-unggulan' },
         { title: 'Data Berita', path: '/super-admin/berita' },
+        { title: 'Data Fasilitas', path: '/super-admin/fasilitas' }, // TAMBAHKAN MENU FASILITAS DI SINI
         { title: 'Informasi TPQ', path: '/super-admin/informasi-tpq' }
       ]
     },
@@ -177,7 +184,7 @@ const Sidebar = () => {
       path: '/super-admin/data',
       icon: <DataIcon />,
       submenu: [
-        { title: 'Data Santri', path: '/super-admin/santri' }, // TAMBAHKAN DI SINI
+        { title: 'Data Santri', path: '/super-admin/santri' },
         { title: 'Data Syahriah', path: '/admin/syahriah' },
         { title: 'Data Donasi', path: '/admin/donasi' },
         { title: 'Rekap Keuangan', path: '/admin/keuangan' }
@@ -226,10 +233,24 @@ const Sidebar = () => {
     const isSubmenuOpen = openSubmenus[item.path];
     const isItemActive = isActive(item.path) || (hasSubmenu && item.submenu.some(subItem => isActive(subItem.path)));
 
+    // Handler untuk menu item tanpa submenu
+    const handleMenuItemClick = () => {
+      if (!hasSubmenu && item.path) {
+        navigate(item.path);
+      } else if (hasSubmenu) {
+        toggleSubmenu(item.path);
+      }
+    };
+
+    // Handler untuk submenu item
+    const handleSubmenuItemClick = (subItemPath) => {
+      navigate(subItemPath);
+    };
+
     return (
       <div>
         <div
-          onClick={() => hasSubmenu && toggleSubmenu(item.path)}
+          onClick={handleMenuItemClick}
           className={`flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 group cursor-pointer ${
             isItemActive
               ? 'bg-green-100 text-green-700 border-r-2 border-green-600'
@@ -241,20 +262,8 @@ const Sidebar = () => {
           </span>
           {!isCollapsed && (
             <>
-              {hasSubmenu ? (
-                <>
-                  <span className="flex-1">{item.title}</span>
-                  <ChevronDownIcon isOpen={isSubmenuOpen} />
-                </>
-              ) : (
-                <Link 
-                  to={item.path}
-                  className="flex-1"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {item.title}
-                </Link>
-              )}
+              <span className="flex-1">{item.title}</span>
+              {hasSubmenu && <ChevronDownIcon isOpen={isSubmenuOpen} />}
             </>
           )}
         </div>
@@ -262,10 +271,10 @@ const Sidebar = () => {
         {hasSubmenu && isSubmenuOpen && !isCollapsed && (
           <div className="mt-1 space-y-1">
             {item.submenu.map((subItem, index) => (
-              <Link
+              <div
                 key={index}
-                to={subItem.path}
-                className={`flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 group pl-12 ${
+                onClick={() => handleSubmenuItemClick(subItem.path)}
+                className={`flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 group pl-12 cursor-pointer ${
                   isActive(subItem.path)
                     ? 'bg-green-50 text-green-700 border-r-2 border-green-600'
                     : 'text-gray-600 hover:bg-green-50 hover:text-green-900'
@@ -275,10 +284,61 @@ const Sidebar = () => {
                   •
                 </span>
                 <span>{subItem.title}</span>
-              </Link>
+              </div>
             ))}
           </div>
         )}
+      </div>
+    );
+  };
+
+  // Menu Item Collapsed - untuk sidebar yang diperkecil
+  const MenuItemCollapsed = ({ item }) => {
+    const hasSubmenu = item.submenu && item.submenu.length > 0;
+    const isItemActive = isActive(item.path) || (hasSubmenu && item.submenu.some(subItem => isActive(subItem.path)));
+
+    const handleCollapsedClick = () => {
+      if (!hasSubmenu && item.path) {
+        navigate(item.path);
+      }
+      // Untuk menu dengan submenu di mode collapsed, kita tidak menampilkan submenu
+      // User harus expand sidebar dulu untuk melihat submenu
+    };
+
+    return (
+      <div className="relative group">
+        <div
+          onClick={handleCollapsedClick}
+          className={`flex items-center justify-center p-3 text-sm font-medium rounded-lg transition-all duration-200 cursor-pointer ${
+            isItemActive
+              ? 'bg-green-100 text-green-700'
+              : 'text-gray-600 hover:bg-green-50 hover:text-green-900'
+          }`}
+          title={item.title}
+        >
+          <span className={`${isItemActive ? 'text-green-600' : 'text-gray-400 group-hover:text-green-600'}`}>
+            {item.icon}
+          </span>
+        </div>
+
+        {/* Tooltip untuk menu collapsed */}
+        <div className="absolute left-full top-1/2 transform -translate-y-1/2 ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 whitespace-nowrap">
+          {item.title}
+          {hasSubmenu && item.submenu.length > 0 && (
+            <div className="mt-1">
+              {item.submenu.map((subItem, index) => (
+                <div 
+                  key={index}
+                  className={`px-2 py-1 rounded ${
+                    isActive(subItem.path) ? 'bg-green-600' : 'hover:bg-gray-700'
+                  }`}
+                >
+                  {subItem.title}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     );
   };
@@ -294,11 +354,11 @@ const Sidebar = () => {
         {!isCollapsed && (
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center">
-            <img 
-                  src={logoCircle} 
-                  alt="TPQ Asy-Syafi'i Logo" 
-                  className="w-full h-full object-cover rounded-full" 
-                />
+              <img 
+                src={logoCircle} 
+                alt="TPQ Asy-Syafi'i Logo" 
+                className="w-full h-full object-cover rounded-full" 
+              />
             </div>
             <div>
               <h1 className="font-bold text-green-800">System TPQ</h1>
@@ -312,10 +372,10 @@ const Sidebar = () => {
         {isCollapsed && (
           <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center mx-auto">
             <img 
-                  src={logoCircle} 
-                  alt="TPQ Asy-Syafi'i Logo" 
-                  className="w-full h-full object-cover rounded-full" 
-                />
+              src={logoCircle} 
+              alt="TPQ Asy-Syafi'i Logo" 
+              className="w-full h-full object-cover rounded-full" 
+            />
           </div>
         )}
 
@@ -356,46 +416,26 @@ const Sidebar = () => {
 
       {/* Navigation Menu */}
       <nav className="flex-1 overflow-y-auto py-4">
-        <div className="space-y-1 px-2">
+        <div className={`space-y-1 ${isCollapsed ? 'px-2' : 'px-2'}`}>
           {menuItems.map((item, index) => (
-            <MenuItem key={index} item={item} />
+            isCollapsed ? (
+              <MenuItemCollapsed key={index} item={item} />
+            ) : (
+              <MenuItem key={index} item={item} />
+            )
           ))}
         </div>
       </nav>
 
       {/* Footer */}
       <div className="p-4 border-t border-green-200">
-        {/* Switch Dashboard Button for Super Admin */}
-        {/* {isSuperAdmin && !isCollapsed && (
-          <Link
-            to={location.pathname.includes('/super-admin') ? '/admin' : '/super-admin'}
-            className="flex items-center space-x-3 px-4 py-3 text-sm font-medium text-green-600 hover:bg-green-100 hover:text-green-900 rounded-lg transition-all duration-200 mb-2"
-          >
-            <span className="text-green-500">
-              <SwitchIcon />
-            </span>
-            <span>
-              Switch to {location.pathname.includes('/super-admin') ? 'Admin' : 'Super Admin'}
-            </span>
-          </Link>
-        )}
-
-        {isSuperAdmin && isCollapsed && (
-          <Link
-            to={location.pathname.includes('/super-admin') ? '/admin' : '/super-admin'}
-            className="flex items-center justify-center p-3 text-green-600 hover:bg-green-100 hover:text-green-900 rounded-lg transition-all duration-200 mb-2"
-            title="Switch Dashboard"
-          >
-            <SwitchIcon />
-          </Link>
-        )} */}
-
         {/* Logout Button */}
         <button
           onClick={handleLogout}
           className={`flex items-center space-x-3 w-full px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg transition-all duration-200 ${
             isCollapsed ? 'justify-center' : ''
           }`}
+          title={isCollapsed ? 'Keluar' : ''}
         >
           <span className="text-red-500">
             <LogoutIcon />
