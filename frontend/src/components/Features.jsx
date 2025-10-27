@@ -159,24 +159,26 @@ const Features = () => {
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-green-800 mb-4">
-              Keunggulan TPQ Asy-Syafi'i
+              Fasilitas TPQ Asy-Syafi'i
             </h2>
             <p className="text-lg text-green-600 max-w-2xl mx-auto">
               Memuat data fasilitas...
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {[...Array(4)].map((_, index) => (
-              <div key={index} className="bg-green-50 rounded-xl p-6 text-center animate-pulse">
-                <div className="flex justify-center mb-4">
-                  <div className="p-3 bg-green-200 rounded-full w-18 h-18"></div>
+          <div className="flex justify-center">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl">
+              {[...Array(4)].map((_, index) => (
+                <div key={index} className="bg-green-50 rounded-xl p-6 text-center animate-pulse">
+                  <div className="flex justify-center mb-4">
+                    <div className="p-3 bg-green-200 rounded-full w-18 h-18"></div>
+                  </div>
+                  <div className="h-6 bg-green-200 rounded mb-3 mx-auto w-3/4"></div>
+                  <div className="h-4 bg-green-200 rounded mb-2"></div>
+                  <div className="h-4 bg-green-200 rounded w-5/6 mx-auto"></div>
                 </div>
-                <div className="h-6 bg-green-200 rounded mb-3 mx-auto w-3/4"></div>
-                <div className="h-4 bg-green-200 rounded mb-2"></div>
-                <div className="h-4 bg-green-200 rounded w-5/6 mx-auto"></div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -212,7 +214,7 @@ const Features = () => {
       <div className="container mx-auto px-4">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-bold text-green-800 mb-4">
-            Keunggulan TPQ Asy-Syafi'i
+            Fasilitas TPQ Asy-Syafi'i
           </h2>
           <p className="text-lg text-green-600 max-w-2xl mx-auto">
             Kami berkomitmen memberikan pendidikan Islam yang sesuai Al-Quran dan Sunnah 
@@ -231,25 +233,33 @@ const Features = () => {
             <p className="text-green-600">Silakan tambahkan fasilitas melalui panel admin</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {features.map((feature) => (
-              <div 
-                key={feature.id} 
-                className="bg-green-50 rounded-xl p-6 text-center hover:shadow-lg transition-all duration-300 hover:-translate-y-2 group flex flex-col items-center justify-center"
-              >
-                <div className="flex justify-center mb-4">
-                  <div className="p-3 bg-green-100 rounded-full text-green-600 group-hover:bg-green-200 group-hover:text-green-700 transition-colors duration-300 flex items-center justify-center">
-                    {feature.icon}
+          <div className="flex justify-center">
+            <div className={`
+              grid gap-8 max-w-7xl
+              ${features.length === 1 ? 'grid-cols-1 max-w-md' : ''}
+              ${features.length === 2 ? 'grid-cols-1 md:grid-cols-2 max-w-4xl' : ''}
+              ${features.length === 3 ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 max-w-6xl' : ''}
+              ${features.length >= 4 ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4 max-w-7xl' : ''}
+            `}>
+              {features.map((feature) => (
+                <div 
+                  key={feature.id} 
+                  className="bg-green-50 rounded-xl p-6 text-center hover:shadow-lg transition-all duration-300 hover:-translate-y-2 group flex flex-col items-center justify-center h-full"
+                >
+                  <div className="flex justify-center mb-4">
+                    <div className="p-3 bg-green-100 rounded-full text-green-600 group-hover:bg-green-200 group-hover:text-green-700 transition-colors duration-300 flex items-center justify-center">
+                      {feature.icon}
+                    </div>
                   </div>
+                  <h3 className="text-xl font-semibold text-green-800 mb-3 text-center w-full">
+                    {feature.title}
+                  </h3>
+                  <p className="text-green-600 leading-relaxed text-center w-full flex-grow">
+                    {feature.description}
+                  </p>
                 </div>
-                <h3 className="text-xl font-semibold text-green-800 mb-3 text-center w-full">
-                  {feature.title}
-                </h3>
-                <p className="text-green-600 leading-relaxed text-center w-full">
-                  {feature.description}
-                </p>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
       </div>
