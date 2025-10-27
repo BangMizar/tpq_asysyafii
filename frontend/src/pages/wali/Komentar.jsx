@@ -96,41 +96,47 @@ const Komentar = () => {
     setShowAddModal(true);
   };
 
-  const handleAddTestimoni = async (e) => {
+  // Di handleAddTestimoni - ubah ke FormData
+const handleAddTestimoni = async (e) => {
     e.preventDefault();
     try {
       setActionLoading(true);
-
+  
       // Validasi
       if (!formData.komentar.trim()) {
         showNotification('error', 'Gagal!', 'Komentar harus diisi!');
         return;
       }
-
+  
       if (formData.rating < 1 || formData.rating > 5) {
         showNotification('error', 'Gagal!', 'Rating harus antara 1 sampai 5!');
         return;
       }
-
+  
+      // Gunakan FormData instead of JSON
+      const formDataToSend = new FormData();
+      formDataToSend.append('komentar', formData.komentar.trim());
+      formDataToSend.append('rating', formData.rating.toString());
+  
       const response = await fetch(`${API_URL}/api/testimoni`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
+          // Jangan set Content-Type untuk FormData, browser akan set otomatis
         },
-        body: JSON.stringify(formData)
+        body: formDataToSend
       });
-
+  
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
-
+  
       const data = await response.json();
       setTestimoniData(data.data);
       setShowAddModal(false);
       showNotification('success', 'Berhasil!', 'Testimoni berhasil ditambahkan!');
-
+  
     } catch (err) {
       console.error('Error adding testimoni:', err);
       showNotification('error', 'Gagal!', `Gagal menambahkan testimoni: ${err.message}`);
@@ -148,41 +154,46 @@ const Komentar = () => {
     setShowEditModal(true);
   };
 
-  const handleUpdateTestimoni = async (e) => {
+  // Di handleUpdateTestimoni - ubah ke FormData
+const handleUpdateTestimoni = async (e) => {
     e.preventDefault();
     try {
       setActionLoading(true);
-
+  
       // Validasi
       if (!formData.komentar.trim()) {
         showNotification('error', 'Gagal!', 'Komentar harus diisi!');
         return;
       }
-
+  
       if (formData.rating < 1 || formData.rating > 5) {
         showNotification('error', 'Gagal!', 'Rating harus antara 1 sampai 5!');
         return;
       }
-
+  
+      // Gunakan FormData
+      const formDataToSend = new FormData();
+      formDataToSend.append('komentar', formData.komentar.trim());
+      formDataToSend.append('rating', formData.rating.toString());
+  
       const response = await fetch(`${API_URL}/api/testimoni/${testimoniData.id_testimoni}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
         },
-        body: JSON.stringify(formData)
+        body: formDataToSend
       });
-
+  
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
-
+  
       const data = await response.json();
       setTestimoniData(data.data);
       setShowEditModal(false);
       showNotification('success', 'Berhasil!', 'Testimoni berhasil diperbarui!');
-
+  
     } catch (err) {
       console.error('Error updating testimoni:', err);
       showNotification('error', 'Gagal!', `Gagal memperbarui testimoni: ${err.message}`);
@@ -568,7 +579,7 @@ const Komentar = () => {
 
       {/* Modal Edit Testimoni */}
       {showEditModal && (
-        <div className="fixed inset-0 backdrop-blur bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 backdrop-blur drop-shadow-2xl bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <h3 className="text-lg font-semibold text-green-900 mb-4">Edit Testimoni</h3>
@@ -641,7 +652,7 @@ const Komentar = () => {
 
       {/* Modal Notifikasi */}
       {showNotificationModal && (
-        <div className="fixed inset-0 backdrop-blur bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 backdrop-blur drop-shadow-2xl bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl max-w-sm w-full">
             <div className="p-6 text-center">
               <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${

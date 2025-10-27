@@ -539,7 +539,7 @@ const Keluarga = () => {
 
       {/* Modal Tambah Keluarga */}
       {showAddModal && (
-        <div className="fixed inset-0 backdrop-blur bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 backdrop-blur drop-shadow-2xl bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <h3 className="text-lg font-semibold text-green-900 mb-4">Tambah Data Keluarga</h3>

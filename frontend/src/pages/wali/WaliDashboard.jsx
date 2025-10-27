@@ -371,10 +371,10 @@ const DashboardWali = () => {
                 </svg>
               </div>
               <h3 className="text-lg font-semibold text-green-800 mb-2">
-                Pilih Santri
+                Santri
               </h3>
               <p className="text-green-600">
-                Silakan pilih santri untuk melihat daftar syahriah
+                Daftar syahriah santri
               </p>
             </div>
           ) : syahriahToShow.length === 0 ? (
