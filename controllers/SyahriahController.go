@@ -607,23 +607,24 @@ func (ctrl *SyahriahController) BatchCreateSyahriah(c *gin.Context) {
 		status = models.StatusBelum // default
 	}
 
-	// Dapatkan semua santri
+	// Dapatkan hanya santri dengan status aktif
 	var santriList []models.Santri
-	if err := ctrl.db.Find(&santriList).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data santri: " + err.Error()})
+	if err := ctrl.db.Where("status = ?", "aktif").Find(&santriList).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data santri aktif: " + err.Error()})
 		return
 	}
 
 	if len(santriList) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Tidak ada data santri yang tersedia"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Tidak ada data santri aktif yang tersedia"})
 		return
 	}
 
-	// Dapatkan santri yang sudah memiliki syahriah di bulan ini
+	// Dapatkan santri aktif yang sudah memiliki syahriah di bulan ini
 	var existingSantri []string
 	if err := ctrl.db.Model(&models.Syahriah{}).
-		Where("bulan = ?", req.Bulan).
-		Pluck("id_santri", &existingSantri).Error; err != nil {
+		Joins("JOIN santri ON syahriah.id_santri = santri.id_santri").
+		Where("syahriah.bulan = ? AND santri.status = ?", req.Bulan, "aktif").
+		Pluck("syahriah.id_santri", &existingSantri).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memeriksa data syahriah yang sudah ada: " + err.Error()})
 		return
 	}
@@ -638,6 +639,7 @@ func (ctrl *SyahriahController) BatchCreateSyahriah(c *gin.Context) {
 	var createdCount int
 
 	for _, santri := range santriList {
+		// Skip jika santri sudah memiliki data syahriah untuk bulan ini
 		if existingMap[santri.IDSantri] {
 			continue
 		}
@@ -657,10 +659,10 @@ func (ctrl *SyahriahController) BatchCreateSyahriah(c *gin.Context) {
 
 	if len(syahriahList) == 0 {
 		c.JSON(http.StatusOK, gin.H{
-			"message": "Semua santri sudah memiliki data syahriah untuk bulan ini",
+			"message": "Semua santri aktif sudah memiliki data syahriah untuk bulan ini",
 			"data": gin.H{
 				"created":      0,
-				"total_santri": len(santriList),
+				"total_santri_aktif": len(santriList),
 			},
 		})
 		return
@@ -680,10 +682,10 @@ func (ctrl *SyahriahController) BatchCreateSyahriah(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"message": fmt.Sprintf("Berhasil membuat data syahriah untuk %d santri", createdCount),
+		"message": fmt.Sprintf("Berhasil membuat data syahriah untuk %d santri aktif", createdCount),
 		"data": gin.H{
 			"created":      createdCount,
-			"total_santri": len(santriList),
+			"total_santri_aktif": len(santriList),
 			"skipped":      len(santriList) - createdCount,
 			"bulan":        req.Bulan,
 		},
