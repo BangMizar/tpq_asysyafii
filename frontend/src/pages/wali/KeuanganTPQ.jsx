@@ -1,4 +1,4 @@
-// pages/wali/KeuanganTPQ.jsx - DENGAN SVG ICONS TANPA BACKGROUND
+// pages/wali/KeuanganTPQ.jsx - DENGAN SVG ICONS TANPA BACKGROUND - SUMMARY MENGIKUTI FILTER
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -27,7 +27,7 @@ const KeuanganTPQ = () => {
       const token = localStorage.getItem('token');
       
       // Load data secara parallel untuk wali
-      const [rekapResponse, pemakaianResponse, donasiResponse, syahriahResponse, rekapAllResponse] = await Promise.all([
+      const [rekapResponse, pemakaianResponse, donasiResponse, syahriahResponse] = await Promise.all([
         fetch(`${API_URL}/api/rekap?limit=100`, {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -51,12 +51,6 @@ const KeuanganTPQ = () => {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
-        }),
-        fetch(`${API_URL}/api/rekap?limit=1000`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
         })
       ]);
 
@@ -65,25 +59,20 @@ const KeuanganTPQ = () => {
       if (!pemakaianResponse.ok) throw new Error('Gagal memuat data pemakaian');
       if (!donasiResponse.ok) throw new Error('Gagal memuat data donasi');
       if (!syahriahResponse.ok) throw new Error('Gagal memuat data syahriah');
-      if (!rekapAllResponse.ok) throw new Error('Gagal memuat semua data rekap');
 
       const rekapResult = await rekapResponse.json();
       const pemakaianResult = await pemakaianResponse.json();
       const donasiResult = await donasiResponse.json();
       const syahriahResult = await syahriahResponse.json();
-      const rekapAllResult = await rekapAllResponse.json();
 
       setRekapData(rekapResult.data || []);
       setPemakaianData(pemakaianResult.data || []);
       setDonasiData(donasiResult.data || []);
       setSyahriahData(syahriahResult.data || []);
 
-      // Extract unique periods dari semua data rekap
-      const periods = [...new Set(rekapAllResult.data.map(item => item.periode))].sort().reverse();
+      // Extract unique periods dari data rekap
+      const periods = [...new Set(rekapResult.data.map(item => item.periode))].sort().reverse();
       setAvailablePeriods(periods);
-
-      // Calculate summary data untuk wali
-      calculateSummary(rekapAllResult.data, pemakaianResult.data, donasiResult.data, syahriahResult.data);
 
     } catch (err) {
       console.error('Error loading data:', err);
@@ -93,12 +82,21 @@ const KeuanganTPQ = () => {
     }
   };
 
-  // LOGIKA PENGHITUNGAN YANG SAMA DENGAN ADMIN - DIPERBAIKI
-  const calculateSummary = (rekapData, pemakaianData, donasiData, syahriahData) => {
-    // Filter data berdasarkan periode yang dipilih
-    const currentPeriod = selectedPeriod === 'semua' ? null : selectedPeriod;
+  // PERBAIKAN BESAR: Summary dihitung berdasarkan filter periode yang dipilih
+  const calculateSummary = () => {
+    if (rekapData.length === 0) {
+      setSummaryData(null);
+      return;
+    }
+
+    let filteredRekap = rekapData;
     
-    // PERBAIKAN: Ambil data dari rekap untuk summary
+    // Filter data berdasarkan periode yang dipilih
+    if (selectedPeriod !== 'semua') {
+      filteredRekap = rekapData.filter(item => item.periode === selectedPeriod);
+    }
+
+    // PERBAIKAN: Hitung summary dari data rekap yang sudah difilter
     let totalPemasukanSyahriah = 0;
     let totalPemasukanDonasi = 0;
     let totalPengeluaranSyahriah = 0;
@@ -107,10 +105,23 @@ const KeuanganTPQ = () => {
     let totalPengeluaran = 0;
     let saldoAkhir = 0;
 
-    if (currentPeriod) {
-      // Jika periode tertentu dipilih, cari data rekap untuk periode tersebut
-      const rekapForPeriod = rekapData.find(item => item.periode === currentPeriod);
-      if (rekapForPeriod) {
+    if (filteredRekap.length > 0) {
+      if (selectedPeriod === 'semua') {
+        // Untuk "semua periode", jumlahkan semua data
+        totalPemasukanSyahriah = filteredRekap.reduce((sum, item) => sum + (item.pemasukan_syahriah || 0), 0);
+        totalPemasukanDonasi = filteredRekap.reduce((sum, item) => sum + (item.pemasukan_donasi || 0), 0);
+        totalPengeluaranSyahriah = filteredRekap.reduce((sum, item) => sum + (item.pengeluaran_syahriah || 0), 0);
+        totalPengeluaranDonasi = filteredRekap.reduce((sum, item) => sum + (item.pengeluaran_donasi || 0), 0);
+        totalPemasukan = filteredRekap.reduce((sum, item) => sum + (item.pemasukan_total || 0), 0);
+        totalPengeluaran = filteredRekap.reduce((sum, item) => sum + (item.pengeluaran_total || 0), 0);
+        
+        // Untuk saldo akhir di semua periode, ambil saldo terakhir
+        const latestPeriod = rekapData.length > 0 ? rekapData[0].periode : null;
+        const latestRekap = rekapData.find(item => item.periode === latestPeriod);
+        saldoAkhir = latestRekap?.saldo_akhir_total || 0;
+      } else {
+        // Untuk periode tertentu, ambil data dari rekap periode tersebut
+        const rekapForPeriod = filteredRekap[0]; // Karena sudah difilter, ambil yang pertama
         totalPemasukanSyahriah = rekapForPeriod.pemasukan_syahriah || 0;
         totalPemasukanDonasi = rekapForPeriod.pemasukan_donasi || 0;
         totalPengeluaranSyahriah = rekapForPeriod.pengeluaran_syahriah || 0;
@@ -119,37 +130,21 @@ const KeuanganTPQ = () => {
         totalPengeluaran = rekapForPeriod.pengeluaran_total || 0;
         saldoAkhir = rekapForPeriod.saldo_akhir_total || 0;
       }
-    } else {
-      // Jika "semua periode" dipilih, jumlahkan dari semua data rekap
-      totalPemasukanSyahriah = rekapData.reduce((sum, item) => sum + (item.pemasukan_syahriah || 0), 0);
-      totalPemasukanDonasi = rekapData.reduce((sum, item) => sum + (item.pemasukan_donasi || 0), 0);
-      totalPengeluaranSyahriah = rekapData.reduce((sum, item) => sum + (item.pengeluaran_syahriah || 0), 0);
-      totalPengeluaranDonasi = rekapData.reduce((sum, item) => sum + (item.pengeluaran_donasi || 0), 0);
-      totalPemasukan = rekapData.reduce((sum, item) => sum + (item.pemasukan_total || 0), 0);
-      totalPengeluaran = rekapData.reduce((sum, item) => sum + (item.pengeluaran_total || 0), 0);
-      
-      // Untuk saldo akhir di semua periode, ambil saldo terakhir
-      const latestPeriod = rekapData.length > 0 ? rekapData[0].periode : null;
-      const latestRekap = rekapData.find(item => item.periode === latestPeriod);
-      saldoAkhir = latestRekap?.saldo_akhir_total || 0;
     }
 
-    // PERBAIKAN: Hitung total syahriah wali sendiri dari data syahriah
-    const filteredSyahriah = currentPeriod
-      ? syahriahData.filter(item => {
-          return item.bulan === currentPeriod && item.wali?.id === user?.id && item.status === 'lunas';
-        })
-      : syahriahData.filter(item => item.wali?.id === user?.id && item.status === 'lunas');
-
-    const totalSyahriahOwn = filteredSyahriah.reduce((sum, item) => sum + (item.nominal || 0), 0);
+    // PERBAIKAN: Hitung total syahriah wali sendiri dari data syahriah dengan filter yang sama
+    const filteredSyahriah = getFilteredSyahriah();
+    const totalSyahriahOwn = filteredSyahriah
+      .filter(item => item.status === 'lunas')
+      .reduce((sum, item) => sum + (item.nominal || 0), 0);
 
     setSummaryData({
       totalPemasukan,
       totalPengeluaran,
       saldoAkhir,
       totalDonasi: totalPemasukanDonasi,
-      totalSyahriah: totalPemasukanSyahriah, // PERBAIKAN: Ambil dari rekap, bukan dari data syahriah
-      totalSyahriahOwn, // Total syahriah milik wali sendiri
+      totalSyahriah: totalPemasukanSyahriah,
+      totalSyahriahOwn,
       totalPemasukanSyahriah,
       totalPemasukanDonasi,
       totalPengeluaranSyahriah,
@@ -159,9 +154,7 @@ const KeuanganTPQ = () => {
 
   // Recalculate summary ketika periode berubah atau data berubah
   useEffect(() => {
-    if (rekapData.length > 0 && pemakaianData.length > 0 && donasiData.length > 0 && syahriahData.length > 0) {
-      calculateSummary(rekapData, pemakaianData, donasiData, syahriahData);
-    }
+    calculateSummary();
   }, [selectedPeriod, rekapData, pemakaianData, donasiData, syahriahData]);
 
   // Load data
@@ -285,12 +278,6 @@ const KeuanganTPQ = () => {
     return syahriahData.filter(item => {
       return item.bulan === selectedPeriod && item.wali?.id === user?.id;
     });
-  };
-
-  // FUNGSI BARU: Untuk mendapatkan total syahriah wali sendiri (hanya untuk informasi)
-  const getOwnSyahriahTotal = () => {
-    const filteredSyahriah = getFilteredSyahriah();
-    return filteredSyahriah.reduce((sum, item) => sum + (item.nominal || 0), 0);
   };
 
   const getCurrentPeriodText = () => {
@@ -662,7 +649,7 @@ const KeuanganTPQ = () => {
         </Link>
       </div>
 
-      {/* Summary Cards */}
+      {/* Summary Cards - SEKARANG MENGIKUTI FILTER PERIODE */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
         {/* Total Syahriah */}
         <div className="bg-white border border-orange-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
@@ -825,13 +812,13 @@ const KeuanganTPQ = () => {
             <p className="text-sm text-blue-800">
               <strong>Informasi:</strong> 
               <br />
-              • <strong>Summary Card</strong> menampilkan data keuangan <strong>seluruh TPQ</strong> yang diambil dari tabel rekap saldo
+              • <strong>Summary Card</strong> sekarang mengikuti filter periode yang dipilih
               <br />
-              • <strong>Total Syahriah</strong> menunjukkan pemasukan syahriah dari <strong>semua wali</strong>
+              • <strong>Total Syahriah</strong> menunjukkan pemasukan syahriah dari <strong>semua wali</strong> untuk periode yang dipilih
               <br />
               • <strong>Tab Syahriah</strong> hanya menampilkan <strong>pembayaran Anda sendiri</strong>
               <br />
-              • Data mengikuti filter periode yang dipilih dan konsisten dengan data di tabel rekap
+              • Data summary konsisten dengan data di tabel rekap untuk periode yang sama
             </p>
           </div>
         </div>
