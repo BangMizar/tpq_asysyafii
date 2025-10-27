@@ -38,6 +38,10 @@ func SetupRoutes(r *gin.Engine) {
 		sosialMediaController := controllers.NewSosialMediaController(config.DB)
 		api.GET("/sosial-media", sosialMediaController.GetAllSosialMedia)
 
+		testimoniController := controllers.NewTestimoniController(config.DB)
+		api.GET("/testimoni", testimoniController.GetTestimoniPublic)
+		api.GET("/testimoni/:id", testimoniController.GetTestimoniByID)
+
 		protected := api.Group("/")
 		protected.Use(middlewares.AuthMiddleware())
 		{
@@ -87,6 +91,12 @@ func SetupRoutes(r *gin.Engine) {
 			protected.GET("/pemakaian", pemakaianController.GetAllPemakaian)
 			protected.GET("/pemakaian/summary", pemakaianController.GetPemakaianSummary)
 			protected.GET("/pemakaian/:id", pemakaianController.GetPemakaianByID)
+
+			testimoniController := controllers.NewTestimoniController(config.DB)
+			protected.POST("/testimoni", testimoniController.CreateTestimoni)
+			protected.GET("/testimoni/my", testimoniController.GetMyTestimoni)
+			protected.PUT("/testimoni/:id", testimoniController.UpdateTestimoni)
+			protected.DELETE("/testimoni/:id", testimoniController.DeleteTestimoni)
 		}
 
 		// Group untuk admin DAN super-admin
@@ -201,6 +211,12 @@ func SetupRoutes(r *gin.Engine) {
 			superAdmin.GET("/sosial-media/:id", sosialMediaController.GetSosialMediaByID)
 			superAdmin.PUT("/sosial-media/:id", sosialMediaController.UpdateSosialMedia)
 			superAdmin.DELETE("/sosial-media/:id", sosialMediaController.DeleteSosialMedia)
+
+			testimoniController := controllers.NewTestimoniController(config.DB)
+			superAdmin.GET("/testimoni", testimoniController.GetAllTestimoni)
+			superAdmin.PUT("/testimoni/:id/show", testimoniController.ShowTestimoni)
+			superAdmin.PUT("/testimoni/:id/hide", testimoniController.HideTestimoni)
+			superAdmin.DELETE("/testimoni/:id", testimoniController.DeleteTestimoni)
 		}
 	}
 }

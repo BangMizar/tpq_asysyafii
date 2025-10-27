@@ -42,6 +42,7 @@ func InitDB() {
 		&models.Pengumuman{},
 		&models.Berita{},
 		&models.Fasilitas{},
+		&models.Testimoni{},
 		&models.InformasiTPQ{},
 		&models.SosialMedia{},
 		&models.ProgramUnggulan{},
