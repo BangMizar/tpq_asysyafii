@@ -466,7 +466,20 @@ const DataSantri = () => {
     try {
       setActionLoading(true);
       
-      const newStatus = selectedSantri.status === 'aktif' ? 'nonaktif' : 'aktif';
+      // Tentukan status baru berdasarkan status saat ini
+      let newStatus;
+      switch (selectedSantri.status) {
+        case 'aktif':
+          newStatus = 'lulus'; // Default ke lulus ketika mengubah dari aktif
+          break;
+        case 'lulus':
+        case 'pindah':
+        case 'berhenti':
+          newStatus = 'aktif';
+          break;
+        default:
+          newStatus = 'aktif';
+      }
       
       const response = await fetch(`${API_URL}/api/super-admin/santri/${selectedSantri.id}/status`, {
         method: 'PUT',
@@ -476,7 +489,7 @@ const DataSantri = () => {
         },
         body: JSON.stringify({
           status: newStatus,
-          tanggal_keluar: newStatus === 'nonaktif' ? new Date().toISOString().split('T')[0] : null
+          tanggal_keluar: newStatus !== 'aktif' ? new Date().toISOString().split('T')[0] : null
         })
       });
 
@@ -490,13 +503,13 @@ const DataSantri = () => {
           ? { 
               ...item, 
               status: newStatus,
-              tanggalKeluar: newStatus === 'nonaktif' ? new Date().toISOString().split('T')[0] : null
+              tanggalKeluar: newStatus !== 'aktif' ? new Date().toISOString().split('T')[0] : null
             }
           : item
       ));
       
       closeModals();
-      showAlert('Berhasil', `Status santri ${selectedSantri.nama} berhasil diubah`, 'success');
+      showAlert('Berhasil', `Status santri ${selectedSantri.nama} berhasil diubah menjadi ${getStatusLabel(newStatus)}`, 'success');
       
     } catch (error) {
       console.error('Error updating santri status:', error);
@@ -504,6 +517,28 @@ const DataSantri = () => {
     } finally {
       setActionLoading(false);
     }
+  };
+
+  // Fungsi untuk mendapatkan label status
+  const getStatusLabel = (status) => {
+    const statusLabels = {
+      'aktif': 'Aktif',
+      'lulus': 'Lulus',
+      'pindah': 'Pindah',
+      'berhenti': 'Berhenti'
+    };
+    return statusLabels[status] || status;
+  };
+
+  // Fungsi untuk mendapatkan warna status
+  const getStatusColor = (status) => {
+    const statusColors = {
+      'aktif': { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-200' },
+      'lulus': { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-200' },
+      'pindah': { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-200' },
+      'berhenti': { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-200' }
+    };
+    return statusColors[status] || { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-200' };
   };
 
   // Format tanggal
@@ -535,7 +570,9 @@ const DataSantri = () => {
   // Group santri by status untuk statistik
   const santriByStatus = {
     aktif: santri.filter(item => item.status === 'aktif'),
-    nonaktif: santri.filter(item => item.status === 'nonaktif')
+    lulus: santri.filter(item => item.status === 'lulus'),
+    pindah: santri.filter(item => item.status === 'pindah'),
+    berhenti: santri.filter(item => item.status === 'berhenti')
   };
 
   if (loading) {
@@ -612,15 +649,15 @@ const DataSantri = () => {
             </div>
           </div>
 
-          <div className="bg-white p-4 rounded-lg shadow-md border-l-4 border-red-500">
+          <div className="bg-white p-4 rounded-lg shadow-md border-l-4 border-blue-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Santri Nonaktif</p>
-                <p className="text-2xl font-bold text-gray-800">{santriByStatus.nonaktif.length}</p>
+                <p className="text-sm font-medium text-gray-600">Santri Lulus</p>
+                <p className="text-2xl font-bold text-gray-800">{santriByStatus.lulus.length}</p>
               </div>
-              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                 </svg>
               </div>
             </div>
@@ -660,7 +697,9 @@ const DataSantri = () => {
             >
               <option value="all">Semua Status</option>
               <option value="aktif">Aktif</option>
-              <option value="nonaktif">Nonaktif</option>
+              <option value="lulus">Lulus</option>
+              <option value="pindah">Pindah</option>
+              <option value="berhenti">Berhenti</option>
             </select>
             <select
               className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -746,6 +785,8 @@ const DataSantri = () => {
                       hasPermission={hasPermission}
                       currentUser={currentUser}
                       formatDate={formatDate}
+                      getStatusLabel={getStatusLabel}
+                      getStatusColor={getStatusColor}
                     />
                   ))
                 )}
@@ -895,7 +936,9 @@ const DataSantri = () => {
                       required
                     >
                       <option value="aktif">Aktif</option>
-                      <option value="nonaktif">Nonaktif</option>
+                      <option value="lulus">Lulus</option>
+                      <option value="pindah">Pindah</option>
+                      <option value="berhenti">Berhenti</option>
                     </select>
                   </div>
 
@@ -1041,7 +1084,9 @@ const DataSantri = () => {
                       required
                     >
                       <option value="aktif">Aktif</option>
-                      <option value="nonaktif">Nonaktif</option>
+                      <option value="lulus">Lulus</option>
+                      <option value="pindah">Pindah</option>
+                      <option value="berhenti">Berhenti</option>
                     </select>
                   </div>
 
@@ -1064,7 +1109,7 @@ const DataSantri = () => {
                     )}
                   </div>
 
-                  {formData.status === 'nonaktif' && (
+                  {formData.status !== 'aktif' && (
                     <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Tanggal Keluar
@@ -1134,27 +1179,78 @@ const DataSantri = () => {
           <div className="fixed inset-0 backdrop-blur drop-shadow-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-xl p-6 w-full max-w-md">
               <h3 className="text-xl font-bold text-gray-800 mb-4">
-                {selectedSantri.status === 'aktif' ? 'Nonaktifkan Santri' : 'Aktifkan Santri'}
+                Ubah Status Santri
               </h3>
-              <p className="text-gray-600 mb-6">
-                Apakah Anda yakin ingin {selectedSantri.status === 'aktif' ? 'menonaktifkan' : 'mengaktifkan'} santri{' '}
-                <strong>"{selectedSantri.nama}"</strong>?
+              <p className="text-gray-600 mb-4">
+                Ubah status santri <strong>"{selectedSantri.nama}"</strong> dari{' '}
+                <span className={`font-medium ${getStatusColor(selectedSantri.status).text}`}>
+                  {getStatusLabel(selectedSantri.status)}
+                </span> menjadi:
               </p>
+              
+              <div className="space-y-2 mb-6">
+                {['aktif', 'lulus', 'pindah', 'berhenti']
+                  .filter(status => status !== selectedSantri.status)
+                  .map(status => (
+                    <button
+                      key={status}
+                      onClick={async () => {
+                        try {
+                          setActionLoading(true);
+                          
+                          const response = await fetch(`${API_URL}/api/super-admin/santri/${selectedSantri.id}/status`, {
+                            method: 'PUT',
+                            headers: {
+                              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                              'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                              status: status,
+                              tanggal_keluar: status !== 'aktif' ? new Date().toISOString().split('T')[0] : null
+                            })
+                          });
+
+                          if (!response.ok) {
+                            const errorData = await response.json().catch(() => null);
+                            throw new Error(errorData?.error || `HTTP error! status: ${response.status}`);
+                          }
+
+                          setSantri(santri.map(item => 
+                            item.id === selectedSantri.id 
+                              ? { 
+                                  ...item, 
+                                  status: status,
+                                  tanggalKeluar: status !== 'aktif' ? new Date().toISOString().split('T')[0] : null
+                                }
+                              : item
+                          ));
+                          
+                          closeModals();
+                          showAlert('Berhasil', `Status santri ${selectedSantri.nama} berhasil diubah menjadi ${getStatusLabel(status)}`, 'success');
+                          
+                        } catch (error) {
+                          console.error('Error updating santri status:', error);
+                          showAlert('Gagal', `Gagal mengubah status santri: ${error.message}`, 'error');
+                        } finally {
+                          setActionLoading(false);
+                        }
+                      }}
+                      disabled={actionLoading}
+                      className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${
+                        getStatusColor(status).bg
+                      } ${getStatusColor(status).border} ${getStatusColor(status).text} hover:opacity-80 disabled:opacity-50`}
+                    >
+                      {getStatusLabel(status)}
+                    </button>
+                  ))}
+              </div>
+              
               <div className="flex justify-end space-x-3">
                 <button
                   onClick={closeModals}
                   className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
                 >
                   Batal
-                </button>
-                <button
-                  onClick={handleToggleStatus}
-                  disabled={actionLoading}
-                  className={`px-4 py-2 ${
-                    selectedSantri.status === 'aktif' ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'
-                  } text-white rounded-lg disabled:opacity-50`}
-                >
-                  {actionLoading ? 'Memproses...' : (selectedSantri.status === 'aktif' ? 'Nonaktifkan' : 'Aktifkan')}
                 </button>
               </div>
             </div>
@@ -1202,10 +1298,8 @@ const DataSantri = () => {
                 </div>
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
                   <span className="text-sm font-medium text-gray-500">Status</span>
-                  <span className={`text-sm font-medium ${
-                    selectedSantri.status === 'aktif' ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    {selectedSantri.status === 'aktif' ? 'Aktif' : 'Nonaktif'}
+                  <span className={`text-sm font-medium ${getStatusColor(selectedSantri.status).text}`}>
+                    {getStatusLabel(selectedSantri.status)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
@@ -1305,86 +1399,88 @@ const DataSantri = () => {
 };
 
 // Komponen terpisah untuk table row santri
-const SantriTableRow = React.memo(({ santri, onEdit, onView, onDelete, onToggleStatus, hasPermission, currentUser, formatDate }) => (
-  <tr className="hover:bg-gray-50 transition-colors">
-    <td className="px-6 py-4">
-      <div className="flex items-center">
-        <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-          <span className="text-blue-600 font-medium">
-            {santri.nama.split(' ').map(n => n[0]).join('')}
-          </span>
+const SantriTableRow = React.memo(({ santri, onEdit, onView, onDelete, onToggleStatus, hasPermission, currentUser, formatDate, getStatusLabel, getStatusColor }) => {
+  const statusColor = getStatusColor(santri.status);
+  
+  return (
+    <tr className="hover:bg-gray-50 transition-colors">
+      <td className="px-6 py-4">
+        <div className="flex items-center">
+          <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+            <span className="text-blue-600 font-medium">
+              {santri.nama.split(' ').map(n => n[0]).join('')}
+            </span>
+          </div>
+          <div className="ml-4">
+            <button 
+              onClick={() => onView(santri)}
+              className="text-sm font-medium text-gray-900 hover:text-blue-600 transition-colors text-left"
+            >
+              {santri.nama}
+            </button>
+            <div className="text-xs text-gray-400">ID: {santri.id}</div>
+          </div>
         </div>
-        <div className="ml-4">
-          <button 
-            onClick={() => onView(santri)}
-            className="text-sm font-medium text-gray-900 hover:text-blue-600 transition-colors text-left"
-          >
-            {santri.nama}
-          </button>
-          <div className="text-xs text-gray-400">ID: {santri.id}</div>
-        </div>
-      </div>
-    </td>
-    <td className="px-6 py-4">
-      {santri.wali ? (
-        <div>
-          <div className="text-sm text-gray-900">{santri.wali.nama}</div>
-          <div className="text-xs text-gray-500">{santri.wali.email}</div>
-        </div>
-      ) : (
-        <span className="text-sm text-gray-500">-</span>
-      )}
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-      {santri.jenisKelamin === 'L' ? 'Laki-laki' : 'Perempuan'}
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap">
-      <button
-        onClick={() => hasPermission('edit_santri') && onToggleStatus(santri)}
-        className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full transition-colors ${
-          santri.status === 'aktif' 
-            ? 'bg-green-100 text-green-800 border border-green-200 hover:bg-green-200' 
-            : 'bg-red-100 text-red-800 border border-red-200 hover:bg-red-200'
-        } ${
-          !hasPermission('edit_santri') ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
-        }`}
-        disabled={!hasPermission('edit_santri')}
-        title={!hasPermission('edit_santri') ? "Tidak memiliki izin" : "Klik untuk mengubah status"}
-      >
-        {santri.status === 'aktif' ? 'Aktif' : 'Nonaktif'}
-      </button>
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-      {formatDate(santri.tanggalMasuk)}
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-      <div className="flex items-center gap-3">
-        <button 
-          onClick={() => onEdit(santri)}
-          className="text-blue-600 hover:text-blue-900 flex items-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          title="Edit Santri"
+      </td>
+      <td className="px-6 py-4">
+        {santri.wali ? (
+          <div>
+            <div className="text-sm text-gray-900">{santri.wali.nama}</div>
+            <div className="text-xs text-gray-500">{santri.wali.email}</div>
+          </div>
+        ) : (
+          <span className="text-sm text-gray-500">-</span>
+        )}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+        {santri.jenisKelamin === 'L' ? 'Laki-laki' : 'Perempuan'}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <button
+          onClick={() => hasPermission('edit_santri') && onToggleStatus(santri)}
+          className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full transition-colors ${
+            statusColor.bg
+          } ${statusColor.text} ${statusColor.border} ${
+            hasPermission('edit_santri') ? 'hover:opacity-80 cursor-pointer' : 'cursor-not-allowed opacity-50'
+          }`}
           disabled={!hasPermission('edit_santri')}
+          title={!hasPermission('edit_santri') ? "Tidak memiliki izin" : "Klik untuk mengubah status"}
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-          </svg>
-          Edit
+          {getStatusLabel(santri.status)}
         </button>
-        {hasPermission('delete_santri') && currentUser?.role === 'super_admin' && (
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {formatDate(santri.tanggalMasuk)}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+        <div className="flex items-center gap-3">
           <button 
-            onClick={() => onDelete(santri)}
-            className="text-red-600 hover:text-red-900 flex items-center gap-1 transition-colors"
-            title="Hapus Santri"
+            onClick={() => onEdit(santri)}
+            className="text-blue-600 hover:text-blue-900 flex items-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Edit Santri"
+            disabled={!hasPermission('edit_santri')}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
-            Hapus
+            Edit
           </button>
-        )}
-      </div>
-    </td>
-  </tr>
-));
+          {hasPermission('delete_santri') && currentUser?.role === 'super_admin' && (
+            <button 
+              onClick={() => onDelete(santri)}
+              className="text-red-600 hover:text-red-900 flex items-center gap-1 transition-colors"
+              title="Hapus Santri"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Hapus
+            </button>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+});
 
 export default DataSantri;
