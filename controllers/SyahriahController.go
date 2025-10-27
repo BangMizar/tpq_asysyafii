@@ -22,10 +22,10 @@ func NewSyahriahController(db *gorm.DB) *SyahriahController {
 
 // Request structs
 type CreateSyahriahRequest struct {
-	IDWali  string  `json:"id_wali" binding:"required"`
-	Bulan   string  `json:"bulan" binding:"required"` // format YYYY-MM
-	Nominal float64 `json:"nominal"`
-	Status  string  `json:"status"`
+	ID_Santri string  `json:"id_santri" binding:"required"`
+	Bulan    string  `json:"bulan" binding:"required"` // format YYYY-MM
+	Nominal  float64 `json:"nominal"`
+	Status   string  `json:"status"`
 }
 
 type UpdateSyahriahRequest struct {
@@ -100,16 +100,16 @@ func (ctrl *SyahriahController) CreateSyahriah(c *gin.Context) {
 		return
 	}
 
-	// Cek apakah wali exists
-	var wali models.User
-	if err := ctrl.db.Where("id_user = ?", req.IDWali).First(&wali).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Wali tidak ditemukan"})
+	// Cek apakah santri exists
+	var santri models.Santri
+	if err := ctrl.db.Where("id_santri = ?", req.ID_Santri).First(&santri).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Santri tidak ditemukan"})
 		return
 	}
 
-	// Cek apakah sudah ada syahriah untuk bulan dan wali yang sama
+	// Cek apakah sudah ada syahriah untuk bulan dan santri yang sama
 	var existingSyahriah models.Syahriah
-	if err := ctrl.db.Where("id_wali = ? AND bulan = ?", req.IDWali, req.Bulan).First(&existingSyahriah).Error; err == nil {
+	if err := ctrl.db.Where("id_santri = ? AND bulan = ?", req.ID_Santri, req.Bulan).First(&existingSyahriah).Error; err == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Syahriah untuk bulan ini sudah ada"})
 		return
 	}
@@ -134,7 +134,7 @@ func (ctrl *SyahriahController) CreateSyahriah(c *gin.Context) {
 	// Buat data syahriah
 	syahriah := models.Syahriah{
 		IDSyahriah:  uuid.New().String(),
-		IDWali:      req.IDWali,
+		ID_Santri:    req.ID_Santri,
 		Bulan:       req.Bulan,
 		Nominal:     req.Nominal,
 		Status:      status,
@@ -149,7 +149,7 @@ func (ctrl *SyahriahController) CreateSyahriah(c *gin.Context) {
 	}
 
 	// Preload relations untuk response
-	ctrl.db.Preload("Wali").Preload("Admin").First(&syahriah, "id_syahriah = ?", syahriah.IDSyahriah)
+	ctrl.db.Preload("Santri").Preload("Santri.Wali").Preload("Admin").First(&syahriah, "id_syahriah = ?", syahriah.IDSyahriah)
 
 	ctrl.updateRekapOtomatis(syahriah)
 
@@ -159,7 +159,7 @@ func (ctrl *SyahriahController) CreateSyahriah(c *gin.Context) {
 	})
 }
 
-// GetAllSyahriah mendapatkan semua data syahriah (admin) atau hanya milik sendiri (wali)
+// GetAllSyahriah mendapatkan semua data syahriah (admin) atau hanya milik sendiri (santri)
 func (ctrl *SyahriahController) GetAllSyahriah(c *gin.Context) {
 	userID, exists := ctrl.getUserID(c)
 	if !exists {
@@ -172,7 +172,7 @@ func (ctrl *SyahriahController) GetAllSyahriah(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	bulan := c.Query("bulan")
 	status := c.Query("status")
-	idWali := c.Query("id_wali") // untuk filter oleh admin
+	idSantri := c.Query("id_santri") // untuk filter oleh admin
 
 	if page < 1 {
 		page = 1
@@ -184,15 +184,15 @@ func (ctrl *SyahriahController) GetAllSyahriah(c *gin.Context) {
 	var syahriah []models.Syahriah
 	var total int64
 
-	// Build query
-	query := ctrl.db.Preload("Wali").Preload("Admin")
+	// Build query dengan preload yang benar
+	query := ctrl.db.Preload("Santri").Preload("Santri.Wali").Preload("Admin")
 
-	// Jika user adalah wali, hanya tampilkan data miliknya
+	// Jika user adalah santri, hanya tampilkan data miliknya
 	if !ctrl.isAdmin(c) {
-		query = query.Where("id_wali = ?", userID)
-	} else if idWali != "" {
-		// Jika admin dan filter by id_wali
-		query = query.Where("id_wali = ?", idWali)
+		query = query.Where("id_santri = ?", userID)
+	} else if idSantri != "" {
+		// Jika admin dan filter by id_santri
+		query = query.Where("id_santri = ?", idSantri)
 	}
 
 	// Apply filters
@@ -247,7 +247,7 @@ func (ctrl *SyahriahController) GetSyahriahByID(c *gin.Context) {
 	}
 
 	var syahriah models.Syahriah
-	err := ctrl.db.Preload("Wali").Preload("Admin").Where("id_syahriah = ?", id).First(&syahriah).Error
+	err := ctrl.db.Preload("Santri").Preload("Santri.Wali").Preload("Admin").Where("id_syahriah = ?", id).First(&syahriah).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Data syahriah tidak ditemukan"})
@@ -257,8 +257,8 @@ func (ctrl *SyahriahController) GetSyahriahByID(c *gin.Context) {
 		return
 	}
 
-	// Authorization: hanya admin atau wali yang bersangkutan yang bisa lihat
-	if !ctrl.isAdmin(c) && syahriah.IDWali != userID {
+	// Authorization: hanya admin atau santri yang bersangkutan yang bisa lihat
+	if !ctrl.isAdmin(c) && syahriah.ID_Santri != userID {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden: Anda tidak memiliki akses ke data ini"})
 		return
 	}
@@ -268,7 +268,7 @@ func (ctrl *SyahriahController) GetSyahriahByID(c *gin.Context) {
 	})
 }
 
-// GetMySyahriah mendapatkan data syahriah milik user yang login (untuk wali)
+// GetMySyahriah mendapatkan data syahriah milik user yang login (untuk santri)
 func (ctrl *SyahriahController) GetMySyahriah(c *gin.Context) {
 	userID, exists := ctrl.getUserID(c)
 	if !exists {
@@ -293,7 +293,7 @@ func (ctrl *SyahriahController) GetMySyahriah(c *gin.Context) {
 	var total int64
 
 	// Build query hanya untuk user yang login
-	query := ctrl.db.Preload("Wali").Preload("Admin").Where("id_wali = ?", userID)
+	query := ctrl.db.Preload("Santri").Preload("Santri.Wali").Preload("Admin").Where("id_santri = ?", userID)
 
 	// Apply filters
 	if bulan != "" {
@@ -384,7 +384,7 @@ func (ctrl *SyahriahController) UpdateSyahriah(c *gin.Context) {
 	}
 
 	// Preload relations untuk response
-	ctrl.db.Preload("Wali").Preload("Admin").First(&existingSyahriah, "id_syahriah = ?", existingSyahriah.IDSyahriah)
+	ctrl.db.Preload("Santri").Preload("Santri.Wali").Preload("Admin").First(&existingSyahriah, "id_syahriah = ?", existingSyahriah.IDSyahriah)
 
 	ctrl.updateRekapOtomatis(existingSyahriah)
 
@@ -394,7 +394,7 @@ func (ctrl *SyahriahController) UpdateSyahriah(c *gin.Context) {
 	})
 }
 
-// BayarSyahriah update status menjadi lunas (bisa oleh wali untuk bayar)
+// BayarSyahriah update status menjadi lunas (bisa oleh santri untuk bayar)
 func (ctrl *SyahriahController) BayarSyahriah(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
@@ -432,14 +432,15 @@ func (ctrl *SyahriahController) BayarSyahriah(c *gin.Context) {
 		return
 	}
 
-	// Authorization: hanya admin atau wali yang bersangkutan yang bisa bayar
-	if !ctrl.isAdmin(c) && existingSyahriah.IDWali != userID {
+	// Authorization: hanya admin atau santri yang bersangkutan yang bisa bayar
+	if !ctrl.isAdmin(c) && existingSyahriah.ID_Santri != userID {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden: Anda tidak memiliki akses untuk melakukan pembayaran ini"})
 		return
 	}
 
 	// Update status menjadi lunas
 	existingSyahriah.Status = models.StatusLunas
+	existingSyahriah.WaktuCatat = time.Now() // Update waktu catat saat pembayaran
 
 	// Simpan perubahan
 	if err := ctrl.db.Save(&existingSyahriah).Error; err != nil {
@@ -448,7 +449,7 @@ func (ctrl *SyahriahController) BayarSyahriah(c *gin.Context) {
 	}
 
 	// Preload relations untuk response
-	ctrl.db.Preload("Wali").Preload("Admin").First(&existingSyahriah, "id_syahriah = ?", existingSyahriah.IDSyahriah)
+	ctrl.db.Preload("Santri").Preload("Santri.Wali").Preload("Admin").First(&existingSyahriah, "id_syahriah = ?", existingSyahriah.IDSyahriah)
 
 	ctrl.updateRekapOtomatis(existingSyahriah)
 
@@ -513,7 +514,7 @@ func (ctrl *SyahriahController) GetSyahriahSummary(c *gin.Context) {
 	// Build query berdasarkan role
 	query := ctrl.db.Model(&models.Syahriah{})
 	if !ctrl.isAdmin(c) {
-		query = query.Where("id_wali = ?", userID)
+		query = query.Where("id_santri = ?", userID)
 	}
 
 	// Hitung total
@@ -537,24 +538,26 @@ func (ctrl *SyahriahController) GetSyahriahSummary(c *gin.Context) {
 		return
 	}
 
-	// Total nominal
+	// Total nominal yang sudah dibayar (hanya yang status lunas)
 	var totalNominal float64
-	if err := query.Select("COALESCE(SUM(nominal), 0)").Scan(&totalNominal).Error; err != nil {
+	if err := query.Where("status = ?", models.StatusLunas).
+		Select("COALESCE(SUM(nominal), 0)").
+		Scan(&totalNominal).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung total nominal: " + err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"data": gin.H{
-			"total":        total,
-			"lunas":        lunas,
-			"belum_lunas":  belum,
+			"total":         total,
+			"lunas":         lunas,
+			"belum_lunas":   belum,
 			"total_nominal": totalNominal,
 		},
 	})
 }
 
-// BatchCreateSyahriah membuat data syahriah untuk semua wali yang belum memiliki data di bulan tertentu
+// BatchCreateSyahriah membuat data syahriah untuk semua santri yang belum memiliki data di bulan tertentu
 func (ctrl *SyahriahController) BatchCreateSyahriah(c *gin.Context) {
 	// Hanya admin yang bisa create batch
 	if !ctrl.isAdmin(c) {
@@ -604,46 +607,44 @@ func (ctrl *SyahriahController) BatchCreateSyahriah(c *gin.Context) {
 		status = models.StatusBelum // default
 	}
 
-	// Dapatkan semua wali
-	var waliList []models.User
-	if err := ctrl.db.Where("role = ?", "wali").Find(&waliList).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data wali: " + err.Error()})
+	// Dapatkan semua santri
+	var santriList []models.Santri
+	if err := ctrl.db.Find(&santriList).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data santri: " + err.Error()})
 		return
 	}
 
-	if len(waliList) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Tidak ada data wali yang tersedia"})
+	if len(santriList) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Tidak ada data santri yang tersedia"})
 		return
 	}
 
-	// Dapatkan wali yang sudah memiliki syahriah di bulan ini
-	var existingWali []string
+	// Dapatkan santri yang sudah memiliki syahriah di bulan ini
+	var existingSantri []string
 	if err := ctrl.db.Model(&models.Syahriah{}).
 		Where("bulan = ?", req.Bulan).
-		Pluck("id_wali", &existingWali).Error; err != nil {
+		Pluck("id_santri", &existingSantri).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memeriksa data syahriah yang sudah ada: " + err.Error()})
 		return
 	}
 
 	// Buat map untuk pengecekan cepat
 	existingMap := make(map[string]bool)
-	for _, id := range existingWali {
+	for _, id := range existingSantri {
 		existingMap[id] = true
 	}
 
-	// Buat data syahriah untuk wali yang belum memiliki
 	var syahriahList []models.Syahriah
 	var createdCount int
 
-	for _, wali := range waliList {
-		// Skip jika wali sudah memiliki syahriah di bulan ini
-		if existingMap[wali.IDUser] {
+	for _, santri := range santriList {
+		if existingMap[santri.IDSantri] {
 			continue
 		}
 
 		syahriah := models.Syahriah{
 			IDSyahriah:  uuid.New().String(),
-			IDWali:      wali.IDUser,
+			ID_Santri:    santri.IDSantri,
 			Bulan:       req.Bulan,
 			Nominal:     req.Nominal,
 			Status:      status,
@@ -656,10 +657,10 @@ func (ctrl *SyahriahController) BatchCreateSyahriah(c *gin.Context) {
 
 	if len(syahriahList) == 0 {
 		c.JSON(http.StatusOK, gin.H{
-			"message": "Semua wali sudah memiliki data syahriah untuk bulan ini",
+			"message": "Semua santri sudah memiliki data syahriah untuk bulan ini",
 			"data": gin.H{
-				"created": 0,
-				"total_wali": len(waliList),
+				"created":      0,
+				"total_santri": len(santriList),
 			},
 		})
 		return
@@ -679,12 +680,12 @@ func (ctrl *SyahriahController) BatchCreateSyahriah(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"message": fmt.Sprintf("Berhasil membuat data syahriah untuk %d wali", createdCount),
+		"message": fmt.Sprintf("Berhasil membuat data syahriah untuk %d santri", createdCount),
 		"data": gin.H{
-			"created":     createdCount,
-			"total_wali": len(waliList),
-			"skipped":    len(waliList) - createdCount,
-			"bulan":      req.Bulan,
+			"created":      createdCount,
+			"total_santri": len(santriList),
+			"skipped":      len(santriList) - createdCount,
+			"bulan":        req.Bulan,
 		},
 	})
 }

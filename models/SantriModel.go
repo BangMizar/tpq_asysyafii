@@ -33,7 +33,6 @@ type Santri struct {
 	DibuatPada      time.Time     `json:"dibuat_pada" gorm:"autoCreateTime"`
 	DiperbaruiPada  time.Time     `json:"diperbarui_pada" gorm:"autoUpdateTime"`
 	
-	// Relasi
 	Wali            User          `json:"wali,omitempty" gorm:"foreignKey:IDWali;references:IDUser"`
 }
 

@@ -91,6 +91,9 @@ func SetupRoutes(r *gin.Engine) {
 			admin.GET("/wali",controllers.GetWali)
 			admin.POST("/users", controllers.RegisterUser)
 
+			santriController := controllers.NewSantriController(config.DB)
+			admin.GET("/santri", santriController.GetAllSantri)
+
 			donasiController := controllers.NewDonasiController(config.GetDB())
 			admin.POST("/donasi", donasiController.CreateDonasi)
 			admin.GET("/donasi", donasiController.GetAllDonasi)

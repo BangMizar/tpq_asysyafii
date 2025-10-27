@@ -22,7 +22,7 @@ const DataSyahriah = () => {
     lunas: 0,
     belum_lunas: 0
   });
-  const [waliData, setWaliData] = useState([]);
+  const [santriData, setSantriData] = useState([]);
   
   // State untuk modal
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -31,18 +31,20 @@ const DataSyahriah = () => {
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [alertMessage, setAlertMessage] = useState({ title: '', message: '', type: '' });
   const [selectedSyahriah, setSelectedSyahriah] = useState(null);
+  
   // Get current month in YYYY-MM format
   const getCurrentMonth = () => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   };
+  
   // State untuk filter
   const [filterNama, setFilterNama] = useState('');
   const [filterBulanTahun, setFilterBulanTahun] = useState(getCurrentMonth());
   
   // State untuk form
   const [formData, setFormData] = useState({
-    id_wali: '',
+    id_santri: '',
     bulan: getCurrentMonth(),
     nominal: 110000,
     status: 'belum'
@@ -53,7 +55,7 @@ const DataSyahriah = () => {
   // Fetch semua data
   useEffect(() => {
     fetchAllData();
-    fetchWaliData();
+    fetchSantriData();
   }, [API_URL]);
 
   // Calculate summary when data or filters change
@@ -131,7 +133,7 @@ const DataSyahriah = () => {
   const calculateFilteredSummary = () => {
     const filteredData = pembayaranData.filter(item => {
       const matchesNama = filterNama === '' || 
-        (item.wali?.nama_lengkap && item.wali.nama_lengkap.toLowerCase().includes(filterNama.toLowerCase()));
+        (item.santri?.nama_lengkap && item.santri.nama_lengkap.toLowerCase().includes(filterNama.toLowerCase()));
       
       const matchesBulanTahun = filterBulanTahun === '' || item.bulan.includes(filterBulanTahun);
       
@@ -161,10 +163,10 @@ const DataSyahriah = () => {
     });
   };
 
-  // Fetch data wali
-  const fetchWaliData = async () => {
+  // Fetch data santri
+  const fetchSantriData = async () => {
     try {
-      console.log('🔍 Fetching wali data from:', `${API_URL}/api/admin/wali`);
+      console.log('🔍 Fetching santri data from:', `${API_URL}/api/admin/santri`);
       
       const token = localStorage.getItem('token');
       if (!token) {
@@ -173,7 +175,7 @@ const DataSyahriah = () => {
         return;
       }
 
-      const response = await fetch(`${API_URL}/api/admin/wali`, {
+      const response = await fetch(`${API_URL}/api/admin/santri`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -187,27 +189,30 @@ const DataSyahriah = () => {
       }
 
       const data = await response.json();
-      console.log('Wali data received:', data);
+      console.log('Santri data received:', data);
       
       if (Array.isArray(data)) {
-        setWaliData(data);
-        console.log(`Loaded ${data.length} wali records`);
+        setSantriData(data);
+        console.log(`Loaded ${data.length} santri records`);
+      } else if (data.data && Array.isArray(data.data)) {
+        setSantriData(data.data);
+        console.log(`Loaded ${data.data.length} santri records`);
       } else {
         console.error('Expected array but got:', typeof data, data);
-        setWaliData([]);
+        setSantriData([]);
       }
 
     } catch (err) {
-      console.error('Error fetching wali data:', err);
-      setError('Gagal memuat data wali: ' + err.message);
-      setWaliData([]);
+      console.error('Error fetching santri data:', err);
+      setError('Gagal memuat data santri: ' + err.message);
+      setSantriData([]);
     }
   };
 
-  // Filter data berdasarkan nama wali dan bulan
+  // Filter data berdasarkan nama santri dan bulan
   const filteredData = pembayaranData.filter(item => {
     const matchesNama = filterNama === '' || 
-      (item.wali?.nama_lengkap && item.wali.nama_lengkap.toLowerCase().includes(filterNama.toLowerCase()));
+      (item.santri?.nama_lengkap && item.santri.nama_lengkap.toLowerCase().includes(filterNama.toLowerCase()));
     
     const matchesBulanTahun = filterBulanTahun === '' || item.bulan.includes(filterBulanTahun);
     
@@ -230,557 +235,556 @@ const DataSyahriah = () => {
   };
 
   // Handle pembayaran
-const handleBayarSyahriah = async (idSyahriah, syahriahData) => {
-  try {
-    setLoading(true);
-    
-    const response = await fetch(`${API_URL}/api/admin/syahriah/${idSyahriah}/bayar`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ status: 'lunas' })
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      let errorMessage = `HTTP error! status: ${response.status}`;
+  const handleBayarSyahriah = async (idSyahriah, syahriahData) => {
+    try {
+      setLoading(true);
       
-      try {
-        const errorData = JSON.parse(errorText);
-        errorMessage = errorData.error || errorMessage;
-      } catch {
-        errorMessage = errorText || errorMessage;
+      const response = await fetch(`${API_URL}/api/admin/syahriah/${idSyahriah}/bayar`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: 'lunas' })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = `HTTP error! status: ${response.status}`;
+        
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          errorMessage = errorText || errorMessage;
+        }
+        
+        throw new Error(errorMessage);
       }
-      
-      throw new Error(errorMessage);
-    }
 
-    await fetchAllData();
-    showAlert('Berhasil', `Pembayaran syahriah untuk ${syahriahData.wali?.nama_lengkap || 'wali'} berhasil`, 'success');
-  } catch (err) {
-    console.error('Error paying syahriah:', err);
-    showAlert('Gagal', err.message || 'Gagal melakukan pembayaran', 'error');
-  } finally {
-    setLoading(false);
-  }
-};
+      await fetchAllData();
+      showAlert('Berhasil', `Pembayaran syahriah untuk ${syahriahData.santri?.nama_lengkap || 'santri'} berhasil`, 'success');
+    } catch (err) {
+      console.error('Error paying syahriah:', err);
+      showAlert('Gagal', err.message || 'Gagal melakukan pembayaran', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // ========== EXPORT FUNCTIONS ==========
-const exportToXLSX = async () => {
-  setExportLoading(true);
-  try {
-    // Ambil informasi TPQ terlebih dahulu
-    const token = localStorage.getItem('token');
-    const infoResponse = await fetch(`${API_URL}/api/informasi-tpq`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
+  const exportToXLSX = async () => {
+    setExportLoading(true);
+    try {
+      // Ambil informasi TPQ terlebih dahulu
+      const token = localStorage.getItem('token');
+      const infoResponse = await fetch(`${API_URL}/api/informasi-tpq`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      let tpqInfo = null;
+      if (infoResponse.ok) {
+        const infoResult = await infoResponse.json();
+        tpqInfo = infoResult.data;
       }
-    });
 
-    let tpqInfo = null;
-    if (infoResponse.ok) {
-      const infoResult = await infoResponse.json();
-      tpqInfo = infoResult.data;
-    }
+      const wb = XLSX.utils.book_new();
+      let fileName = 'Laporan_Syahriah';
 
-    const wb = XLSX.utils.book_new();
-    let fileName = 'Laporan_Syahriah';
-
-    // Sheet 1: Summary/Statistik dengan kop surat
-    const summarySheetData = [
-      // Kop Surat
-      ['', '', '', '', '', ''],
-      ['', '', '', '', '', ''],
-      ['', 'LAPORAN SYAHRIYAH', '', '', '', ''],
-      ['', `TPQ ${tpqInfo?.nama_tpq || 'ASY-SYAFI\''}`, '', '', '', ''],
-      ['', `Periode: ${getCurrentPeriodText()}`, '', '', '', ''],
-      ['', '', '', '', '', ''],
-      ['', '', '', '', '', ''],
-      // Informasi TPQ
-      ['INFORMASI TPQ:', '', '', 'PERIODE LAPORAN:', '', ''],
-      [`Nama: ${tpqInfo?.nama_tpq || 'TPQ Asy-Syafi\''}`, '', '', `Periode: ${getCurrentPeriodText()}`, '', ''],
-      [`Alamat: ${tpqInfo?.alamat || '-'}`, '', '', `Tanggal Export: ${new Date().toLocaleDateString('id-ID')}`, '', ''],
-      [`Telp: ${tpqInfo?.no_telp || '-'}`, '', '', '', '', ''],
-      [`Email: ${tpqInfo?.email || '-'}`, '', '', '', '', ''],
-      ['', '', '', '', '', ''],
-      // Summary Syahriah
-      ['RINGKASAN SYAHRIYAH', '', '', '', '', ''],
-      ['Kategori', 'Jumlah', '', '', '', ''],
-      ['Total Pembayaran', summaryData?.total_nominal || 0, '', '', '', ''],
-      ['Santri Lunas', summaryData?.lunas || 0, '', '', '', ''],
-      ['Santri Menunggak', summaryData?.belum_lunas || 0, '', '', '', ''],
-      ['', '', '', '', '', ''],
-      ['DATA SYAHRIYAH', '', '', '', '', '']
-    ];
-
-    const wsSummary = XLSX.utils.aoa_to_sheet(summarySheetData);
-    XLSX.utils.book_append_sheet(wb, wsSummary, 'Ringkasan');
-
-    // Merge cells untuk kop surat
-    if (!wsSummary['!merges']) wsSummary['!merges'] = [];
-    wsSummary['!merges'].push(
-      { s: { r: 2, c: 1 }, e: { r: 2, c: 4 } }, // LAPORAN SYAHRIYAH
-      { s: { r: 3, c: 1 }, e: { r: 3, c: 4 } }, // Nama TPQ
-      { s: { r: 4, c: 1 }, e: { r: 4, c: 4 } }  // Periode
-    );
-
-    // Sheet 2: Data Syahriah dengan header
-    if (filteredData.length > 0) {
-      const syahriahHeader = [
-        ['DATA SYAHRIYAH'],
-        ['TPQ ASY-SYAFI\'I'],
-        [`Periode: ${getCurrentPeriodText()}`],
-        []
+      // Sheet 1: Summary/Statistik dengan kop surat
+      const summarySheetData = [
+        // Kop Surat
+        ['', '', '', '', '', ''],
+        ['', '', '', '', '', ''],
+        ['', 'LAPORAN SYAHRIYAH', '', '', '', ''],
+        ['', `TPQ ${tpqInfo?.nama_tpq || 'ASY-SYAFI\''}`, '', '', '', ''],
+        ['', `Periode: ${getCurrentPeriodText()}`, '', '', '', ''],
+        ['', '', '', '', '', ''],
+        ['', '', '', '', '', ''],
+        // Informasi TPQ
+        ['INFORMASI TPQ:', '', '', 'PERIODE LAPORAN:', '', ''],
+        [`Nama: ${tpqInfo?.nama_tpq || 'TPQ Asy-Syafi\''}`, '', '', `Periode: ${getCurrentPeriodText()}`, '', ''],
+        [`Alamat: ${tpqInfo?.alamat || '-'}`, '', '', `Tanggal Export: ${new Date().toLocaleDateString('id-ID')}`, '', ''],
+        [`Telp: ${tpqInfo?.no_telp || '-'}`, '', '', '', '', ''],
+        [`Email: ${tpqInfo?.email || '-'}`, '', '', '', '', ''],
+        ['', '', '', '', '', ''],
+        // Summary Syahriah
+        ['RINGKASAN SYAHRIYAH', '', '', '', '', ''],
+        ['Kategori', 'Jumlah', '', '', '', ''],
+        ['Total Pembayaran', summaryData?.total_nominal || 0, '', '', '', ''],
+        ['Santri Lunas', summaryData?.lunas || 0, '', '', '', ''],
+        ['Santri Menunggak', summaryData?.belum_lunas || 0, '', '', '', ''],
+        ['', '', '', '', '', ''],
+        ['DATA SYAHRIYAH', '', '', '', '', '']
       ];
 
-      const syahriahDataToExport = filteredData.map(item => ({
-        'Nama Wali': item.wali?.nama_lengkap || 'N/A',
-        'Email': item.wali?.email || '-',
-        'No. Telepon': item.wali?.no_telp || '-',
-        'Bulan': formatBulan(item.bulan),
-        'Nominal': item.nominal,
-        'Status': item.status === 'lunas' ? 'Lunas' : 'Belum Bayar',
-        'Tanggal Bayar': item.status === 'lunas' ? formatDateTime(item.waktu_catat) : '-',
-        'Dicatat Oleh': item.admin?.nama_lengkap || 'Admin'
-      }));
+      const wsSummary = XLSX.utils.aoa_to_sheet(summarySheetData);
+      XLSX.utils.book_append_sheet(wb, wsSummary, 'Ringkasan');
 
-      const wsSyahriah = XLSX.utils.aoa_to_sheet(syahriahHeader);
-      XLSX.utils.sheet_add_json(wsSyahriah, syahriahDataToExport, { origin: 'A5', skipHeader: false });
-      XLSX.utils.book_append_sheet(wb, wsSyahriah, 'Data Syahriah');
-    }
+      // Merge cells untuk kop surat
+      if (!wsSummary['!merges']) wsSummary['!merges'] = [];
+      wsSummary['!merges'].push(
+        { s: { r: 2, c: 1 }, e: { r: 2, c: 4 } }, // LAPORAN SYAHRIYAH
+        { s: { r: 3, c: 1 }, e: { r: 3, c: 4 } }, // Nama TPQ
+        { s: { r: 4, c: 1 }, e: { r: 4, c: 4 } }  // Periode
+      );
 
-    XLSX.writeFile(wb, `${fileName}_${tpqInfo?.nama_tpq?.replace(/\s+/g, '_') || 'TPQ_Asy_Syafii'}_${getCurrentPeriodText().replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`);
-    showAlert('Berhasil', `Laporan syahriah berhasil diexport ke Excel`, 'success');
-  } catch (err) {
-    console.error('Error exporting to Excel:', err);
-    showAlert('Gagal', `Gagal export data: ${err.message}`, 'error');
-  } finally {
-    setExportLoading(false);
-  }
-};
+      // Sheet 2: Data Syahriah dengan header
+      if (filteredData.length > 0) {
+        const syahriahHeader = [
+          ['DATA SYAHRIYAH'],
+          ['TPQ ASY-SYAFI\'I'],
+          [`Periode: ${getCurrentPeriodText()}`],
+          []
+        ];
 
-const exportToCSV = async () => {
-  setExportLoading(true);
-  try {
-    // Ambil informasi TPQ
-    const token = localStorage.getItem('token');
-    const infoResponse = await fetch(`${API_URL}/api/informasi-tpq`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
+        const syahriahDataToExport = filteredData.map(item => ({
+          'Nama Santri': item.santri?.nama_lengkap || 'N/A',
+          'Wali': item.santri?.wali?.nama_lengkap || '-',
+          'Email Wali': item.santri?.wali?.email || '-',
+          'No. Telepon Wali': item.santri?.wali?.no_telp || '-',
+          'Bulan': formatBulan(item.bulan),
+          'Nominal': item.nominal,
+          'Status': item.status === 'lunas' ? 'Lunas' : 'Belum Bayar',
+          'Tanggal Bayar': item.status === 'lunas' ? formatDateTime(item.waktu_catat) : '-',
+          'Dicatat Oleh': item.admin?.nama_lengkap || 'Admin'
+        }));
+
+        const wsSyahriah = XLSX.utils.aoa_to_sheet(syahriahHeader);
+        XLSX.utils.sheet_add_json(wsSyahriah, syahriahDataToExport, { origin: 'A5', skipHeader: false });
+        XLSX.utils.book_append_sheet(wb, wsSyahriah, 'Data Syahriah');
       }
-    });
 
-    let tpqInfo = null;
-    if (infoResponse.ok) {
-      const infoResult = await infoResponse.json();
-      tpqInfo = infoResult.data;
+      XLSX.writeFile(wb, `${fileName}_${tpqInfo?.nama_tpq?.replace(/\s+/g, '_') || 'TPQ_Asy_Syafii'}_${getCurrentPeriodText().replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`);
+      showAlert('Berhasil', `Laporan syahriah berhasil diexport ke Excel`, 'success');
+    } catch (err) {
+      console.error('Error exporting to Excel:', err);
+      showAlert('Gagal', `Gagal export data: ${err.message}`, 'error');
+    } finally {
+      setExportLoading(false);
     }
+  };
 
-    let allData = [];
-    let fileName = 'Laporan_Syahriah';
-
-    // Header untuk file CSV dengan informasi TPQ
-    const header = [
-      'LAPORAN SYAHRIYAH - TPQ ASY-SYAFI\'I',
-      `Nama TPQ: ${tpqInfo?.nama_tpq || 'TPQ Asy-Syafi\'i'}`,
-      `Alamat: ${tpqInfo?.alamat || '-'}`,
-      `No. Telepon: ${tpqInfo?.no_telp || '-'}`,
-      `Email: ${tpqInfo?.email || '-'}`,
-      `Hari & Jam Belajar: ${tpqInfo?.hari_jam_belajar || '-'}`,
-      '',
-      `Periode: ${getCurrentPeriodText()}`,
-      `Tanggal Export: ${new Date().toLocaleDateString('id-ID')}`,
-      ''
-    ];
-
-    // Section 1: Summary
-    const summarySection = [
-      'SUMMARY SYAHRIYAH',
-      'Kategori,Jumlah',
-      `Total Pembayaran,${summaryData?.total_nominal || 0}`,
-      `Santri Lunas,${summaryData?.lunas || 0}`,
-      `Santri Menunggak,${summaryData?.belum_lunas || 0}`,
-      ''
-    ];
-
-    allData = [...header, ...summarySection];
-
-    // Section 2: Data Syahriah
-    if (filteredData.length > 0) {
-      allData.push('DATA SYAHRIYAH');
-      allData.push('No,Nama Wali,Email,No. Telepon,Bulan,Nominal,Status,Tanggal Bayar,Dicatat Oleh');
-      filteredData.forEach((item, index) => {
-        allData.push([
-          index + 1,
-          `"${item.wali?.nama_lengkap || 'N/A'}"`,
-          item.wali?.email || '-',
-          item.wali?.no_telp || '-',
-          formatBulan(item.bulan),
-          item.nominal,
-          item.status === 'lunas' ? 'Lunas' : 'Belum Bayar',
-          item.status === 'lunas' ? formatDateTime(item.waktu_catat) : '-',
-          item.admin?.nama_lengkap || 'Admin'
-        ].join(','));
+  const exportToCSV = async () => {
+    setExportLoading(true);
+    try {
+      // Ambil informasi TPQ
+      const token = localStorage.getItem('token');
+      const infoResponse = await fetch(`${API_URL}/api/informasi-tpq`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
-    }
 
-    const csvContent = allData.join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    saveAs(blob, `${fileName}_${getCurrentPeriodText().replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`);
-    showAlert('Berhasil', `Laporan syahriah berhasil diexport ke CSV`, 'success');
-  } catch (err) {
-    console.error('Error exporting to CSV:', err);
-    showAlert('Gagal', `Gagal export data: ${err.message}`, 'error');
-  } finally {
-    setExportLoading(false);
-  }
-};
-
-const exportToDOCX = async () => {
-  setExportLoading(true);
-  try {
-    // Ambil informasi TPQ
-    const token = localStorage.getItem('token');
-    const infoResponse = await fetch(`${API_URL}/api/informasi-tpq`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
+      let tpqInfo = null;
+      if (infoResponse.ok) {
+        const infoResult = await infoResponse.json();
+        tpqInfo = infoResult.data;
       }
-    });
 
-    let tpqInfo = null;
-    if (infoResponse.ok) {
-      const infoResult = await infoResponse.json();
-      tpqInfo = infoResult.data;
+      let allData = [];
+      let fileName = 'Laporan_Syahriah';
+
+      // Header untuk file CSV dengan informasi TPQ
+      const header = [
+        'LAPORAN SYAHRIYAH - TPQ ASY-SYAFI\'I',
+        `Nama TPQ: ${tpqInfo?.nama_tpq || 'TPQ Asy-Syafi\'i'}`,
+        `Alamat: ${tpqInfo?.alamat || '-'}`,
+        `No. Telepon: ${tpqInfo?.no_telp || '-'}`,
+        `Email: ${tpqInfo?.email || '-'}`,
+        `Hari & Jam Belajar: ${tpqInfo?.hari_jam_belajar || '-'}`,
+        '',
+        `Periode: ${getCurrentPeriodText()}`,
+        `Tanggal Export: ${new Date().toLocaleDateString('id-ID')}`,
+        ''
+      ];
+
+      // Section 1: Summary
+      const summarySection = [
+        'SUMMARY SYAHRIYAH',
+        'Kategori,Jumlah',
+        `Total Pembayaran,${summaryData?.total_nominal || 0}`,
+        `Santri Lunas,${summaryData?.lunas || 0}`,
+        `Santri Menunggak,${summaryData?.belum_lunas || 0}`,
+        ''
+      ];
+
+      allData = [...header, ...summarySection];
+
+      // Section 2: Data Syahriah
+      if (filteredData.length > 0) {
+        allData.push('DATA SYAHRIYAH');
+        allData.push('No,Nama Santri,Wali,Email Wali,No. Telepon Wali,Bulan,Nominal,Status,Tanggal Bayar,Dicatat Oleh');
+        filteredData.forEach((item, index) => {
+          allData.push([
+            index + 1,
+            `"${item.santri?.nama_lengkap || 'N/A'}"`,
+            `"${item.santri?.wali?.nama_lengkap || '-'}"`,
+            item.santri?.wali?.email || '-',
+            item.santri?.wali?.no_telp || '-',
+            formatBulan(item.bulan),
+            item.nominal,
+            item.status === 'lunas' ? 'Lunas' : 'Belum Bayar',
+            item.status === 'lunas' ? formatDateTime(item.waktu_catat) : '-',
+            item.admin?.nama_lengkap || 'Admin'
+          ].join(','));
+        });
+      }
+
+      const csvContent = allData.join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      saveAs(blob, `${fileName}_${getCurrentPeriodText().replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`);
+      showAlert('Berhasil', `Laporan syahriah berhasil diexport ke CSV`, 'success');
+    } catch (err) {
+      console.error('Error exporting to CSV:', err);
+      showAlert('Gagal', `Gagal export data: ${err.message}`, 'error');
+    } finally {
+      setExportLoading(false);
     }
+  };
 
-    // Create comprehensive HTML content for DOCX dengan format surat resmi
-    const htmlContent = `
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <title>Laporan Syahriah - ${tpqInfo?.nama_tpq || 'TPQ Asy-Syafi\'i'}</title>
-          <style>
-            @page {
-              margin: 2cm;
-              size: A4;
-            }
-            body { 
-              font-family: 'Times New Roman', Times, serif; 
-              margin: 0;
-              padding: 0;
-              line-height: 1.6;
-              font-size: 12pt;
-              color: #000;
-            }
-            .kop-surat {
-              border-bottom: 3px double #000;
-              padding-bottom: 10px;
-              margin-bottom: 20px;
-              text-align: center;
-            }
-            .header-info {
-              text-align: center;
-            }
-            .nama-tpq {
-              font-size: 16pt;
-              font-weight: bold;
-              margin: 5px 0;
-              text-transform: uppercase;
-            }
-            .alamat-tpq {
-              font-size: 11pt;
-              margin: 2px 0;
-            }
-            .kontak-tpq {
-              font-size: 10pt;
-              margin: 2px 0;
-            }
-            .judul-laporan {
-              text-align: center;
-              margin: 25px 0;
-              font-size: 14pt;
-              font-weight: bold;
-              text-decoration: underline;
-            }
-            .periode-info {
-              text-align: center;
-              margin: 15px 0;
-              font-size: 11pt;
-            }
-            table { 
-              width: 100%; 
-              border-collapse: collapse; 
-              margin: 15px 0;
-              font-size: 10pt;
-            }
-            th, td { 
-              border: 1px solid #000; 
-              padding: 8px; 
-              text-align: left; 
-              vertical-align: top;
-            }
-            th { 
-              background-color: #f0f0f0; 
-              font-weight: bold;
-              text-align: center;
-            }
-            .summary-section { 
-              background: #f9f9f9; 
-              padding: 15px;
-              border: 1px solid #000;
-              margin: 20px 0;
-            }
-            .summary-grid {
-              display: table;
-              width: 100%;
-              margin: 10px 0;
-            }
-            .summary-item {
-              display: table-row;
-            }
-            .summary-label {
-              display: table-cell;
-              padding: 5px 10px;
-              font-weight: bold;
-              width: 40%;
-            }
-            .summary-value {
-              display: table-cell;
-              padding: 5px 10px;
-            }
-            .currency {
-              font-family: 'Courier New', monospace;
-              font-weight: bold;
-            }
-            .section-title {
-              margin: 25px 0 10px 0;
-              font-size: 12pt;
-              font-weight: bold;
-              border-bottom: 1px solid #000;
-              padding-bottom: 5px;
-            }
-            .footer {
-              margin-top: 40px;
-              text-align: right;
-              font-size: 10pt;
-            }
-            .ttd {
-              margin-top: 60px;
-              text-align: center;
-            }
-            .ttd-space {
-              height: 60px;
-            }
-            .ttd-name {
-              font-weight: bold;
-              text-decoration: underline;
-            }
-            .ttd-position {
-              font-size: 10pt;
-            }
-          </style>
-        </head>
-        <body>
-          <!-- Kop Surat -->
-          <div class="kop-surat">
-            <div class="header-info">
-              <div class="nama-tpq">${tpqInfo?.nama_tpq || 'TAMAN PENDIDIKAN QURAN ASY-SYAFI\'I'}</div>
-              <div class="alamat-tpq">${tpqInfo?.alamat || 'Jl. Raya Sangkanayu - Pengalusan KM 1 Campakoah RT 03 RW 01 Kec. Mrebet - Purbalingga'}</div>
-              <div class="kontak-tpq">
-                Telp: ${tpqInfo?.no_telp || '085643955667'} | Email: ${tpqInfo?.email || 'tpqasysyafiicampakoah@gmail.com'} | 
+  const exportToDOCX = async () => {
+    setExportLoading(true);
+    try {
+      // Ambil informasi TPQ
+      const token = localStorage.getItem('token');
+      const infoResponse = await fetch(`${API_URL}/api/informasi-tpq`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      let tpqInfo = null;
+      if (infoResponse.ok) {
+        const infoResult = await infoResponse.json();
+        tpqInfo = infoResult.data;
+      }
+
+      // Create comprehensive HTML content untuk DOCX
+      const htmlContent = `
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <title>Laporan Syahriah - ${tpqInfo?.nama_tpq || 'TPQ Asy-Syafi\'i'}</title>
+            <style>
+              @page {
+                margin: 2cm;
+                size: A4;
+              }
+              body { 
+                font-family: 'Times New Roman', Times, serif; 
+                margin: 0;
+                padding: 0;
+                line-height: 1.6;
+                font-size: 12pt;
+                color: #000;
+              }
+              .kop-surat {
+                border-bottom: 3px double #000;
+                padding-bottom: 10px;
+                margin-bottom: 20px;
+                text-align: center;
+              }
+              .header-info {
+                text-align: center;
+              }
+              .nama-tpq {
+                font-size: 16pt;
+                font-weight: bold;
+                margin: 5px 0;
+                text-transform: uppercase;
+              }
+              .alamat-tpq {
+                font-size: 11pt;
+                margin: 2px 0;
+              }
+              .kontak-tpq {
+                font-size: 10pt;
+                margin: 2px 0;
+              }
+              .judul-laporan {
+                text-align: center;
+                margin: 25px 0;
+                font-size: 14pt;
+                font-weight: bold;
+                text-decoration: underline;
+              }
+              .periode-info {
+                text-align: center;
+                margin: 15px 0;
+                font-size: 11pt;
+              }
+              table { 
+                width: 100%; 
+                border-collapse: collapse; 
+                margin: 15px 0;
+                font-size: 10pt;
+              }
+              th, td { 
+                border: 1px solid #000; 
+                padding: 8px; 
+                text-align: left; 
+                vertical-align: top;
+              }
+              th { 
+                background-color: #f0f0f0; 
+                font-weight: bold;
+                text-align: center;
+              }
+              .summary-section { 
+                background: #f9f9f9; 
+                padding: 15px;
+                border: 1px solid #000;
+                margin: 20px 0;
+              }
+              .summary-grid {
+                display: table;
+                width: 100%;
+                margin: 10px 0;
+              }
+              .summary-item {
+                display: table-row;
+              }
+              .summary-label {
+                display: table-cell;
+                padding: 5px 10px;
+                font-weight: bold;
+                width: 40%;
+              }
+              .summary-value {
+                display: table-cell;
+                padding: 5px 10px;
+              }
+              .currency {
+                font-family: 'Courier New', monospace;
+                font-weight: bold;
+              }
+              .section-title {
+                margin: 25px 0 10px 0;
+                font-size: 12pt;
+                font-weight: bold;
+                border-bottom: 1px solid #000;
+                padding-bottom: 5px;
+              }
+              .footer {
+                margin-top: 40px;
+                text-align: right;
+                font-size: 10pt;
+              }
+              .ttd {
+                margin-top: 60px;
+                text-align: center;
+              }
+              .ttd-space {
+                height: 60px;
+              }
+              .ttd-name {
+                font-weight: bold;
+                text-decoration: underline;
+              }
+              .ttd-position {
+                font-size: 10pt;
+              }
+            </style>
+          </head>
+          <body>
+            <!-- Kop Surat -->
+            <div class="kop-surat">
+              <div class="header-info">
+                <div class="nama-tpq">${tpqInfo?.nama_tpq || 'TAMAN PENDIDIKAN QURAN ASY-SYAFI\'I'}</div>
+                <div class="alamat-tpq">${tpqInfo?.alamat || 'Jl. Raya Sangkanayu - Pengalusan KM 1 Campakoah RT 03 RW 01 Kec. Mrebet - Purbalingga'}</div>
+                <div class="kontak-tpq">
+                  Telp: ${tpqInfo?.no_telp || '085643955667'} | Email: ${tpqInfo?.email || 'tpqasysyafiicampakoah@gmail.com'}
+                </div>
               </div>
             </div>
-          </div>
 
-          <!-- Judul Laporan -->
-          <div class="judul-laporan">LAPORAN SYAHRIYAH</div>
-          
-          <!-- Periode -->
-          <div class="periode-info">
-            Periode: <strong>${getCurrentPeriodText()}</strong><br>
-            Tanggal Cetak: ${new Date().toLocaleDateString('id-ID', { 
-              day: 'numeric', 
-              month: 'long', 
-              year: 'numeric' 
-            })}
-          </div>
-
-          <!-- Ringkasan Syahriah -->
-          <div class="section-title">RINGKASAN SYAHRIYAH</div>
-          <div class="summary-section">
-            <div class="summary-grid">
-              <div class="summary-item">
-                <div class="summary-label">Total Pembayaran:</div>
-                <div class="summary-value currency">${formatCurrency(summaryData?.total_nominal || 0)}</div>
-              </div>
-              <div class="summary-item">
-                <div class="summary-label">Santri Lunas:</div>
-                <div class="summary-value">${summaryData?.lunas || 0}</div>
-              </div>
-              <div class="summary-item">
-                <div class="summary-label">Santri Menunggak:</div>
-                <div class="summary-value">${summaryData?.belum_lunas || 0}</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Data Syahriah -->
-          ${filteredData.length > 0 ? `
-            <div class="section-title">DATA SYAHRIYAH</div>
-            <table>
-              <thead>
-                <tr>
-                  <th>No</th>
-                  <th>Nama Wali</th>
-                  <th>Kontak</th>
-                  <th>Bulan</th>
-                  <th>Nominal</th>
-                  <th>Status</th>
-                  <th>Tanggal Bayar</th>
-                  <th>Dicatat Oleh</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${filteredData.map((item, index) => `
-                  <tr>
-                    <td style="text-align: center;">${index + 1}</td>
-                    <td>${item.wali?.nama_lengkap || 'N/A'}</td>
-                    <td>
-                      ${item.wali?.email || '-'}<br>
-                      <small>${item.wali?.no_telp || '-'}</small>
-                    </td>
-                    <td>${formatBulan(item.bulan)}</td>
-                    <td class="currency">${formatCurrency(item.nominal)}</td>
-                    <td style="text-transform: capitalize;">${item.status === 'lunas' ? 'Lunas' : 'Belum Bayar'}</td>
-                    <td>${item.status === 'lunas' ? formatDateTime(item.waktu_catat) : '-'}</td>
-                    <td>${item.admin?.nama_lengkap || 'Admin'}</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          ` : '<p style="text-align: center; font-style: italic;">Tidak ada data syahriah</p>'}
-
-          <!-- Footer dan TTD -->
-          <div class="footer">
-            <div class="ttd">
-              <div>Purbalingga, ${new Date().toLocaleDateString('id-ID', { 
+            <!-- Judul Laporan -->
+            <div class="judul-laporan">LAPORAN SYAHRIYAH</div>
+            
+            <!-- Periode -->
+            <div class="periode-info">
+              Periode: <strong>${getCurrentPeriodText()}</strong><br>
+              Tanggal Cetak: ${new Date().toLocaleDateString('id-ID', { 
                 day: 'numeric', 
                 month: 'long', 
                 year: 'numeric' 
-              })}</div>
-              <div class="ttd-space"></div>
-              <div class="ttd-name">Bendahara TPQ</div>
-              <div class="ttd-position">${tpqInfo?.nama_tpq || 'TPQ Asy-Syafi\''}</div>
+              })}
             </div>
-          </div>
 
-          <!-- Informasi Dokumen -->
-          <div style="margin-top: 30px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 9pt; color: #666; text-align: center;">
-            <p>Dokumen ini dihasilkan secara otomatis oleh Sistem Keuangan ${tpqInfo?.nama_tpq || 'TPQ Asy-Syafi\''}</p>
-            <p>Total Data: ${filteredData.length} syahriah</p>
-          </div>
-        </body>
-      </html>
-    `;
+            <!-- Ringkasan Syahriah -->
+            <div class="section-title">RINGKASAN SYAHRIYAH</div>
+            <div class="summary-section">
+              <div class="summary-grid">
+                <div class="summary-item">
+                  <div class="summary-label">Total Pembayaran:</div>
+                  <div class="summary-value currency">${formatCurrency(summaryData?.total_nominal || 0)}</div>
+                </div>
+                <div class="summary-item">
+                  <div class="summary-label">Santri Lunas:</div>
+                  <div class="summary-value">${summaryData?.lunas || 0}</div>
+                </div>
+                <div class="summary-item">
+                  <div class="summary-label">Santri Menunggak:</div>
+                  <div class="summary-value">${summaryData?.belum_lunas || 0}</div>
+                </div>
+              </div>
+            </div>
 
-    const blob = new Blob([htmlContent], { type: 'application/msword' });
-    saveAs(blob, `Laporan_Syahriah_${tpqInfo?.nama_tpq?.replace(/\s+/g, '_') || 'TPQ_Asy_Syafii'}_${getCurrentPeriodText().replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.doc`);
-    showAlert('Berhasil', `Laporan syahriah berhasil diexport ke Word dengan format surat resmi`, 'success');
-  } catch (err) {
-    console.error('Error exporting to DOCX:', err);
-    showAlert('Gagal', `Gagal export data: ${err.message}`, 'error');
-  } finally {
-    setExportLoading(false);
-  }
-};
+            <!-- Data Syahriah -->
+            ${filteredData.length > 0 ? `
+              <div class="section-title">DATA SYAHRIYAH</div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>No</th>
+                    <th>Nama Santri</th>
+                    <th>Wali</th>
+                    <th>Bulan</th>
+                    <th>Nominal</th>
+                    <th>Status</th>
+                    <th>Tanggal Bayar</th>
+                    <th>Dicatat Oleh</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${filteredData.map((item, index) => `
+                    <tr>
+                      <td style="text-align: center;">${index + 1}</td>
+                      <td>${item.santri?.nama_lengkap || 'N/A'}</td>
+                      <td>${item.santri?.wali?.nama_lengkap || '-'}</td>
+                      <td>${formatBulan(item.bulan)}</td>
+                      <td class="currency">${formatCurrency(item.nominal)}</td>
+                      <td style="text-transform: capitalize;">${item.status === 'lunas' ? 'Lunas' : 'Belum Bayar'}</td>
+                      <td>${item.status === 'lunas' ? formatDateTime(item.waktu_catat) : '-'}</td>
+                      <td>${item.admin?.nama_lengkap || 'Admin'}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            ` : '<p style="text-align: center; font-style: italic;">Tidak ada data syahriah</p>'}
 
-// Helper functions untuk export
-const getCurrentPeriodText = () => {
-  if (filterBulanTahun) {
-    return formatBulan(filterBulanTahun);
-  }
-  return 'Semua Periode';
-};
+            <!-- Footer dan TTD -->
+            <div class="footer">
+              <div class="ttd">
+                <div>Purbalingga, ${new Date().toLocaleDateString('id-ID', { 
+                  day: 'numeric', 
+                  month: 'long', 
+                  year: 'numeric' 
+                })}</div>
+                <div class="ttd-space"></div>
+                <div class="ttd-name">Bendahara TPQ</div>
+                <div class="ttd-position">${tpqInfo?.nama_tpq || 'TPQ Asy-Syafi\''}</div>
+              </div>
+            </div>
 
-const formatDateTime = (dateString) => {
-  if (!dateString) return '-';
-  try {
-    return new Date(dateString).toLocaleDateString('id-ID', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  } catch (e) {
-    return dateString;
-  }
-};
+            <!-- Informasi Dokumen -->
+            <div style="margin-top: 30px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 9pt; color: #666; text-align: center;">
+              <p>Dokumen ini dihasilkan secara otomatis oleh Sistem Keuangan ${tpqInfo?.nama_tpq || 'TPQ Asy-Syafi\''}</p>
+              <p>Total Data: ${filteredData.length} syahriah</p>
+            </div>
+          </body>
+        </html>
+      `;
 
-const handleInputAllWali = async () => {
-  try {
-    setLoading(true);
-    
-    // Konfirmasi menggunakan modal custom
-    setAlertMessage({
-      title: 'Konfirmasi Input Batch',
-      message: `Apakah Anda yakin ingin membuat data syahriah untuk semua wali (${waliData.length} wali) bulan ${formatBulan(getCurrentMonth())}?`,
-      type: 'confirm',
-      onConfirm: async () => {
-        try {
-          const response = await fetch(`${API_URL}/api/admin/syahriah/batch`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              bulan: getCurrentMonth(),
-              nominal: 110000,
-              status: 'belum'
-            })
-          });
+      const blob = new Blob([htmlContent], { type: 'application/msword' });
+      saveAs(blob, `Laporan_Syahriah_${tpqInfo?.nama_tpq?.replace(/\s+/g, '_') || 'TPQ_Asy_Syafii'}_${getCurrentPeriodText().replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.doc`);
+      showAlert('Berhasil', `Laporan syahriah berhasil diexport ke Word dengan format surat resmi`, 'success');
+    } catch (err) {
+      console.error('Error exporting to DOCX:', err);
+      showAlert('Gagal', `Gagal export data: ${err.message}`, 'error');
+    } finally {
+      setExportLoading(false);
+    }
+  };
 
-          if (!response.ok) {
-            let errorMessage = `HTTP error! status: ${response.status}`;
-            try {
-              const errorData = await response.json();
-              errorMessage = errorData.error || errorMessage;
-            } catch {
-              // Jika response bukan JSON, gunakan text biasa
-              const errorText = await response.text();
-              errorMessage = errorText || errorMessage;
+  // Helper functions untuk export
+  const getCurrentPeriodText = () => {
+    if (filterBulanTahun) {
+      return formatBulan(filterBulanTahun);
+    }
+    return 'Semua Periode';
+  };
+
+  const formatDateTime = (dateString) => {
+    if (!dateString) return '-';
+    try {
+      return new Date(dateString).toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (e) {
+      return dateString;
+    }
+  };
+
+  const handleInputAllSantri = async () => {
+    try {
+      setLoading(true);
+      
+      // Konfirmasi menggunakan modal custom
+      setAlertMessage({
+        title: 'Konfirmasi Input Batch',
+        message: `Apakah Anda yakin ingin membuat data syahriah untuk semua santri (${santriData.length} santri) bulan ${formatBulan(getCurrentMonth())}?`,
+        type: 'confirm',
+        onConfirm: async () => {
+          try {
+            const response = await fetch(`${API_URL}/api/admin/syahriah/batch`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                bulan: getCurrentMonth(),
+                nominal: 110000,
+                status: 'belum'
+              })
+            });
+
+            if (!response.ok) {
+              let errorMessage = `HTTP error! status: ${response.status}`;
+              try {
+                const errorData = await response.json();
+                errorMessage = errorData.error || errorMessage;
+              } catch {
+                // Jika response bukan JSON, gunakan text biasa
+                const errorText = await response.text();
+                errorMessage = errorText || errorMessage;
+              }
+              throw new Error(errorMessage);
             }
-            throw new Error(errorMessage);
+
+            const result = await response.json();
+            await fetchAllData();
+            showAlert('Berhasil', result.message || `Berhasil membuat data syahriah untuk ${result.data?.created || santriData.length} santri`, 'success');
+          } catch (err) {
+            console.error('Error creating batch syahriah:', err);
+            showAlert('Gagal', err.message || 'Gagal membuat data syahriah untuk semua santri', 'error');
+          } finally {
+            setLoading(false);
           }
-
-          const result = await response.json();
-          await fetchAllData();
-          showAlert('Berhasil', result.message || `Berhasil membuat data syahriah untuk ${result.data?.created || waliData.length} wali`, 'success');
-        } catch (err) {
-          console.error('Error creating batch syahriah:', err);
-          showAlert('Gagal', err.message || 'Gagal membuat data syahriah untuk semua wali', 'error');
-        } finally {
+        },
+        onCancel: () => {
           setLoading(false);
+          setShowAlertModal(false);
         }
-      },
-      onCancel: () => {
-        setLoading(false);
-        setShowAlertModal(false);
-      }
-    });
-    setShowAlertModal(true);
+      });
+      setShowAlertModal(true);
 
-  } catch (err) {
-    console.error('Error in confirmation:', err);
-    setLoading(false);
-  }
-};
+    } catch (err) {
+      console.error('Error in confirmation:', err);
+      setLoading(false);
+    }
+  };
 
   // Handle create syahriah
   const handleCreateSyahriah = async (e) => {
@@ -901,7 +905,7 @@ const handleInputAllWali = async () => {
   // Reset form
   const resetForm = () => {
     setFormData({
-      id_wali: '',
+      id_santri: '',
       bulan: getCurrentMonth(),
       nominal: 110000,
       status: 'belum'
@@ -918,7 +922,7 @@ const handleInputAllWali = async () => {
   const openEditModal = (syahriah) => {
     setSelectedSyahriah(syahriah);
     setFormData({
-      id_wali: syahriah.id_wali,
+      id_santri: syahriah.id_santri,
       bulan: syahriah.bulan,
       nominal: syahriah.nominal,
       status: syahriah.status
@@ -1108,6 +1112,7 @@ const handleInputAllWali = async () => {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Santri</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Wali</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bulan</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jumlah</th>
@@ -1120,7 +1125,10 @@ const handleInputAllWali = async () => {
             {dataToShow.map((item) => (
               <tr key={item.id_syahriah} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {item.wali?.nama_lengkap || 'N/A'}
+                  {item.santri?.nama_lengkap || 'N/A'}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {item.santri?.wali?.nama_lengkap || '-'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {formatBulan(item.bulan)}
@@ -1144,7 +1152,7 @@ const handleInputAllWali = async () => {
                     onClick={() => {
                       showAlert(
                         'Konfirmasi Pembayaran',
-                        `Apakah Anda yakin ingin menandai pembayaran syahriah untuk ${item.wali?.nama_lengkap || 'wali'} bulan ${formatBulan(item.bulan)} sebagai lunas?`,
+                        `Apakah Anda yakin ingin menandai pembayaran syahriah untuk ${item.santri?.nama_lengkap || 'santri'} bulan ${formatBulan(item.bulan)} sebagai lunas?`,
                         'confirm',
                         () => handleBayarSyahriah(item.id_syahriah, item),
                         () => setShowAlertModal(false)
@@ -1244,53 +1252,53 @@ const handleInputAllWali = async () => {
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-gray-800">Data Pembayaran Syahriah</h2>
           <div className="flex space-x-2">
-        <button
-          onClick={exportToXLSX}
-          disabled={exportLoading}
-          className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium text-sm flex items-center disabled:opacity-50"
-        >
-          {exportLoading ? (
-            <>
-              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              Exporting...
-            </>
-          ) : (
-            <>
-              {icons.excel}
-              <span className="ml-2">Excel</span>
-            </>
-          )}
-        </button>
-        <button
-          onClick={exportToCSV}
-          disabled={exportLoading}
-          className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors font-medium text-sm flex items-center disabled:opacity-50"
-        >
-          {icons.export}
-          <span className="ml-2">CSV</span>
-        </button>
-        <button
-          onClick={exportToDOCX}
-          disabled={exportLoading}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm flex items-center disabled:opacity-50"
-        >
-          {icons.word}
-          <span className="ml-2">Word</span>
-        </button>
-      </div>
-      
-      {/* Tombol Input untuk Semua Wali */}
-      <button 
-        onClick={handleInputAllWali}
-        disabled={loading || waliData.length === 0}
-        className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors flex items-center disabled:opacity-50"
-      >
-        {icons.users}
-        <span className="ml-2">Input Semua Wali</span>
-      </button>
+            <button
+              onClick={exportToXLSX}
+              disabled={exportLoading}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium text-sm flex items-center disabled:opacity-50"
+            >
+              {exportLoading ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Exporting...
+                </>
+              ) : (
+                <>
+                  {icons.excel}
+                  <span className="ml-2">Excel</span>
+                </>
+              )}
+            </button>
+            <button
+              onClick={exportToCSV}
+              disabled={exportLoading}
+              className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors font-medium text-sm flex items-center disabled:opacity-50"
+            >
+              {icons.export}
+              <span className="ml-2">CSV</span>
+            </button>
+            <button
+              onClick={exportToDOCX}
+              disabled={exportLoading}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm flex items-center disabled:opacity-50"
+            >
+              {icons.word}
+              <span className="ml-2">Word</span>
+            </button>
+          </div>
+          
+          {/* Tombol Input untuk Semua Santri */}
+          <button 
+            onClick={handleInputAllSantri}
+            disabled={loading || santriData.length === 0}
+            className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors flex items-center disabled:opacity-50"
+          >
+            {icons.users}
+            <span className="ml-2">Input Semua Santri</span>
+          </button>
           <button 
             onClick={openCreateModal}
             className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center"
@@ -1304,13 +1312,13 @@ const handleInputAllWali = async () => {
         <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Cari Nama Wali
+              Cari Nama Santri
             </label>
             <input
               type="text"
               value={filterNama}
               onChange={(e) => setFilterNama(e.target.value)}
-              placeholder="Masukkan nama wali..."
+              placeholder="Masukkan nama santri..."
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
             />
           </div>
@@ -1383,33 +1391,33 @@ const handleInputAllWali = async () => {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Wali
+                    Santri
                   </label>
                   <select
                     required
-                    value={formData.id_wali}
-                    onChange={(e) => setFormData({...formData, id_wali: e.target.value})}
+                    value={formData.id_santri}
+                    onChange={(e) => setFormData({...formData, id_santri: e.target.value})}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                   >
-                    <option value="">Pilih Wali</option>
-                    {waliData && waliData.length > 0 ? (
-                      waliData.map((wali) => (
+                    <option value="">Pilih Santri</option>
+                    {santriData && santriData.length > 0 ? (
+                      santriData.map((santri) => (
                         <option 
-                          key={wali.id_user} 
-                          value={wali.id_user} // PERBAIKAN: Gunakan id_user sebagai value
+                          key={santri.id_santri} 
+                          value={santri.id_santri}
                         >
-                          {wali.nama_lengkap} {wali.email ? `- ${wali.email}` : wali.no_telp ? `- ${wali.no_telp}` : ''}
+                          {santri.nama_lengkap} {santri.wali?.nama_lengkap ? `- Wali: ${santri.wali.nama_lengkap}` : ''}
                         </option>
                       ))
                     ) : (
                       <option value="" disabled>
-                        {loading ? 'Memuat data wali...' : 'Tidak ada data wali tersedia'}
+                        {loading ? 'Memuat data santri...' : 'Tidak ada data santri tersedia'}
                       </option>
                     )}
                   </select>
-                  {!loading && waliData.length === 0 && (
+                  {!loading && santriData.length === 0 && (
                     <p className="text-red-500 text-sm mt-1">
-                      Tidak ada data wali. Pastikan backend berjalan dan ada user dengan role "wali".
+                      Tidak ada data santri. Pastikan backend berjalan dan ada data santri.
                     </p>
                   )}
                 </div>
@@ -1462,7 +1470,7 @@ const handleInputAllWali = async () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={loading || waliData.length === 0}
+                  disabled={loading || santriData.length === 0}
                   className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
                 >
                   {loading ? 'Menyimpan...' : 'Simpan'}
@@ -1482,11 +1490,11 @@ const handleInputAllWali = async () => {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Wali
+                    Santri
                   </label>
                   <input
                     type="text"
-                    value={selectedSyahriah.wali?.nama_lengkap || 'N/A'}
+                    value={selectedSyahriah.santri?.nama_lengkap || 'N/A'}
                     disabled
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100"
                   />
@@ -1556,7 +1564,7 @@ const handleInputAllWali = async () => {
             <h3 className="text-xl font-bold text-gray-800 mb-4">Hapus Data Syahriah</h3>
             <p className="text-gray-600 mb-6">
               Apakah Anda yakin ingin menghapus data syahriah untuk{' '}
-              <strong>{selectedSyahriah.wali?.nama_lengkap || 'N/A'}</strong> bulan{' '}
+              <strong>{selectedSyahriah.santri?.nama_lengkap || 'N/A'}</strong> bulan{' '}
               <strong>{formatBulan(selectedSyahriah.bulan)}</strong>?
             </p>
             <div className="flex justify-end space-x-3">
