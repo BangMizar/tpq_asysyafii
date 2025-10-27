@@ -366,23 +366,24 @@ const [formLoading, setFormLoading] = useState(false);
           [`Periode: ${getCurrentPeriodText()}`],
           []
         ];
-  
+      
         const syahriahDataToExport = getFilteredSyahriah().map(item => ({
-          'Tanggal Bayar': formatDateTime(item.waktu_catat),
-          'Nama Wali': item.wali?.nama_lengkap || '-',
-          'Email': item.wali?.email || '-',
-          'No. Telepon': item.wali?.no_telp || '-',
+          'Nama Santri': item.santri?.nama_lengkap || 'N/A',
+          'Wali': item.santri?.wali?.nama_lengkap || '-',
+          'Email Wali': item.santri?.wali?.email || '-',
+          'No. Telepon Wali': item.santri?.wali?.no_telp || '-',
           'Bulan': formatPeriod(item.bulan),
           'Nominal': item.nominal,
-          'Status': item.status,
+          'Status': item.status === 'lunas' ? 'Lunas' : 'Belum Bayar',
+          'Tanggal Bayar': item.status === 'lunas' ? formatDateTime(item.waktu_catat) : '-',
           'Dicatat Oleh': item.admin?.nama_lengkap || 'Admin'
         }));
-  
+      
         const wsSyahriah = XLSX.utils.aoa_to_sheet(syahriahHeader);
         XLSX.utils.sheet_add_json(wsSyahriah, syahriahDataToExport, { origin: 'A5', skipHeader: false });
         XLSX.utils.book_append_sheet(wb, wsSyahriah, 'Pemasukan Syahriah');
       }
-  
+
       XLSX.writeFile(wb, `${fileName}_${tpqInfo?.nama_tpq?.replace(/\s+/g, '_') || 'TPQ_Asy_Syafii'}_${selectedPeriod === 'semua' ? 'Semua_Periode' : selectedPeriod}_${new Date().toISOString().split('T')[0]}.xlsx`);
       showAlert('Berhasil', `Laporan keuangan lengkap berhasil diexport ke Excel`, 'success');
     } catch (err) {
@@ -504,22 +505,23 @@ const exportToCSV = async () => {
 
       // Section 5: Pemasukan Syahriah
       const syahriahData = getFilteredSyahriah();
-      if (syahriahData.length > 0) {
-        allData.push('DATA PEMASUKAN SYAHRIYAH');
-        allData.push('Tanggal Bayar,Nama Wali,Email,No. Telepon,Bulan,Nominal,Status,Dicatat Oleh');
-        syahriahData.forEach(item => {
-          allData.push([
-            formatDateTime(item.waktu_catat),
-            `"${item.wali?.nama_lengkap || '-'}"`,
-            item.wali?.email || '-',
-            item.wali?.no_telp || '-',
-            formatPeriod(item.bulan),
-            item.nominal,
-            item.status,
-            item.admin?.nama_lengkap || 'Admin'
-          ].join(','));
-        });
-      }
+if (syahriahData.length > 0) {
+  allData.push('DATA PEMASUKAN SYAHRIYAH');
+  allData.push('Nama Santri,Wali,Email Wali,No. Telepon Wali,Bulan,Nominal,Status,Tanggal Bayar,Dicatat Oleh');
+  syahriahData.forEach(item => {
+    allData.push([
+      `"${item.santri?.nama_lengkap || 'N/A'}"`,
+      `"${item.santri?.wali?.nama_lengkap || '-'}"`,
+      item.santri?.wali?.email || '-',
+      item.santri?.wali?.no_telp || '-',
+      formatPeriod(item.bulan),
+      item.nominal,
+      item.status === 'lunas' ? 'Lunas' : 'Belum Bayar',
+      item.status === 'lunas' ? formatDateTime(item.waktu_catat) : '-',
+      item.admin?.nama_lengkap || 'Admin'
+    ].join(','));
+  });
+}
 
       const csvContent = allData.join('\n');
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -849,27 +851,27 @@ const exportToCSV = async () => {
               <table>
                 <thead>
                   <tr>
-                    <th>Tanggal Bayar</th>
-                    <th>Nama Wali</th>
-                    <th>Kontak</th>
+                    <th>Nama Santri</th>
+                    <th>Wali</th>
                     <th>Bulan</th>
                     <th>Nominal</th>
                     <th>Status</th>
+                    <th>Tanggal Bayar</th>
                     <th>Dicatat Oleh</th>
                   </tr>
                 </thead>
                 <tbody>
                   ${getFilteredSyahriah().map(item => `
                     <tr>
-                      <td>${formatDateTime(item.waktu_catat)}</td>
-                      <td>${item.wali?.nama_lengkap || '-'}</td>
+                      <td>${item.santri?.nama_lengkap || 'N/A'}</td>
                       <td>
-                        ${item.wali?.no_telp || '-'}<br>
-                        <small>${item.wali?.email || ''}</small>
+                        ${item.santri?.wali?.nama_lengkap || '-'}
+                        ${item.santri?.wali?.email ? `<br><small>${item.santri.wali.email}</small>` : ''}
                       </td>
                       <td>${formatPeriod(item.bulan)}</td>
                       <td class="currency positive">${formatCurrency(item.nominal)}</td>
-                      <td style="text-transform: capitalize;">${item.status}</td>
+                      <td style="text-transform: capitalize;">${item.status === 'lunas' ? 'Lunas' : 'Belum Bayar'}</td>
+                      <td>${item.status === 'lunas' ? formatDateTime(item.waktu_catat) : '-'}</td>
                       <td>${item.admin?.nama_lengkap || 'Admin'}</td>
                     </tr>
                   `).join('')}
@@ -1558,73 +1560,73 @@ const exportToCSV = async () => {
           </div>
         );
 
-      case 'syahriah':
-        return (
-          <div className="overflow-x-auto">
-            {filteredSyahriah.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Pemasukan Syahriah</h3>
-                <p className="text-green-600">Data pemasukan syahriah akan muncul setelah ada pembayaran syahriah</p>
-              </div>
-            ) : (
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal Bayar</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Wali</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">No. Telp</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bulan</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jumlah</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dicatat Oleh</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredSyahriah.map((item, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDateTime(item.waktu_catat)}
-                      </td>
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                        {item.wali?.nama_lengkap || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {item.wali?.email || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {item.wali?.no_telp || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatPeriod(item.bulan)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-                        {formatCurrency(item.nominal)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          item.status === 'lunas' ? 'bg-green-100 text-green-800' :
-                          'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {item.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {item.admin?.nama_lengkap || 'Admin'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+      // ========== BAGIAN TAB SYAHRIAH YANG DIPERBAIKI ==========
+case 'syahriah':
+  return (
+    <div className="overflow-x-auto">
+      {filteredSyahriah.length === 0 ? (
+        <div className="text-center py-8">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
           </div>
-        );
-        
+          <h3 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Pemasukan Syahriah</h3>
+          <p className="text-green-600">Data pemasukan syahriah akan muncul setelah ada pembayaran syahriah</p>
+        </div>
+      ) : (
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Santri</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Wali</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bulan</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jumlah</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal Bayar</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dicatat Oleh</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {filteredSyahriah.map((item, index) => (
+              <tr key={index} className="hover:bg-gray-50">
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  {item.santri?.nama_lengkap || 'N/A'}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {item.santri?.wali?.nama_lengkap || '-'}
+                  {item.santri?.wali?.email && (
+                    <div className="text-xs text-gray-400 mt-1">
+                      {item.santri.wali.email}
+                    </div>
+                  )}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {formatPeriod(item.bulan)}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                  {formatCurrency(item.nominal)}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {item.status === 'lunas' ? formatDateTime(item.waktu_catat) : '-'}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                    item.status === 'lunas' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {item.status === 'lunas' ? 'Lunas' : 'Belum Bayar'}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {item.admin?.nama_lengkap || 'Admin'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );   
       default:
         return null;
     }
