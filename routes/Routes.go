@@ -51,12 +51,13 @@ func SetupRoutes(r *gin.Engine) {
 			protected.DELETE("/keluarga/:id", keluargaController.DeleteKeluarga)
 
 			santriController := controllers.NewSantriController(config.DB)
-			protected.GET("/santri/my", santriController.GetMySantri) 
+			protected.GET("/santri/my", santriController.GetMySantri)
+			protected.GET("/wali/santri", santriController.GetSantriByWali) 
 
 			syahriahController := controllers.NewSyahriahController(config.DB)
-			protected.GET("/syahriah", syahriahController.GetAllSyahriah)
+			protected.GET("/syahriah", syahriahController.GetSyahriahForWali)
 			protected.GET("/syahriah/my", syahriahController.GetMySyahriah)	
-			protected.GET("/syahriah/summary", syahriahController.GetSyahriahSummary)
+			protected.GET("/syahriah/summary", syahriahController.GetSyahriahSummaryForWali)
 			protected.GET("/syahriah/:id", syahriahController.GetSyahriahByID)
 
 			donasiController := controllers.NewDonasiController(config.GetDB())

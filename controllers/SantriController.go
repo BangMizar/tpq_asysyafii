@@ -2,8 +2,9 @@ package controllers
 
 import (
 	"net/http"
-	"tpq_asysyafii/models"
+	"strconv"
 	"time"
+	"tpq_asysyafii/models"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -164,27 +165,65 @@ func (ctrl *SantriController) GetSantriByID(c *gin.Context) {
 	})
 }
 
-// GetSantriByWali mendapatkan santri berdasarkan ID wali
+// GetSantriByWali mendapatkan santri berdasarkan wali yang login
 func (ctrl *SantriController) GetSantriByWali(c *gin.Context) {
-	idWali := c.Param("id_wali")
-	if idWali == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ID wali diperlukan"})
-		return
-	}
+    // Get user ID dari token (wali ID)
+    userID, exists := c.Get("user_id")
+    if !exists {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized: user ID tidak ditemukan"})
+        return
+    }
 
-	var santri []models.Santri
-	err := ctrl.db.Preload("Wali").
-		Where("id_wali = ?", idWali).
-		Find(&santri).Error
+    // Parse query parameters
+    page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+    limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+    status := c.Query("status")
 
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data santri: " + err.Error()})
-		return
-	}
+    if page < 1 {
+        page = 1
+    }
+    if limit < 1 || limit > 100 {
+        limit = 10
+    }
 
-	c.JSON(http.StatusOK, gin.H{
-		"data": santri,
-	})
+    var santri []models.Santri
+    var total int64
+
+    // Build query untuk santri yang dimiliki wali
+    query := ctrl.db.Preload("Wali").Where("id_wali = ?", userID)
+
+    // Apply status filter jika ada
+    if status != "" {
+        query = query.Where("status = ?", status)
+    }
+
+    // Hitung total records
+    if err := query.Model(&models.Santri{}).Count(&total).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung total data: " + err.Error()})
+        return
+    }
+
+    // Apply pagination
+    offset := (page - 1) * limit
+    err := query.Order("dibuat_pada DESC").
+        Offset(offset).
+        Limit(limit).
+        Find(&santri).Error
+
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data santri: " + err.Error()})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "data": santri,
+        "meta": gin.H{
+            "page":      page,
+            "limit":     limit,
+            "total":     total,
+            "total_page": (int(total) + limit - 1) / limit,
+        },
+    })
 }
 
 // GetMySantri mendapatkan data santri dari wali yang sedang login

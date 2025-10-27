@@ -689,3 +689,170 @@ func (ctrl *SyahriahController) BatchCreateSyahriah(c *gin.Context) {
 		},
 	})
 }
+
+// GetSyahriahForWali mendapatkan data syahriah untuk wali (semua santri yang terhubung)
+func (ctrl *SyahriahController) GetSyahriahForWali(c *gin.Context) {
+	userID, exists := ctrl.getUserID(c)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized: user ID tidak ditemukan"})
+		return
+	}
+
+	// Parse query parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	bulan := c.Query("bulan")
+	status := c.Query("status")
+
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 10
+	}
+
+	// Cari semua santri yang terhubung dengan wali ini
+	var santriList []models.Santri
+	if err := ctrl.db.Where("id_wali = ?", userID).Find(&santriList).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data santri: " + err.Error()})
+		return
+	}
+
+	if len(santriList) == 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"data": []models.Syahriah{},
+			"meta": gin.H{
+				"page":       page,
+				"limit":      limit,
+				"total":      0,
+				"total_page": 0,
+			},
+		})
+		return
+	}
+
+	// Ambil ID santri
+	santriIDs := make([]string, len(santriList))
+	for i, santri := range santriList {
+		santriIDs[i] = santri.IDSantri
+	}
+
+	var syahriah []models.Syahriah
+	var total int64
+
+	// Build query untuk syahriah santri-santri wali
+	query := ctrl.db.Preload("Santri").Preload("Santri.Wali").Preload("Admin").
+		Where("id_santri IN ?", santriIDs)
+
+	// Apply filters
+	if bulan != "" {
+		query = query.Where("bulan = ?", bulan)
+	}
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+
+	// Hitung total records
+	if err := query.Model(&models.Syahriah{}).Count(&total).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung total data: " + err.Error()})
+		return
+	}
+
+	// Apply pagination
+	offset := (page - 1) * limit
+	err := query.Order("bulan DESC, waktu_catat DESC").
+		Offset(offset).
+		Limit(limit).
+		Find(&syahriah).Error
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data syahriah: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": syahriah,
+		"meta": gin.H{
+			"page":       page,
+			"limit":      limit,
+			"total":      total,
+			"total_page": (int(total) + limit - 1) / limit,
+		},
+	})
+}
+
+// GetSyahriahSummaryForWali mendapatkan summary syahriah untuk wali
+func (ctrl *SyahriahController) GetSyahriahSummaryForWali(c *gin.Context) {
+    userID, exists := ctrl.getUserID(c)
+    if !exists {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized: user ID tidak ditemukan"})
+        return
+    }
+
+    // Cari semua santri yang terhubung dengan wali ini
+    var santriList []models.Santri
+    if err := ctrl.db.Where("id_wali = ?", userID).Find(&santriList).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data santri: " + err.Error()})
+        return
+    }
+
+    if len(santriList) == 0 {
+        c.JSON(http.StatusOK, gin.H{
+            "data": gin.H{
+                "total":         0,
+                "lunas":         0,
+                "belum_lunas":   0,
+                "total_nominal": 0,
+            },
+        })
+        return
+    }
+
+    // Ambil ID santri
+    santriIDs := make([]string, len(santriList))
+    for i, santri := range santriList {
+        santriIDs[i] = santri.IDSantri
+    }
+
+    // Build query
+    query := ctrl.db.Model(&models.Syahriah{}).Where("id_santri IN ?", santriIDs)
+
+    // Hitung total
+    var total int64
+    if err := query.Count(&total).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung total syahriah: " + err.Error()})
+        return
+    }
+
+    // Hitung lunas
+    var lunas int64
+    if err := query.Where("status = ?", models.StatusLunas).Count(&lunas).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung syahriah lunas: " + err.Error()})
+        return
+    }
+
+    // Hitung belum lunas
+    var belum int64
+    if err := query.Where("status = ?", models.StatusBelum).Count(&belum).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung syahriah belum lunas: " + err.Error()})
+        return
+    }
+
+    // Total nominal yang sudah dibayar (hanya yang status lunas)
+    var totalNominal float64
+    if err := query.Where("status = ?", models.StatusLunas).
+        Select("COALESCE(SUM(nominal), 0)").
+        Scan(&totalNominal).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung total nominal: " + err.Error()})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "data": gin.H{
+            "total":         total,
+            "lunas":         lunas,
+            "belum_lunas":   belum,
+            "total_nominal": totalNominal,
+        },
+    })
+}
