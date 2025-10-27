@@ -23,6 +23,11 @@ func SetupRoutes(r *gin.Engine) {
 		api.GET("/berita/:slug", beritaController.GetBeritaBySlug)
 		api.GET("/berita/id/:id", beritaController.GetBeritaByID) 
 
+		fasilitasController := controllers.NewFasilitasController(config.DB)
+		api.GET("/fasilitas", fasilitasController.GetFasilitasPublic)
+		api.GET("/fasilitas/:slug", fasilitasController.GetFasilitasBySlug)
+		api.GET("/fasilitas/id/:id", fasilitasController.GetFasilitasByID)
+
 		programUnggulanController := controllers.NewProgramUnggulanController(config.DB)
 		api.GET("/program-unggulan", programUnggulanController.GetProgramUnggulanPublic) 
 		api.GET("/program-unggulan/:slug", programUnggulanController.GetProgramUnggulanBySlug)
@@ -172,13 +177,19 @@ func SetupRoutes(r *gin.Engine) {
 			superAdmin.PUT("/berita/:id/publish", beritaController.PublishBerita)
 			superAdmin.DELETE("/berita/:id", beritaController.DeleteBerita)
 
-			// Tambahkan routes untuk Program Unggulan (Super Admin Only)
 			superAdmin.POST("/program-unggulan", programUnggulanController.CreateProgramUnggulan)
 			superAdmin.GET("/program-unggulan/all", programUnggulanController.GetAllProgramUnggulan)
 			superAdmin.PUT("/program-unggulan/:id", programUnggulanController.UpdateProgramUnggulan)
 			superAdmin.DELETE("/program-unggulan/:id", programUnggulanController.DeleteProgramUnggulan)
 			superAdmin.PUT("/program-unggulan/:id/aktif", programUnggulanController.AktifkanProgramUnggulan)
 			superAdmin.PUT("/program-unggulan/:id/nonaktif", programUnggulanController.NonaktifkanProgramUnggulan)
+
+			superAdmin.POST("/fasilitas", fasilitasController.CreateFasilitas)
+			superAdmin.GET("/fasilitas/all", fasilitasController.GetAllFasilitas)
+			superAdmin.PUT("/fasilitas/:id", fasilitasController.UpdateFasilitas)
+			superAdmin.DELETE("/fasilitas/:id", fasilitasController.DeleteFasilitas)
+			superAdmin.PUT("/fasilitas/:id/aktif", fasilitasController.AktifkanFasilitas)
+			superAdmin.PUT("/fasilitas/:id/nonaktif", fasilitasController.NonaktifkanFasilitas)
 
 			superAdmin.POST("/informasi-tpq", informasiTPQController.CreateInformasiTPQ)
 			superAdmin.GET("/informasi-tpq/all", informasiTPQController.GetInformasiTPQ)
