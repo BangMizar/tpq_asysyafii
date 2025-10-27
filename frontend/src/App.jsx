@@ -15,6 +15,7 @@ import BeritaDetail from './components/BeritaDetail';
 import WaliLayout from './components/layout/WaliLayout';
 import KeuanganTPQ from './pages/wali/KeuanganTPQ';
 import Keluarga from './pages/wali/Keluarga';
+import Komentar from './pages/wali/Komentar';
 import SemuaTagihanWali from './pages/wali/DetailTagihan';
 import Profil from './pages/wali/Profil';
 
@@ -195,6 +196,7 @@ const AppContent = () => {
         <Route path="keluarga" element={<Keluarga />} />
         <Route path="profil" element={<Profil />} />
         <Route path="detail" element={<SemuaTagihanWali />} />
+        <Route path="komentar" element={<Komentar />} />
       </Route>
       
       {/* Default redirect based on role */}
