@@ -628,7 +628,7 @@ const FasilitasManagement = () => {
   }
 
   return (
-    <AuthDashboardLayout>
+    <AuthDashboardLayout title="Fasilitas">
       <div className="p-6">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
           <div>
@@ -748,9 +748,6 @@ const FasilitasManagement = () => {
                       <td className="px-6 py-4">
                         <div className="text-sm font-medium text-gray-900 max-w-xs">
                           {item.judul}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          Slug: {item.slug}
                         </div>
                       </td>
                       <td className="px-6 py-4">

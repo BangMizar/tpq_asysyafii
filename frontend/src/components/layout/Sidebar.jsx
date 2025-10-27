@@ -175,7 +175,8 @@ const Sidebar = () => {
       submenu: [
         { title: 'Data Program Unggulan', path: '/super-admin/program-unggulan' },
         { title: 'Data Berita', path: '/super-admin/berita' },
-        { title: 'Data Fasilitas', path: '/super-admin/fasilitas' }, // TAMBAHKAN MENU FASILITAS DI SINI
+        { title: 'Data Fasilitas', path: '/super-admin/fasilitas' },
+        { title: 'Data Testimoni', path: '/super-admin/testimoni' }, 
         { title: 'Informasi TPQ', path: '/super-admin/informasi-tpq' }
       ]
     },

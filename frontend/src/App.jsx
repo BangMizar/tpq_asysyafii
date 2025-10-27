@@ -27,6 +27,7 @@ import ProgramUnggulanManagement from './pages/super-admin/ProgramUnggulan';
 import SystemManagement from './pages/super-admin/System';
 import DataSantri from './pages/super-admin/DataSantri';
 import FasilitasManagement from './pages/super-admin/Fasilitas';
+import TestimoniManagement from './pages/super-admin/Testimoni';
 
 import DataDonasi from './pages/admin/DataDonasi';
 import DataKeuangan from './pages/admin/DataKeuangan';
@@ -107,6 +108,14 @@ const AppContent = () => {
           </ProtectedRoute>
         } 
       />
+      <Route 
+        path="/super-admin/testimoni" 
+        element={
+          <ProtectedRoute allowedRoles={['super_admin']}>
+            <TestimoniManagement />
+          </ProtectedRoute>
+        } 
+      />
       
       <Route 
         path="/super-admin/informasi-tpq" 
@@ -134,8 +143,7 @@ const AppContent = () => {
           </ProtectedRoute>
         } 
       />
-      
-      {/* Data Santri Routes - Tambahkan di sini */}
+
       <Route 
         path="/super-admin/santri" 
         element={
