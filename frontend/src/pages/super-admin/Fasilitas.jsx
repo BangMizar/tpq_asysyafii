@@ -12,6 +12,7 @@ const FasilitasManagement = () => {
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [showIconDropdown, setShowIconDropdown] = useState(false);
 
   // State untuk modal
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -33,6 +34,102 @@ const FasilitasManagement = () => {
   });
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
+  // Daftar icon yang tersedia
+  const availableIcons = [
+    { 
+      name: 'users', 
+      label: 'Users',
+      svg: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+        </svg>
+      )
+    },
+    { 
+      name: 'book-open', 
+      label: 'Book Open',
+      svg: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+        </svg>
+      )
+    },
+    { 
+      name: 'shield-check', 
+      label: 'Shield Check',
+      svg: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+      )
+    },
+    { 
+      name: 'graduation-cap', 
+      label: 'Graduation Cap',
+      svg: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+        </svg>
+      )
+    },
+    { 
+      name: 'star', 
+      label: 'Star',
+      svg: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+        </svg>
+      )
+    },
+    { 
+      name: 'award', 
+      label: 'Award',
+      svg: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      )
+    },
+    { 
+      name: 'clock', 
+      label: 'Clock',
+      svg: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      )
+    },
+    { 
+      name: 'check-circle', 
+      label: 'Check Circle',
+      svg: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      )
+    },
+    { 
+      name: 'academic-cap', 
+      label: 'Academic Cap',
+      svg: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+        </svg>
+      )
+    },
+    { 
+      name: 'bookmark', 
+      label: 'Bookmark',
+      svg: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+        </svg>
+      )
+    }
+  ];
 
   // Function hasPermission lokal
   const hasPermission = () => {
@@ -121,6 +218,7 @@ const FasilitasManagement = () => {
       urutan_tampil: 0,
       status: 'aktif'
     });
+    setShowIconDropdown(false);
   };
 
   // Modal handlers
@@ -154,6 +252,12 @@ const FasilitasManagement = () => {
   const openNonaktifModal = (fasilitas) => {
     setSelectedFasilitas(fasilitas);
     setShowNonaktifModal(true);
+  };
+
+  // Handler untuk memilih icon
+  const handleSelectIcon = (iconName) => {
+    setFormData({ ...formData, icon: iconName });
+    setShowIconDropdown(false);
   };
 
   const handleCreateFasilitas = async (e) => {
@@ -401,9 +505,17 @@ const FasilitasManagement = () => {
       'star': '⭐',
       'award': '🏆',
       'clock': '⏰',
-      'check-circle': '✅'
+      'check-circle': '✅',
+      'academic-cap': '🎓',
+      'bookmark': '📑'
     };
     return iconMap[iconName] || '📄';
+  };
+
+  // Get SVG icon by name
+  const getIconSvg = (iconName) => {
+    const icon = availableIcons.find(icon => icon.name === iconName);
+    return icon ? icon.svg : availableIcons[0].svg;
   };
 
   // Icons untuk UI
@@ -438,8 +550,36 @@ const FasilitasManagement = () => {
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
+    ),
+    chevronDown: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+      </svg>
     )
   };
+
+  // Komponen untuk dropdown icon
+  const IconDropdown = () => (
+    <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+      <div className="p-2">
+        <div className="grid grid-cols-2 gap-2">
+          {availableIcons.map((icon) => (
+            <button
+              key={icon.name}
+              type="button"
+              onClick={() => handleSelectIcon(icon.name)}
+              className={`flex items-center space-x-2 p-2 rounded-md hover:bg-green-50 transition-colors ${
+                formData.icon === icon.name ? 'bg-green-100 border border-green-300' : 'border border-transparent'
+              }`}
+            >
+              <span className="text-green-600">{icon.svg}</span>
+              <span className="text-sm text-gray-700">{icon.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 
   if (loading && fasilitas.length === 0) {
     return (
@@ -711,20 +851,36 @@ const FasilitasManagement = () => {
               <h3 className="text-xl font-bold text-gray-800 mb-4">Tambah Fasilitas Baru</h3>
               <form onSubmit={handleCreateFasilitas}>
                 <div className="space-y-4">
-                  <div>
+                  <div className="relative">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Icon
                     </label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.icon}
-                      onChange={(e) => setFormData({...formData, icon: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                      placeholder="Masukkan nama icon (contoh: users, book-open, shield-check)"
-                    />
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setShowIconDropdown(!showIconDropdown)}
+                        className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                      >
+                        <div className="flex items-center space-x-2">
+                          {formData.icon ? (
+                            <>
+                              <span className="text-green-600">
+                                {getIconSvg(formData.icon)}
+                              </span>
+                              <span className="text-gray-700">
+                                {availableIcons.find(icon => icon.name === formData.icon)?.label || formData.icon}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-gray-500">Pilih icon...</span>
+                          )}
+                        </div>
+                        {icons.chevronDown}
+                      </button>
+                      {showIconDropdown && <IconDropdown />}
+                    </div>
                     <p className="text-xs text-gray-500 mt-1">
-                      Gunakan nama icon seperti: users, book-open, shield-check, graduation-cap, star, award
+                      Pilih icon yang sesuai untuk fasilitas
                     </p>
                   </div>
 
@@ -815,18 +971,34 @@ const FasilitasManagement = () => {
               <h3 className="text-xl font-bold text-gray-800 mb-4">Edit Fasilitas</h3>
               <form onSubmit={handleUpdateFasilitas}>
                 <div className="space-y-4">
-                  <div>
+                  <div className="relative">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Icon
                     </label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.icon}
-                      onChange={(e) => setFormData({...formData, icon: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                      placeholder="Masukkan nama icon"
-                    />
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setShowIconDropdown(!showIconDropdown)}
+                        className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                      >
+                        <div className="flex items-center space-x-2">
+                          {formData.icon ? (
+                            <>
+                              <span className="text-green-600">
+                                {getIconSvg(formData.icon)}
+                              </span>
+                              <span className="text-gray-700">
+                                {availableIcons.find(icon => icon.name === formData.icon)?.label || formData.icon}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-gray-500">Pilih icon...</span>
+                          )}
+                        </div>
+                        {icons.chevronDown}
+                      </button>
+                      {showIconDropdown && <IconDropdown />}
+                    </div>
                   </div>
 
                   <div>

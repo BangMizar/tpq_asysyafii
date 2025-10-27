@@ -507,7 +507,7 @@ const ProgramUnggulanManagement = () => {
   }
 
   return (
-    <AuthDashboardLayout>
+    <AuthDashboardLayout title="Program Unggulan">
       <div className="p-6">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
           <div>
