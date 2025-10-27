@@ -253,7 +253,7 @@ const Hero = () => {
             </div>
 
             {/* CTA Buttons - Hubungi dan link_alamat */}
-            <div className={`flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-6 transform transition-all duration-1000 delay-1100 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
+            <div className={`flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-6 transform transition-all duration-1000 delay-1100 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'} relative z-20`}>
               <a 
                 href={`https://wa.me/${formatWhatsAppNumber(tpqData.no_telp)}`} 
                 target="_blank" 
@@ -290,18 +290,18 @@ const Hero = () => {
           </div>
 
           {/* Hero Illustration dengan Animasi */}
-          <div className="lg:w-1/2 flex justify-center items-center">
+          <div className="lg:w-1/2 flex justify-center items-center relative z-10">
             <div className="relative">
               
-              {/* Main Circle dengan Rotate Animation */}
-              <div className={`relative w-80 h-80 md:w-96 md:h-96 rounded-full flex items-center justify-center transform transition-all duration-1500 delay-500 ${isVisible ? 'scale-170 rotate-0 opacity-100' : 'scale-50 rotate-180 opacity-0'}`}>
+              {/* Main Circle dengan ukuran lebih kecil di mobile */}
+              <div className={`relative w-64 h-64 md:w-96 md:h-96 rounded-full flex items-center justify-center transform transition-all duration-1500 delay-500 ${isVisible ? 'scale-100 md:scale-170 rotate-0 opacity-100' : 'scale-50 rotate-180 opacity-0'}`}>
                 
                 {/* Inner Circle dengan Pulse Animation */}
                 <div className="absolute inset-8 flex items-center justify-center animate-pulse-slow">
                   
-                  {/* Content Center */}
+                  {/* Content Center dengan ukuran lebih kecil di mobile */}
                   <div className="text-center space-y-4">
-                    <div className="w-50 h-70 flex items-center justify-center mx-auto animate-bounce-gentle opacity-50">
+                    <div className="w-70 h-70 md:w-50 md:h-70 flex items-center justify-center mx-auto animate-bounce-gentle opacity-50">
                       <img 
                         src={getLogoUrl(tpqData.logo)} 
                         alt={`${tpqData.nama_tpq || "TPQ Asy-Syafi'i"} Logo`} 
@@ -316,24 +316,24 @@ const Hero = () => {
                   </div>
                 </div>
 
-                {/* Floating Elements Around Circle */}
-                <div className="absolute -top-4 -left-4 w-16 h-16 flex items-center justify-center animate-float-rotate">
+                {/* Floating Elements Around Circle - disembunyikan di mobile */}
+                <div className=" md:block absolute -top-4 -left-4 w-16 h-16 flex items-center justify-center animate-float-rotate">
                   <span className="text-2xl opacity-50">📚</span>
                 </div>
-                <div className="absolute -bottom-4 -right-4 w-16 h-16 flex items-center justify-center animate-float-rotate" style={{ animationDelay: '1s' }}>
+                <div className=" md:block absolute -bottom-4 -right-4 w-16 h-16 flex items-center justify-center animate-float-rotate" style={{ animationDelay: '1s' }}>
                   <span className="text-2xl opacity-50">🕌</span>
                 </div>
-                <div className="absolute -top-4 -right-4 w-12 h-12 flex items-center justify-center animate-float-rotate" style={{ animationDelay: '2s' }}>
+                <div className=" md:block absolute -top-4 -right-4 w-12 h-12 flex items-center justify-center animate-float-rotate" style={{ animationDelay: '2s' }}>
                   <span className="text-xl opacity-50">🎯</span>
                 </div>
-                <div className="absolute -bottom-4 -left-4 w-12 h-12 flex items-center justify-center animate-float-rotate" style={{ animationDelay: '1.5s' }}>
+                <div className=" md:block absolute -bottom-4 -left-4 w-12 h-12 flex items-center justify-center animate-float-rotate" style={{ animationDelay: '1.5s' }}>
                   <span className="text-xl opacity-50">📖</span>
                 </div>
               </div>
 
-              {/* Decorative Elements */}
-              <div className="absolute top-10 -right-10 w-20 h-20 bg-yellow-200 rounded-full opacity-60 animate-ping-slow"></div>
-              <div className="absolute bottom-10 -left-10 w-16 h-16 bg-blue-200 rounded-full opacity-60 animate-ping-slow" style={{ animationDelay: '1s' }}></div>
+              {/* Decorative Elements - disembunyikan di mobile */}
+              <div className="hidden md:block absolute top-10 -right-10 w-20 h-20 bg-yellow-200 rounded-full opacity-60 animate-ping-slow"></div>
+              <div className="hidden md:block absolute bottom-10 -left-10 w-16 h-16 bg-blue-200 rounded-full opacity-60 animate-ping-slow" style={{ animationDelay: '1s' }}></div>
             </div>
           </div>
         </div>
