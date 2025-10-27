@@ -38,10 +38,28 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('user');
   };
 
+  // Tambahkan fungsi updateUser
+  const updateUser = (updatedUserData) => {
+    setUser(prevUser => ({
+      ...prevUser,
+      ...updatedUserData
+    }));
+    
+    // Update juga di localStorage
+    const currentUser = localStorage.getItem('user');
+    if (currentUser) {
+      const userObj = JSON.parse(currentUser);
+      const updatedUser = { ...userObj, ...updatedUserData };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+    }
+  };
+
   const value = {
     user,
+    setUser, // Ekspos setUser
     login,
     logout,
+    updateUser,
     isAuthenticated: !!user,
   };
 
