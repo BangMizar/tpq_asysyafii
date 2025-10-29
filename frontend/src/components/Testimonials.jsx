@@ -171,20 +171,16 @@ const Testimonials = () => {
 
         {error ? (
           <div className="text-center py-12">
-            <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-10 h-10 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-semibold text-red-800 mb-2">Gagal Memuat Testimoni</h3>
-            <p className="text-red-600 mb-4">{error}</p>
-            <button
-              onClick={fetchTestimonials}
-              className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200"
-            >
-              Coba Lagi
-            </button>
+          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-10 h-10 text-green-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+            </svg>
           </div>
+          <h3 className="text-xl font-semibold text-green-800 mb-2">Belum Ada Komentar</h3>
+          <p className="text-green-600 mb-4">
+            Belum ada testimoni dari orang tua. Jadilah yang pertama untuk berbagi pengalaman!
+          </p>
+        </div>
         ) : testimonials.length === 0 ? (
           <div className="text-center py-12">
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">

@@ -356,9 +356,6 @@ const Profil = () => {
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-1">{user?.nama_lengkap || 'Wali Santri'}</h3>
               <p className="text-gray-600 mb-4 capitalize">{user?.role?.replace('_', ' ') || 'Wali Santri'}</p>
-              <button className="w-full bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors duration-200 text-sm font-medium">
-                Ubah Foto Profil
-              </button>
             </div>
           </div>
 

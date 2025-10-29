@@ -14,7 +14,7 @@ const Hero = () => {
     nama_tpq: "TPQ Asy-Syafi'i",
     tempat: "Campakoah",
     slogan: "Membentuk generasi Qur'ani yang berakhlak mulia dan berprestasi",
-    deskripsi: "Pendidikan agama Islam yang menyenangkan untuk anak-anak usia dini, mengajarkan Al-Quran dengan metode yang benar sesuai manhaj Ahlus Sunnah wal Jama'ah.",
+    deskripsi: "Membentuk generasi Qur'ani yang berakhlak mulia dan berprestasi",
     visi: "Menjadi Lembaga Pendidikan yang Membentuk Generasi Berakhlak Mulia dengan Mempelajari Al Qur'an sejak dini.",
     misi: "1. Membudayakan pelaksanaan ajaran-ajaran islam.\n2. Menumbuhkan kegemaran dan kebiasaan membaca alqur'an dan dzikir\n3. Menumbuhkan akhlakul karimah dalam kehidupan sehari-hari",
     no_telp: "+6281234567890",
