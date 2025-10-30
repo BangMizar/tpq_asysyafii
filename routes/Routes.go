@@ -1,7 +1,6 @@
 package routes
 
 import (
-	"time"
 	"tpq_asysyafii/config"
 	"tpq_asysyafii/controllers"
 	"tpq_asysyafii/middleware"
@@ -42,16 +41,6 @@ func SetupRoutes(r *gin.Engine) {
 		testimoniController := controllers.NewTestimoniController(config.DB)
 		api.GET("/testimoni", testimoniController.GetTestimoniPublic)
 		api.GET("/testimoni/:id", testimoniController.GetTestimoniByID)
-
-		api.GET("/emergency-health", func(c *gin.Context) {
-			// Simple health check tanpa database
-			c.JSON(200, gin.H{
-				"status":    "alive",
-				"service":   "TPQ Asy Syafii",
-				"timestamp": time.Now().Unix(),
-				"database":  config.CheckDBHealth(),
-			})
-		})
 
 		protected := api.Group("/")
 		protected.Use(middlewares.AuthMiddleware())
