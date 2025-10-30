@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -24,10 +25,13 @@ func InitDB() {
 	dbname := os.Getenv("DB_NAME")
 
 	// DSN MySQL dengan parameter optimasi
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&charset=utf8mb4&loc=Local&timeout=30s&readTimeout=30s&writeTimeout=30s",
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&charset=utf8mb4&loc=Local&timeout=10s&readTimeout=10s&writeTimeout=10s",
 		user, pass, host, port, dbname)
 
-	// Config dengan timeout
+	// Config dengan timeout context
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 		NowFunc: func() time.Time {
@@ -36,7 +40,6 @@ func InitDB() {
 	})
 	if err != nil {
 		log.Printf("❌ Gagal koneksi DB: %v", err)
-		// Jangan fatal di sini, biarkan caller handle retry
 		DB = nil
 		return
 	}
@@ -49,14 +52,17 @@ func InitDB() {
 		return
 	}
 
-	// ⚡ OPTIMASI KRITIS: Kurangi koneksi untuk hindari max_user_connections
-	sqlDB.SetMaxOpenConns(2)      // ⬇️ KURANGI dari 3 ke 2
-	sqlDB.SetMaxIdleConns(1)      // ⬇️ KURANGI dari 2 ke 1  
-	sqlDB.SetConnMaxLifetime(5 * time.Minute)
-	sqlDB.SetConnMaxIdleTime(2 * time.Minute)
+	// ⚡ OPTIMASI KRITIS: Kurangi koneksi untuk shared environment
+	sqlDB.SetMaxOpenConns(2)           // MAX 2 koneksi aktif
+	sqlDB.SetMaxIdleConns(1)           // MAX 1 koneksi idle  
+	sqlDB.SetConnMaxLifetime(10 * time.Minute)
+	sqlDB.SetConnMaxIdleTime(5 * time.Minute)
 
-	// Test connection
-	if err := sqlDB.Ping(); err != nil {
+	// Test connection dengan timeout
+	pingCtx, pingCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer pingCancel()
+	
+	if err := sqlDB.PingContext(pingCtx); err != nil {
 		log.Printf("❌ Database ping failed: %v", err)
 		sqlDB.Close()
 		DB = nil
@@ -64,13 +70,12 @@ func InitDB() {
 	}
 
 	DB = db
-	log.Printf("✅ Database terkoneksi dengan pool aman (MaxOpen: 2, MaxIdle: 1)")
+	log.Printf("✅ Database terkoneksi (MaxOpen: 2, MaxIdle: 1)")
 
-	// AutoMigrate dengan timeout context
-	// migrateDB(db)
+	// AutoMigrate dalam goroutine terpisah agar tidak block startup
+	go migrateDB(db)
 }
 
-// Pisahkan migrate agar tidak block startup lama
 func migrateDB(db *gorm.DB) {
 	log.Printf("🔄 Starting database migration...")
 	
@@ -94,10 +99,10 @@ func migrateDB(db *gorm.DB) {
 	)
 	
 	if err != nil {
-		log.Printf("⚠️ Gagal migrate database: %v", err)
+		log.Printf("⚠️ Migration warning: %v", err)
 		// Jangan fatal, biarkan aplikasi tetap running
 	} else {
-		log.Printf("✅ Database migration completed in %v", time.Since(start))
+		log.Printf("✅ Migration completed in %v", time.Since(start))
 	}
 }
 
@@ -116,5 +121,8 @@ func CheckDBHealth() bool {
 		return false
 	}
 	
-	return sqlDB.Ping() == nil
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	
+	return sqlDB.PingContext(ctx) == nil
 }
