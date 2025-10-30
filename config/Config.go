@@ -53,10 +53,10 @@ func InitDB() {
 	}
 
 	// ⚡ OPTIMASI KRITIS: Kurangi koneksi untuk shared environment
-	sqlDB.SetMaxOpenConns(2)           // MAX 2 koneksi aktif
-	sqlDB.SetMaxIdleConns(1)           // MAX 1 koneksi idle  
-	sqlDB.SetConnMaxLifetime(10 * time.Minute)
-	sqlDB.SetConnMaxIdleTime(5 * time.Minute)
+	sqlDB.SetMaxOpenConns(1)           // MAX 1 koneksi aktif
+    sqlDB.SetMaxIdleConns(0)           // NO koneksi idle  
+    sqlDB.SetConnMaxLifetime(5 * time.Minute)
+    sqlDB.SetConnMaxIdleTime(1 * time.Minute)
 
 	// Test connection dengan timeout
 	pingCtx, pingCancel := context.WithTimeout(ctx, 5*time.Second)
@@ -76,14 +76,35 @@ func InitDB() {
 	go migrateDB(db)
 }
 
+func CloseDB() {
+    if DB != nil {
+        if sqlDB, err := DB.DB(); err == nil {
+            sqlDB.Close()
+        }
+    }
+}
+
 func migrateDB(db *gorm.DB) {
-	log.Printf("🔄 Starting database migration...")
-	
-	start := time.Now()
-	err := db.AutoMigrate(
-		&models.User{},
-		&models.Keluarga{},
-		&models.Santri{},
+    log.Printf("🔄 Starting database migration...")
+    
+    start := time.Now()
+    
+    // Cek koneksi sebelum migration
+    if !config.CheckDBHealth() {
+        log.Printf("⚠️ Skip migration: database not healthy")
+        return
+    }
+    
+    // Migration dengan timeout
+    ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+    defer cancel()
+    
+    // Use transaction for migration
+    err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+        return tx.AutoMigrate(
+            &models.User{},
+            &models.Keluarga{},
+            &models.Santri{},
 		&models.Syahriah{},
 		&models.Donasi{},
 		&models.PemakaianSaldo{},
@@ -97,6 +118,7 @@ func migrateDB(db *gorm.DB) {
 		&models.ProgramUnggulan{},
 		&models.LogAktivitas{},
 	)
+})
 	
 	if err != nil {
 		log.Printf("⚠️ Migration warning: %v", err)
@@ -125,4 +147,20 @@ func CheckDBHealth() bool {
 	defer cancel()
 	
 	return sqlDB.PingContext(ctx) == nil
+}
+func PrintDBStats() {
+    if DB == nil {
+        log.Println("❌ DB is nil")
+        return
+    }
+    
+    sqlDB, err := DB.DB()
+    if err != nil {
+        log.Printf("❌ Failed to get DB stats: %v", err)
+        return
+    }
+    
+    stats := sqlDB.Stats()
+    log.Printf("📊 DB Stats - OpenConnections: %d, InUse: %d, Idle: %d", 
+        stats.OpenConnections, stats.InUse, stats.Idle)
 }

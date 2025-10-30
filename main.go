@@ -104,12 +104,14 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	// ✅ INIT DATABASE DENGAN CONTEXT TIMEOUT
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	log.Printf("🔧 Initializing application...")
+	
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+defer cancel()
 	
 	if err := initDBWithRetry(ctx); err != nil {
 		log.Printf("❌ Database initialization failed: %v", err)
+		log.Printf("⚠️ Application starting in limited mode (without database)")
 		// Jangan exit, biarkan aplikasi tetap running tanpa DB
 	} else {
 		log.Printf("✅ Database connected successfully")
@@ -171,38 +173,40 @@ func main() {
 }
 
 func initDBWithRetry(ctx context.Context) error {
-	maxRetries := 3
-	retryDelay := time.Second * 5
+    maxRetries := 5
+    retryDelay := time.Second * 3
 
-	for i := 0; i < maxRetries; i++ {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-			log.Printf("🔄 Database connection attempt %d/%d...", i+1, maxRetries)
-			
-			// Try to initialize DB
-			config.InitDB()
-			
-			// Check if DB is connected and healthy
-			if config.GetDB() != nil {
-				if sqlDB, err := config.GetDB().DB(); err == nil {
-					if err := sqlDB.Ping(); err == nil {
-						log.Printf("✅ Database connected successfully")
-						return nil
-					}
-				}
-			}
-			
-			if i < maxRetries-1 {
-				log.Printf("⏳ Retrying in %v...", retryDelay)
-				time.Sleep(retryDelay)
-				retryDelay *= 2 // Exponential backoff
-			}
-		}
-	}
-	
-	return fmt.Errorf("failed to connect to database after %d attempts", maxRetries)
+    for i := 0; i < maxRetries; i++ {
+        select {
+        case <-ctx.Done():
+            return ctx.Err()
+        default:
+            log.Printf("🔄 Database connection attempt %d/%d...", i+1, maxRetries)
+            
+            // Close existing connection if any
+            if config.GetDB() != nil {
+                if sqlDB, err := config.GetDB().DB(); err == nil {
+                    sqlDB.Close()
+                }
+            }
+            
+            // Try to initialize DB
+            config.InitDB()
+            
+            // Check if DB is connected and healthy
+            if config.CheckDBHealth() {
+                log.Printf("✅ Database connected successfully on attempt %d", i+1)
+                return nil
+            }
+            
+            if i < maxRetries-1 {
+                log.Printf("⏳ Retrying in %v...", retryDelay)
+                time.Sleep(retryDelay)
+            }
+        }
+    }
+    
+    return fmt.Errorf("failed to connect to database after %d attempts", maxRetries)
 }
 
 func getOriginsFromEnv() []string {
