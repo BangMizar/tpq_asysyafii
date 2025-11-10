@@ -18,6 +18,12 @@ func SetupRoutes(r *gin.Engine) {
 		api.GET("/donasi-public", donasiController.GetDonasiPublic)
     	api.GET("/donasi-public/summary", donasiController.GetDonasiSummaryPublic)
 
+		pemakaianController := controllers.NewPemakaianSaldoController(config.DB)
+		api.GET("/pengeluaran-public", pemakaianController.GetAllPemakaianPublic)
+		api.GET("/pengeluaran-public/summary", pemakaianController.GetPemakaianSummaryPublic)
+		api.GET("/pengeluaran-public/stats", pemakaianController.GetPemakaianStatsPublic)
+		api.GET("/pengeluaran-public/:id", pemakaianController.GetPemakaianByIDPublic)
+
 		beritaController := controllers.NewBeritaController(config.DB)
 		api.GET("/berita", beritaController.GetBeritaPublic)
 		api.GET("/berita/:slug", beritaController.GetBeritaBySlug)

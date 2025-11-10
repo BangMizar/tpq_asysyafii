@@ -612,3 +612,362 @@ func (ctrl *PemakaianSaldoController) updateRekapSaldoSetelahHapus(pemakaian mod
         pemakaian.NominalTotal,
     )
 }
+
+func (ctrl *PemakaianSaldoController) GetAllPemakaianPublic(c *gin.Context) {
+	// Parse query parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	tipePemakaian := c.Query("tipe_pemakaian")
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+	sortBy := c.DefaultQuery("sort_by", "created_at")
+	sortOrder := c.DefaultQuery("sort_order", "desc")
+
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 { // Batasi limit untuk public
+		limit = 10
+	}
+
+	var pemakaian []models.PemakaianSaldo
+	var total int64
+
+	// Build query - hanya ambil data yang diperlukan untuk public
+	query := ctrl.db.Select("id_pemakaian", "judul_pemakaian", "deskripsi", "nominal_syahriah", 
+		"nominal_donasi", "nominal_total", "tipe_pemakaian", "tanggal_pemakaian", "keterangan", 
+		"created_at", "updated_at")
+
+	// Apply filters
+	if tipePemakaian != "" {
+		query = query.Where("tipe_pemakaian = ?", tipePemakaian)
+	}
+	if startDate != "" {
+		start, err := time.Parse("2006-01-02", startDate)
+		if err == nil {
+			query = query.Where("DATE(created_at) >= ?", start.Format("2006-01-02"))
+		}
+	}
+	if endDate != "" {
+		end, err := time.Parse("2006-01-02", endDate)
+		if err == nil {
+			query = query.Where("DATE(created_at) <= ?", end.Format("2006-01-02"))
+		}
+	}
+
+	// Validate sort parameters
+	allowedSortFields := map[string]bool{
+		"created_at":        true,
+		"updated_at":        true,
+		"nominal_total":     true,
+		"judul_pemakaian":   true,
+		"tanggal_pemakaian": true,
+	}
+
+	sortField := sortBy
+	if !allowedSortFields[sortField] {
+		sortField = "created_at"
+	}
+
+	sortDirection := "DESC"
+	if sortOrder == "asc" {
+		sortDirection = "ASC"
+	}
+
+	orderClause := sortField + " " + sortDirection
+
+	// Hitung total records
+	if err := query.Model(&models.PemakaianSaldo{}).Count(&total).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung total data: " + err.Error()})
+		return
+	}
+
+	// Apply pagination
+	offset := (page - 1) * limit
+	err := query.Order(orderClause).
+		Offset(offset).
+		Limit(limit).
+		Find(&pemakaian).Error
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data pemakaian saldo: " + err.Error()})
+		return
+	}
+
+	// Format response untuk public (hilangkan field sensitif)
+	type PublicPemakaianResponse struct {
+		IDPemakaian      string                `json:"id_pemakaian"`
+		JudulPemakaian   string                `json:"judul_pemakaian"`
+		Deskripsi        string                `json:"deskripsi"`
+		NominalSyahriah  float64               `json:"nominal_syahriah"`
+		NominalDonasi    float64               `json:"nominal_donasi"`
+		NominalTotal     float64               `json:"nominal_total"`
+		TipePemakaian    models.TipePemakaian  `json:"tipe_pemakaian"`
+		TanggalPemakaian *string               `json:"tanggal_pemakaian,omitempty"`
+		Keterangan       *string               `json:"keterangan,omitempty"`
+		CreatedAt        time.Time             `json:"created_at"`
+		UpdatedAt        time.Time             `json:"updated_at"`
+	}
+
+	publicData := make([]PublicPemakaianResponse, len(pemakaian))
+	for i, p := range pemakaian {
+		var tanggalStr *string
+		if p.TanggalPemakaian != nil {
+			formatted := p.TanggalPemakaian.Format("2006-01-02")
+			tanggalStr = &formatted
+		}
+
+		publicData[i] = PublicPemakaianResponse{
+			IDPemakaian:      p.IDPemakaian,
+			JudulPemakaian:   p.JudulPemakaian,
+			Deskripsi:        p.Deskripsi,
+			NominalSyahriah:  p.NominalSyahriah,
+			NominalDonasi:    p.NominalDonasi,
+			NominalTotal:     p.NominalTotal,
+			TipePemakaian:    p.TipePemakaian,
+			TanggalPemakaian: tanggalStr,
+			Keterangan:       p.Keterangan,
+			CreatedAt:        p.CreatedAt,
+			UpdatedAt:        p.UpdatedAt,
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": publicData,
+		"meta": gin.H{
+			"page":       page,
+			"limit":      limit,
+			"total":      total,
+			"total_page": (int(total) + limit - 1) / limit,
+		},
+	})
+}
+
+// GetPemakaianSummaryPublic mendapatkan summary pemakaian saldo untuk public
+func (ctrl *PemakaianSaldoController) GetPemakaianSummaryPublic(c *gin.Context) {
+	// Parse query parameters
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+	tipePemakaian := c.Query("tipe_pemakaian")
+
+	var summary struct {
+		TotalNominal      float64 `json:"total_nominal"`
+		JumlahPemakaian   int64   `json:"jumlah_pemakaian"`
+		RataRata          float64 `json:"rata_rata"`
+		PemakaianTerbanyak float64 `json:"pemakaian_terbanyak"`
+		TotalSyahriah     float64 `json:"total_syahriah"`
+		TotalDonasi       float64 `json:"total_donasi"`
+	}
+
+	// Build query
+	query := ctrl.db.Model(&models.PemakaianSaldo{})
+
+	// Apply filters
+	if startDate != "" {
+		start, err := time.Parse("2006-01-02", startDate)
+		if err == nil {
+			query = query.Where("DATE(created_at) >= ?", start.Format("2006-01-02"))
+		}
+	}
+	if endDate != "" {
+		end, err := time.Parse("2006-01-02", endDate)
+		if err == nil {
+			query = query.Where("DATE(created_at) <= ?", end.Format("2006-01-02"))
+		}
+	}
+	if tipePemakaian != "" {
+		query = query.Where("tipe_pemakaian = ?", tipePemakaian)
+	}
+
+	// Hitung total nominal
+	if err := query.Select("COALESCE(SUM(nominal_total), 0)").Scan(&summary.TotalNominal).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung total nominal: " + err.Error()})
+		return
+	}
+
+	// Hitung jumlah pemakaian
+	if err := query.Count(&summary.JumlahPemakaian).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung jumlah pemakaian: " + err.Error()})
+		return
+	}
+
+	// Hitung rata-rata
+	if summary.JumlahPemakaian > 0 {
+		summary.RataRata = summary.TotalNominal / float64(summary.JumlahPemakaian)
+	}
+
+	// Hitung pemakaian terbanyak
+	var maxNominal float64
+	if err := query.Select("COALESCE(MAX(nominal_total), 0)").Scan(&maxNominal).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung pemakaian terbanyak: " + err.Error()})
+		return
+	}
+	summary.PemakaianTerbanyak = maxNominal
+
+	// Hitung total syahriah
+	var totalSyahriah float64
+	if err := query.Select("COALESCE(SUM(nominal_syahriah), 0)").Scan(&totalSyahriah).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung total syahriah: " + err.Error()})
+		return
+	}
+	summary.TotalSyahriah = totalSyahriah
+
+	// Hitung total donasi
+	var totalDonasi float64
+	if err := query.Select("COALESCE(SUM(nominal_donasi), 0)").Scan(&totalDonasi).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung total donasi: " + err.Error()})
+		return
+	}
+	summary.TotalDonasi = totalDonasi
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": summary,
+		"filter": gin.H{
+			"start_date":     startDate,
+			"end_date":       endDate,
+			"tipe_pemakaian": tipePemakaian,
+		},
+	})
+}
+
+// GetPemakaianByIDPublic mendapatkan pemakaian berdasarkan ID untuk public
+func (ctrl *PemakaianSaldoController) GetPemakaianByIDPublic(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID pemakaian diperlukan"})
+		return
+	}
+
+	var pemakaian models.PemakaianSaldo
+	err := ctrl.db.Select("id_pemakaian", "judul_pemakaian", "deskripsi", "nominal_syahriah", 
+		"nominal_donasi", "nominal_total", "tipe_pemakaian", "tanggal_pemakaian", "keterangan", 
+		"created_at", "updated_at").
+		Where("id_pemakaian = ?", id).
+		First(&pemakaian).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Data pemakaian saldo tidak ditemukan"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data pemakaian saldo: " + err.Error()})
+		return
+	}
+
+	// Format response untuk public
+	type PublicPemakaianResponse struct {
+		IDPemakaian      string                `json:"id_pemakaian"`
+		JudulPemakaian   string                `json:"judul_pemakaian"`
+		Deskripsi        string                `json:"deskripsi"`
+		NominalSyahriah  float64               `json:"nominal_syahriah"`
+		NominalDonasi    float64               `json:"nominal_donasi"`
+		NominalTotal     float64               `json:"nominal_total"`
+		TipePemakaian    models.TipePemakaian  `json:"tipe_pemakaian"`
+		TanggalPemakaian *string               `json:"tanggal_pemakaian,omitempty"`
+		Keterangan       *string               `json:"keterangan,omitempty"`
+		CreatedAt        time.Time             `json:"created_at"`
+		UpdatedAt        time.Time             `json:"updated_at"`
+	}
+
+	var tanggalStr *string
+	if pemakaian.TanggalPemakaian != nil {
+		formatted := pemakaian.TanggalPemakaian.Format("2006-01-02")
+		tanggalStr = &formatted
+	}
+
+	publicResponse := PublicPemakaianResponse{
+		IDPemakaian:      pemakaian.IDPemakaian,
+		JudulPemakaian:   pemakaian.JudulPemakaian,
+		Deskripsi:        pemakaian.Deskripsi,
+		NominalSyahriah:  pemakaian.NominalSyahriah,
+		NominalDonasi:    pemakaian.NominalDonasi,
+		NominalTotal:     pemakaian.NominalTotal,
+		TipePemakaian:    pemakaian.TipePemakaian,
+		TanggalPemakaian: tanggalStr,
+		Keterangan:       pemakaian.Keterangan,
+		CreatedAt:        pemakaian.CreatedAt,
+		UpdatedAt:        pemakaian.UpdatedAt,
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": publicResponse,
+	})
+}
+
+// GetPemakaianStatsPublic mendapatkan statistik pemakaian untuk public
+func (ctrl *PemakaianSaldoController) GetPemakaianStatsPublic(c *gin.Context) {
+	// Parse query parameters
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+
+	var stats struct {
+		TotalPemakaianOperasional float64 `json:"total_operasional"`
+		TotalPemakaianInvestasi   float64 `json:"total_investasi"`
+		TotalPemakaianLainnya     float64 `json:"total_lainnya"`
+		JumlahOperasional         int64   `json:"jumlah_operasional"`
+		JumlahInvestasi           int64   `json:"jumlah_investasi"`
+		JumlahLainnya             int64   `json:"jumlah_lainnya"`
+		TotalSemuaPemakaian       float64 `json:"total_semua_pemakaian"`
+		TotalSemuaTransaksi       int64   `json:"total_semua_transaksi"`
+	}
+
+	// Build base query
+	baseQuery := ctrl.db.Model(&models.PemakaianSaldo{})
+	
+	// Apply date filters
+	if startDate != "" {
+		start, err := time.Parse("2006-01-02", startDate)
+		if err == nil {
+			baseQuery = baseQuery.Where("DATE(created_at) >= ?", start.Format("2006-01-02"))
+		}
+	}
+	if endDate != "" {
+		end, err := time.Parse("2006-01-02", endDate)
+		if err == nil {
+			baseQuery = baseQuery.Where("DATE(created_at) <= ?", end.Format("2006-01-02"))
+		}
+	}
+
+	// Hitung total untuk setiap tipe pemakaian
+	var results []struct {
+		TipePemakaian string  `json:"tipe_pemakaian"`
+		TotalNominal  float64 `json:"total_nominal"`
+		Jumlah        int64   `json:"jumlah"`
+	}
+
+	err := baseQuery.Select("tipe_pemakaian, SUM(nominal_total) as total_nominal, COUNT(*) as jumlah").
+		Group("tipe_pemakaian").
+		Scan(&results).Error
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung statistik pemakaian: " + err.Error()})
+		return
+	}
+
+	// Map results ke struct stats
+	for _, result := range results {
+		switch result.TipePemakaian {
+		case string(models.PemakaianOperasional):
+			stats.TotalPemakaianOperasional = result.TotalNominal
+			stats.JumlahOperasional = result.Jumlah
+		case string(models.PemakaianInvestasi):
+			stats.TotalPemakaianInvestasi = result.TotalNominal
+			stats.JumlahInvestasi = result.Jumlah
+		case string(models.PemakaianLainnya):
+			stats.TotalPemakaianLainnya = result.TotalNominal
+			stats.JumlahLainnya = result.Jumlah
+		}
+	}
+
+	// Hitung total semua
+	stats.TotalSemuaPemakaian = stats.TotalPemakaianOperasional + stats.TotalPemakaianInvestasi + stats.TotalPemakaianLainnya
+	stats.TotalSemuaTransaksi = stats.JumlahOperasional + stats.JumlahInvestasi + stats.JumlahLainnya
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": stats,
+		"filter": gin.H{
+			"start_date": startDate,
+			"end_date":   endDate,
+		},
+	})
+}
