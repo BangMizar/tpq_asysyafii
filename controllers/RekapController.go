@@ -69,11 +69,47 @@ func (ctrl *RekapController) isAdmin(c *gin.Context) bool {
 	return role == "admin" || role == "super_admin"
 }
 
-// updateRekapSaldo - Internal function untuk update rekap otomatis
+// getSaldoAwalBulan - Mendapatkan saldo awal bulan dari saldo akhir bulan sebelumnya
+func (ctrl *RekapController) getSaldoAwalBulan(periode string) (float64, float64, float64, error) {
+	// Parse periode current
+	currentPeriod, err := time.Parse("2006-01", periode)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+
+	// Hitung periode sebelumnya
+	previousPeriod := currentPeriod.AddDate(0, -1, 0).Format("2006-01")
+
+	// Cari rekap bulan sebelumnya
+	var previousRekap models.RekapSaldo
+	err = ctrl.db.Where("periode = ?", previousPeriod).First(&previousRekap).Error
+	
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// Jika tidak ada data bulan sebelumnya, mulai dari 0
+			fmt.Printf("DEBUG: Tidak ditemukan rekap untuk periode sebelumnya %s, menggunakan saldo awal 0\n", previousPeriod)
+			return 0, 0, 0, nil
+		}
+		return 0, 0, 0, err
+	}
+
+	fmt.Printf("DEBUG: Saldo awal periode %s - Syahriah: %.2f, Donasi: %.2f, Total: %.2f\n", 
+		periode, previousRekap.SaldoAkhirSyahriah, previousRekap.SaldoAkhirDonasi, previousRekap.SaldoAkhirTotal)
+	
+	return previousRekap.SaldoAkhirSyahriah, previousRekap.SaldoAkhirDonasi, previousRekap.SaldoAkhirTotal, nil
+}
+
+// updateRekapSaldo - Internal function untuk update rekap otomatis dengan saldo berjalan
 func (ctrl *RekapController) updateRekapSaldo(periode string) error {
-	// Hitung pemasukan syahriah
+	// Dapatkan saldo awal dari bulan sebelumnya
+	saldoAwalSyahriah, saldoAwalDonasi, saldoAwalTotal, err := ctrl.getSaldoAwalBulan(periode)
+	if err != nil {
+		return err
+	}
+
+	// Hitung pemasukan syahriah bulan ini
 	var pemasukanSyahriah float64
-	err := ctrl.db.Model(&models.Syahriah{}).
+	err = ctrl.db.Model(&models.Syahriah{}).
 		Where("bulan = ? AND status = ?", periode, models.StatusLunas).
 		Select("COALESCE(SUM(nominal), 0)").
 		Scan(&pemasukanSyahriah).Error
@@ -81,10 +117,12 @@ func (ctrl *RekapController) updateRekapSaldo(periode string) error {
 		return err
 	}
 
-	// Debug log untuk troubleshooting
-	fmt.Printf("DEBUG: Rekap syahriah periode %s - Status lunas: %.2f\n", periode, pemasukanSyahriah)
+	// Hitung pengeluaran syahriah bulan ini (jika ada log pengeluaran)
+	var pengeluaranSyahriah float64
+	// TODO: Tambahkan logika untuk menghitung pengeluaran syahriah jika diperlukan
+	// Untuk sekarang di-set 0, bisa disesuaikan dengan kebutuhan
 
-	// Hitung pemasukan donasi
+	// Hitung pemasukan donasi bulan ini
 	var pemasukanDonasi float64
 	startDate, _ := time.Parse("2006-01", periode)
 	endDate := startDate.AddDate(0, 1, 0)
@@ -97,24 +135,29 @@ func (ctrl *RekapController) updateRekapSaldo(periode string) error {
 		return err
 	}
 
-	// Debug log untuk troubleshooting
-	fmt.Printf("DEBUG: Rekap donasi periode %s - Total: %.2f\n", periode, pemasukanDonasi)
+	// Hitung pengeluaran donasi bulan ini (jika ada log pengeluaran)
+	var pengeluaranDonasi float64
+	// TODO: Tambahkan logika untuk menghitung pengeluaran donasi jika diperlukan
 
-	// Hitung total
+	// Hitung saldo akhir dengan rumus: Saldo Awal + Pemasukan - Pengeluaran
+	saldoAkhirSyahriah := saldoAwalSyahriah + pemasukanSyahriah - pengeluaranSyahriah
+	saldoAkhirDonasi := saldoAwalDonasi + pemasukanDonasi - pengeluaranDonasi
+	
+	// Total
 	pemasukanTotal := pemasukanSyahriah + pemasukanDonasi
+	pengeluaranTotal := pengeluaranSyahriah + pengeluaranDonasi
+	saldoAkhirTotal := saldoAwalTotal + pemasukanTotal - pengeluaranTotal
 
 	// Debug log untuk troubleshooting
-	fmt.Printf("DEBUG: Rekap total periode %s - Syahriah: %.2f, Donasi: %.2f, Total: %.2f\n", 
-		periode, pemasukanSyahriah, pemasukanDonasi, pemasukanTotal)
-
-	// Untuk pengeluaran, bisa disesuaikan dengan kebutuhan
-	pengeluaranSyahriah := 0.0
-	pengeluaranDonasi := 0.0
-	pengeluaranTotal := 0.0
-
-	saldoAkhirSyahriah := pemasukanSyahriah - pengeluaranSyahriah
-	saldoAkhirDonasi := pemasukanDonasi - pengeluaranDonasi
-	saldoAkhirTotal := pemasukanTotal - pengeluaranTotal
+	fmt.Printf("DEBUG: Rekap periode %s\n", periode)
+	fmt.Printf("DEBUG: Saldo Awal - Syahriah: %.2f, Donasi: %.2f, Total: %.2f\n", 
+		saldoAwalSyahriah, saldoAwalDonasi, saldoAwalTotal)
+	fmt.Printf("DEBUG: Pemasukan - Syahriah: %.2f, Donasi: %.2f, Total: %.2f\n", 
+		pemasukanSyahriah, pemasukanDonasi, pemasukanTotal)
+	fmt.Printf("DEBUG: Pengeluaran - Syahriah: %.2f, Donasi: %.2f, Total: %.2f\n", 
+		pengeluaranSyahriah, pengeluaranDonasi, pengeluaranTotal)
+	fmt.Printf("DEBUG: Saldo Akhir - Syahriah: %.2f, Donasi: %.2f, Total: %.2f\n", 
+		saldoAkhirSyahriah, saldoAkhirDonasi, saldoAkhirTotal)
 
 	// Cek apakah sudah ada rekap untuk periode ini
 	var existingRekap models.RekapSaldo
@@ -152,11 +195,17 @@ func (ctrl *RekapController) updateRekapSaldo(periode string) error {
 	}
 }
 
-// updateRekapPemasukan - Update hanya bagian pemasukan saja
+// updateRekapPemasukan - Update hanya bagian pemasukan saja dengan saldo berjalan
 func (ctrl *RekapController) updateRekapPemasukan(periode string) error {
+	// Dapatkan saldo awal dari bulan sebelumnya
+	saldoAwalSyahriah, saldoAwalDonasi, saldoAwalTotal, err := ctrl.getSaldoAwalBulan(periode)
+	if err != nil {
+		return err
+	}
+
 	// Hitung pemasukan syahriah
 	var pemasukanSyahriah float64
-	err := ctrl.db.Model(&models.Syahriah{}).
+	err = ctrl.db.Model(&models.Syahriah{}).
 		Where("bulan = ? AND status = ?", periode, models.StatusLunas).
 		Select("COALESCE(SUM(nominal), 0)").
 		Scan(&pemasukanSyahriah).Error
@@ -180,15 +229,15 @@ func (ctrl *RekapController) updateRekapPemasukan(periode string) error {
 	// Hitung total
 	pemasukanTotal := pemasukanSyahriah + pemasukanDonasi
 
-	// Update HANYA pemasukan dan saldo akhir
+	// Update HANYA pemasukan dan saldo akhir dengan memperhitungkan saldo awal
 	var existingRekap models.RekapSaldo
 	if err := ctrl.db.Where("periode = ?", periode).First(&existingRekap).Error; err == nil {
 		existingRekap.PemasukanSyahriah = pemasukanSyahriah
-		existingRekap.SaldoAkhirSyahriah = pemasukanSyahriah - existingRekap.PengeluaranSyahriah
+		existingRekap.SaldoAkhirSyahriah = saldoAwalSyahriah + pemasukanSyahriah - existingRekap.PengeluaranSyahriah
 		existingRekap.PemasukanDonasi = pemasukanDonasi
-		existingRekap.SaldoAkhirDonasi = pemasukanDonasi - existingRekap.PengeluaranDonasi
+		existingRekap.SaldoAkhirDonasi = saldoAwalDonasi + pemasukanDonasi - existingRekap.PengeluaranDonasi
 		existingRekap.PemasukanTotal = pemasukanTotal
-		existingRekap.SaldoAkhirTotal = pemasukanTotal - existingRekap.PengeluaranTotal
+		existingRekap.SaldoAkhirTotal = saldoAwalTotal + pemasukanTotal - existingRekap.PengeluaranTotal
 		existingRekap.TerakhirUpdate = time.Now()
 		return ctrl.db.Save(&existingRekap).Error
 	}
@@ -199,13 +248,13 @@ func (ctrl *RekapController) updateRekapPemasukan(periode string) error {
 		Periode:            periode,
 		PemasukanSyahriah:  pemasukanSyahriah,
 		PengeluaranSyahriah: 0,
-		SaldoAkhirSyahriah: pemasukanSyahriah,
+		SaldoAkhirSyahriah: saldoAwalSyahriah + pemasukanSyahriah,
 		PemasukanDonasi:    pemasukanDonasi,
 		PengeluaranDonasi:  0,
-		SaldoAkhirDonasi:   pemasukanDonasi,
+		SaldoAkhirDonasi:   saldoAwalDonasi + pemasukanDonasi,
 		PemasukanTotal:     pemasukanTotal,
 		PengeluaranTotal:   0,
-		SaldoAkhirTotal:    pemasukanTotal,
+		SaldoAkhirTotal:    saldoAwalTotal + pemasukanTotal,
 		TerakhirUpdate:     time.Now(),
 	}
 	return ctrl.db.Create(&rekap).Error
@@ -215,6 +264,37 @@ func (ctrl *RekapController) updateRekapPemasukan(periode string) error {
 func (ctrl *RekapController) UpdateRekapOtomatis(transaksiTime time.Time) error {
 	periode := transaksiTime.Format("2006-01")
 	return ctrl.updateRekapPemasukan(periode)
+}
+
+// UpdateRekapBerantai - Update rekap untuk periode tertentu dan semua periode setelahnya
+func (ctrl *RekapController) UpdateRekapBerantai(startPeriode string) error {
+	// Parse start periode
+	start, err := time.Parse("2006-01", startPeriode)
+	if err != nil {
+		return err
+	}
+
+	// Dapatkan semua periode dari start periode hingga sekarang
+	currentTime := time.Now()
+	currentPeriod := currentTime.Format("2006-01")
+	
+	periods := []string{startPeriode}
+	
+	// Generate periode berikutnya sampai current period
+	next := start.AddDate(0, 1, 0)
+	for next.Format("2006-01") <= currentPeriod {
+		periods = append(periods, next.Format("2006-01"))
+		next = next.AddDate(0, 1, 0)
+	}
+
+	// Update setiap periode
+	for _, periode := range periods {
+		if err := ctrl.updateRekapSaldo(periode); err != nil {
+			return fmt.Errorf("gagal update rekap periode %s: %v", periode, err)
+		}
+	}
+
+	return nil
 }
 
 // CreateRekap membuat data rekap saldo baru (MANUAL - Admin Only)
@@ -295,6 +375,13 @@ func (ctrl *RekapController) CreateRekap(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat data rekap: " + err.Error()})
 		return
 	}
+
+	// Update rekap berantai untuk periode setelahnya
+	go func() {
+		if err := ctrl.UpdateRekapBerantai(req.Periode); err != nil {
+			fmt.Printf("WARNING: Gagal update rekap berantai: %v\n", err)
+		}
+	}()
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Data rekap berhasil dibuat",
@@ -382,6 +469,13 @@ func (ctrl *RekapController) UpdateRekap(c *gin.Context) {
 		return
 	}
 
+	// Update rekap berantai untuk periode setelahnya
+	go func() {
+		if err := ctrl.UpdateRekapBerantai(existingRekap.Periode); err != nil {
+			fmt.Printf("WARNING: Gagal update rekap berantai: %v\n", err)
+		}
+	}()
+
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Data rekap berhasil diupdate",
 		"data":    existingRekap,
@@ -414,11 +508,21 @@ func (ctrl *RekapController) DeleteRekap(c *gin.Context) {
 		return
 	}
 
+	// Simpan periode sebelum menghapus (untuk update berantai)
+	periode := rekap.Periode
+
 	// Hapus rekap
 	if err := ctrl.db.Where("id_saldo = ?", id).Delete(&models.RekapSaldo{}).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus data rekap: " + err.Error()})
 		return
 	}
+
+	// Update rekap berantai untuk periode setelahnya
+	go func() {
+		if err := ctrl.UpdateRekapBerantai(periode); err != nil {
+			fmt.Printf("WARNING: Gagal update rekap berantai: %v\n", err)
+		}
+	}()
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Data rekap berhasil dihapus",
@@ -712,8 +816,23 @@ func (ctrl *RekapController) SyncAllRekap(c *gin.Context) {
 		periodMap[p] = true
 	}
 	
-	// Update rekap untuk setiap periode
+	// Update rekap untuk setiap periode (dalam urutan kronologis)
+	var sortedPeriods []string
 	for periode := range periodMap {
+		sortedPeriods = append(sortedPeriods, periode)
+	}
+	
+	// Sort periods chronologically
+	for i := 0; i < len(sortedPeriods)-1; i++ {
+		for j := i + 1; j < len(sortedPeriods); j++ {
+			if sortedPeriods[i] > sortedPeriods[j] {
+				sortedPeriods[i], sortedPeriods[j] = sortedPeriods[j], sortedPeriods[i]
+			}
+		}
+	}
+	
+	// Update rekap untuk setiap periode secara berurutan
+	for _, periode := range sortedPeriods {
 		if err := ctrl.updateRekapSaldo(periode); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal sync rekap untuk periode " + periode + ": " + err.Error()})
 			return
@@ -723,7 +842,53 @@ func (ctrl *RekapController) SyncAllRekap(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Sync rekap berhasil",
 		"total_periode": len(periodMap),
-		"periods": periodMap,
+		"periods": sortedPeriods,
+	})
+}
+
+// InitializeFirstRekap - Inisialisasi rekap pertama (untuk setup awal)
+func (ctrl *RekapController) InitializeFirstRekap(c *gin.Context) {
+	// Hanya admin yang bisa inisialisasi
+	if !ctrl.isAdmin(c) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden: hanya admin yang dapat inisialisasi rekap"})
+		return
+	}
+
+	// Cek apakah sudah ada data rekap
+	var count int64
+	ctrl.db.Model(&models.RekapSaldo{}).Count(&count)
+	if count > 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Sudah ada data rekap, tidak perlu inisialisasi"})
+		return
+	}
+
+	// Buat rekap untuk bulan sebelumnya sebagai starting point
+	lastMonth := time.Now().AddDate(0, -1, 0)
+	periode := lastMonth.Format("2006-01")
+
+	rekap := models.RekapSaldo{
+		IDSaldo:            uuid.New().String(),
+		Periode:            periode,
+		PemasukanSyahriah:  0,
+		PengeluaranSyahriah: 0,
+		SaldoAkhirSyahriah: 0,
+		PemasukanDonasi:    0,
+		PengeluaranDonasi:  0,
+		SaldoAkhirDonasi:   0,
+		PemasukanTotal:     0,
+		PengeluaranTotal:   0,
+		SaldoAkhirTotal:    0,
+		TerakhirUpdate:     time.Now(),
+	}
+
+	if err := ctrl.db.Create(&rekap).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal inisialisasi rekap pertama: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Rekap pertama berhasil diinisialisasi",
+		"data":    rekap,
 	})
 }
 
@@ -773,4 +938,268 @@ func (ctrl *RekapController) updateRekapSaldoDenganPemasukan(periode string, pem
         periode, pemasukanSyahriah, pemasukanDonasi, pemasukanTotal)
     
     return ctrl.db.Save(&existingRekap).Error
+}
+
+// GetRekapPublic mendapatkan data rekap saldo untuk public (tanpa auth)
+func (ctrl *RekapController) GetRekapPublic(c *gin.Context) {
+	// Parse query parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	periode := c.Query("periode")
+	sortBy := c.DefaultQuery("sort_by", "periode")
+	sortOrder := c.DefaultQuery("sort_order", "desc")
+
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 { // Limit lebih kecil untuk public
+		limit = 10
+	}
+
+	var rekap []models.RekapSaldo
+	var total int64
+
+	// Build query - hanya ambil field yang diperlukan untuk public
+	query := ctrl.db.Model(&models.RekapSaldo{}).Select(
+		"periode", 
+		"pemasukan_syahriah",
+		"pengeluaran_syahriah", 
+		"saldo_akhir_syahriah",
+		"pemasukan_donasi",
+		"pengeluaran_donasi", 
+		"saldo_akhir_donasi",
+		"pemasukan_total",
+		"pengeluaran_total", 
+		"saldo_akhir_total",
+		"terakhir_update",
+	)
+
+	// Apply filters
+	if periode != "" {
+		query = query.Where("periode = ?", periode)
+	}
+
+	// Validate sort parameters - hanya field yang aman untuk public
+	allowedSortFields := map[string]bool{
+		"periode":           true,
+		"terakhir_update":   true,
+		"pemasukan_syahriah": true,
+		"pengeluaran_syahriah": true,
+		"saldo_akhir_syahriah": true,
+		"pemasukan_donasi":   true,
+		"pengeluaran_donasi": true,
+		"saldo_akhir_donasi": true,
+		"pemasukan_total":    true,
+		"pengeluaran_total":  true,
+		"saldo_akhir_total":  true,
+	}
+
+	sortField := sortBy
+	if !allowedSortFields[sortField] {
+		sortField = "periode"
+	}
+
+	sortDirection := "DESC"
+	if sortOrder == "asc" {
+		sortDirection = "ASC"
+	}
+
+	orderClause := sortField + " " + sortDirection
+
+	// Hitung total records
+	if err := query.Count(&total).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung total data"})
+		return
+	}
+
+	// Apply pagination
+	offset := (page - 1) * limit
+	err := query.Order(orderClause).
+		Offset(offset).
+		Limit(limit).
+		Find(&rekap).Error
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data rekap"})
+		return
+	}
+
+	// Response untuk public - tanpa informasi sensitif
+	c.JSON(http.StatusOK, gin.H{
+		"data": rekap,
+		"meta": gin.H{
+			"page":       page,
+			"limit":      limit,
+			"total":      total,
+			"total_page": (int(total) + limit - 1) / limit,
+		},
+	})
+}
+
+// GetLatestRekapPublic mendapatkan rekap terbaru untuk public
+func (ctrl *RekapController) GetLatestRekapPublic(c *gin.Context) {
+	var latestRekap models.RekapSaldo
+
+	// Query untuk mendapatkan rekap terbaru - hanya field yang diperlukan
+	err := ctrl.db.Select(
+		"periode", 
+		"pemasukan_syahriah",
+		"pengeluaran_syahriah", 
+		"saldo_akhir_syahriah",
+		"pemasukan_donasi",
+		"pengeluaran_donasi", 
+		"saldo_akhir_donasi",
+		"pemasukan_total",
+		"pengeluaran_total", 
+		"saldo_akhir_total",
+		"terakhir_update",
+	).Order("periode DESC").First(&latestRekap).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Data rekap tidak ditemukan"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data rekap terbaru"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": latestRekap,
+	})
+}
+
+// GetRekapSummaryPublic mendapatkan summary rekap saldo untuk public
+func (ctrl *RekapController) GetRekapSummaryPublic(c *gin.Context) {
+	// Parse query parameters
+	startPeriod := c.Query("start_period")
+	endPeriod := c.Query("end_period")
+
+	var rekap []models.RekapSaldo
+	var summary RekapSummary
+
+	// Build query - hanya field yang diperlukan
+	query := ctrl.db.Model(&models.RekapSaldo{}).Select(
+		"periode", 
+		"pemasukan_syahriah",
+		"pengeluaran_syahriah", 
+		"saldo_akhir_syahriah",
+		"pemasukan_donasi",
+		"pengeluaran_donasi", 
+		"saldo_akhir_donasi",
+		"pemasukan_total",
+		"pengeluaran_total", 
+		"saldo_akhir_total",
+	)
+
+	// Apply filters
+	if startPeriod != "" {
+		query = query.Where("periode >= ?", startPeriod)
+	}
+	if endPeriod != "" {
+		query = query.Where("periode <= ?", endPeriod)
+	}
+
+	// Eksekusi query
+	err := query.Find(&rekap).Error
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data rekap"})
+		return
+	}
+
+	// Hitung summary
+	for _, r := range rekap {
+		summary.TotalPemasukanSyahriah += r.PemasukanSyahriah
+		summary.TotalPengeluaranSyahriah += r.PengeluaranSyahriah
+		summary.TotalPemasukanDonasi += r.PemasukanDonasi
+		summary.TotalPengeluaranDonasi += r.PengeluaranDonasi
+		summary.TotalPemasukan += r.PemasukanTotal
+		summary.TotalPengeluaran += r.PengeluaranTotal
+	}
+
+	// Saldo akhir diambil dari record terbaru jika ada
+	if len(rekap) > 0 {
+		// Urutkan berdasarkan periode descending untuk mendapatkan yang terbaru
+		latest := rekap[0]
+		for _, r := range rekap {
+			if r.Periode > latest.Periode {
+				latest = r
+			}
+		}
+		summary.SaldoAkhirSyahriah = latest.SaldoAkhirSyahriah
+		summary.SaldoAkhirDonasi = latest.SaldoAkhirDonasi
+		summary.SaldoAkhir = latest.SaldoAkhirTotal
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": summary,
+		"meta": gin.H{
+			"total_records": len(rekap),
+			"start_period":  startPeriod,
+			"end_period":    endPeriod,
+		},
+	})
+}
+
+// GetRekapByPeriodePublic mendapatkan rekap berdasarkan periode untuk public
+func (ctrl *RekapController) GetRekapByPeriodePublic(c *gin.Context) {
+	periode := c.Query("periode")
+
+	if periode == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "periode diperlukan"})
+		return
+	}
+
+	var rekap models.RekapSaldo
+	
+	// Query dengan hanya field yang diperlukan untuk public
+	err := ctrl.db.Select(
+		"periode", 
+		"pemasukan_syahriah",
+		"pengeluaran_syahriah", 
+		"saldo_akhir_syahriah",
+		"pemasukan_donasi",
+		"pengeluaran_donasi", 
+		"saldo_akhir_donasi",
+		"pemasukan_total",
+		"pengeluaran_total", 
+		"saldo_akhir_total",
+		"terakhir_update",
+	).Where("periode = ?", periode).First(&rekap).Error
+	
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Data rekap tidak ditemukan"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data rekap"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": rekap,
+	})
+}
+
+// GetRekapPeriodsPublic mendapatkan daftar periode yang tersedia untuk public
+func (ctrl *RekapController) GetRekapPeriodsPublic(c *gin.Context) {
+	var periods []string
+
+	// Ambil semua periode yang tersedia
+	err := ctrl.db.Model(&models.RekapSaldo{}).
+		Distinct("periode").
+		Order("periode DESC").
+		Pluck("periode", &periods).Error
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil daftar periode"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": periods,
+		"meta": gin.H{
+			"total_periods": len(periods),
+		},
+	})
 }

@@ -23,20 +23,20 @@ const DataKeuangan = () => {
   const [alertMessage, setAlertMessage] = useState({ title: '', message: '', type: '' });
   
   // State untuk modal CRUD pemakaian
-const [showPemakaianModal, setShowPemakaianModal] = useState(false);
-const [modalMode, setModalMode] = useState('create'); // 'create' or 'edit'
-const [selectedPemakaian, setSelectedPemakaian] = useState(null);
-const [formData, setFormData] = useState({
-  judul_pemakaian: '',
-  deskripsi: '',
-  nominal_syahriah: '',
-  nominal_donasi: '',
-  nominal_total: '',
-  tipe_pemakaian: 'operasional',
-  tanggal_pemakaian: new Date().toISOString().split('T')[0],
-  keterangan: ''
-});
-const [formLoading, setFormLoading] = useState(false);
+  const [showPemakaianModal, setShowPemakaianModal] = useState(false);
+  const [modalMode, setModalMode] = useState('create'); // 'create' or 'edit'
+  const [selectedPemakaian, setSelectedPemakaian] = useState(null);
+  const [formData, setFormData] = useState({
+    judul_pemakaian: '',
+    deskripsi: '',
+    nominal_syahriah: '',
+    nominal_donasi: '',
+    nominal_total: '',
+    tipe_pemakaian: 'operasional',
+    tanggal_pemakaian: new Date().toISOString().split('T')[0],
+    keterangan: ''
+  });
+  const [formLoading, setFormLoading] = useState(false);
 
   // State untuk export
   const [exportLoading, setExportLoading] = useState(false);
@@ -111,8 +111,8 @@ const [formLoading, setFormLoading] = useState(false);
       const periods = [...new Set(rekapAllResult.data.map(item => item.periode))].sort().reverse();
       setAvailablePeriods(periods);
 
-      // Calculate summary data untuk admin
-      calculateSummary(rekapAllResult.data, pemakaianResult.data, donasiResult.data, syahriahResult.data);
+      // Calculate summary data dari tabel rekap saja
+      calculateSummaryFromRekap(rekapAllResult.data);
 
     } catch (err) {
       console.error('Error loading data:', err);
@@ -123,67 +123,82 @@ const [formLoading, setFormLoading] = useState(false);
     }
   };
 
-  const calculateSummary = (rekapData, pemakaianData, donasiData, syahriahData) => {
+  // PERBAIKAN: Hitung summary hanya dari data rekap saldo
+  const calculateSummaryFromRekap = (rekapData) => {
+    if (!rekapData || rekapData.length === 0) {
+      setSummaryData({
+        totalPemasukan: 0,
+        totalPengeluaran: 0,
+        saldoAkhir: 0,
+        totalDonasi: 0,
+        totalSyahriah: 0,
+        saldoSyahriah: 0,
+        saldoDonasi: 0
+      });
+      return;
+    }
+
     // Filter data berdasarkan periode yang dipilih
-    const currentPeriod = selectedPeriod === 'semua' ? null : selectedPeriod;
-    
-    // Filter donasi data berdasarkan periode
-    const filteredDonasi = currentPeriod
-      ? donasiData.filter(item => {
-          const itemPeriod = new Date(item.waktu_catat).toISOString().slice(0, 7);
-          return itemPeriod === currentPeriod;
-        })
-      : donasiData;
-  
-    // Filter syahriah data berdasarkan periode dan HANYA status 'lunas'
-    const filteredSyahriah = currentPeriod
-      ? syahriahData.filter(item => {
-          // Format bulan: "2025-10" -> cocok dengan format periode "2025-10"
-          // HANYA hitung yang statusnya 'lunas'
-          return item.bulan === currentPeriod && item.status === 'lunas';
-        })
-      : syahriahData.filter(item => item.status === 'lunas'); // Filter hanya yang lunas untuk semua periode
-  
-    // Filter pemakaian data berdasarkan periode
-    const filteredPemakaian = currentPeriod
-      ? pemakaianData.filter(item => {
-          const itemPeriod = item.tanggal_pemakaian 
-            ? new Date(item.tanggal_pemakaian).toISOString().slice(0, 7)
-            : new Date(item.created_at).toISOString().slice(0, 7);
-          return itemPeriod === currentPeriod;
-        })
-      : pemakaianData;
-  
-    // Total Donasi: Sum dari semua donasi dalam periode yang dipilih
-    const totalDonasi = filteredDonasi.reduce((sum, item) => sum + (item.nominal || 0), 0);
-  
-    // Total Syahriah: Sum dari semua syahriah dalam periode yang dipilih (HANYA yang lunas)
-    const totalSyahriah = filteredSyahriah.reduce((sum, item) => sum + (item.nominal || 0), 0);
-  
-    // Total Pemasukan: Total Donasi + Total Syahriah
-    const totalPemasukan = totalDonasi + totalSyahriah;
-  
-    // PERBAIKAN: Total Pengeluaran menggunakan nominal_total (bukan nominal)
-    const totalPengeluaran = filteredPemakaian.reduce((sum, item) => sum + (item.nominal_total || 0), 0);
-  
-    // Saldo Akhir: Total Pemasukan - Total Pengeluaran
-    const saldoAkhir = totalPemasukan - totalPengeluaran;
-  
-    setSummaryData({
-      totalPemasukan,
-      totalPengeluaran,
-      saldoAkhir,
-      totalDonasi,
-      totalSyahriah
-    });
+    const filteredRekap = selectedPeriod === 'semua' 
+      ? rekapData 
+      : rekapData.filter(item => item.periode === selectedPeriod);
+
+    if (filteredRekap.length === 0) {
+      // Jika tidak ada data untuk periode tertentu, gunakan data terbaru
+      const latestRekap = rekapData[0]; // Data sudah diurutkan descending
+      setSummaryData({
+        totalPemasukan: latestRekap.pemasukan_total || 0,
+        totalPengeluaran: latestRekap.pengeluaran_total || 0,
+        saldoAkhir: latestRekap.saldo_akhir_total || 0,
+        totalDonasi: latestRekap.pemasukan_donasi || 0,
+        totalSyahriah: latestRekap.pemasukan_syahriah || 0,
+        saldoSyahriah: latestRekap.saldo_akhir_syahriah || 0,
+        saldoDonasi: latestRekap.saldo_akhir_donasi || 0
+      });
+      return;
+    }
+
+    if (selectedPeriod === 'semua') {
+      // Untuk semua periode, hitung kumulatif
+      const totalPemasukan = filteredRekap.reduce((sum, item) => sum + (item.pemasukan_total || 0), 0);
+      const totalPengeluaran = filteredRekap.reduce((sum, item) => sum + (item.pengeluaran_total || 0), 0);
+      const totalDonasi = filteredRekap.reduce((sum, item) => sum + (item.pemasukan_donasi || 0), 0);
+      const totalSyahriah = filteredRekap.reduce((sum, item) => sum + (item.pemasukan_syahriah || 0), 0);
+      
+      // Untuk saldo akhir, ambil dari data terbaru
+      const latestRekap = filteredRekap[0]; // Data sudah diurutkan descending
+      
+      setSummaryData({
+        totalPemasukan,
+        totalPengeluaran,
+        saldoAkhir: latestRekap.saldo_akhir_total || 0,
+        totalDonasi,
+        totalSyahriah,
+        saldoSyahriah: latestRekap.saldo_akhir_syahriah || 0,
+        saldoDonasi: latestRekap.saldo_akhir_donasi || 0
+      });
+    } else {
+      // Untuk periode tertentu, ambil data dari rekap periode tersebut
+      const currentRekap = filteredRekap[0]; // Hanya ada satu rekap per periode
+      
+      setSummaryData({
+        totalPemasukan: currentRekap.pemasukan_total || 0,
+        totalPengeluaran: currentRekap.pengeluaran_total || 0,
+        saldoAkhir: currentRekap.saldo_akhir_total || 0,
+        totalDonasi: currentRekap.pemasukan_donasi || 0,
+        totalSyahriah: currentRekap.pemasukan_syahriah || 0,
+        saldoSyahriah: currentRekap.saldo_akhir_syahriah || 0,
+        saldoDonasi: currentRekap.saldo_akhir_donasi || 0
+      });
+    }
   };
 
   // Recalculate summary ketika periode berubah
   useEffect(() => {
-    if (rekapData.length > 0 && pemakaianData.length > 0 && donasiData.length > 0 && syahriahData.length > 0) {
-      calculateSummary(rekapData, pemakaianData, donasiData, syahriahData);
+    if (rekapData.length > 0) {
+      calculateSummaryFromRekap(rekapData);
     }
-  }, [selectedPeriod, rekapData, pemakaianData, donasiData, syahriahData]);
+  }, [selectedPeriod, rekapData]);
 
   // ========== FORMAT CURRENCY IMPROVED ==========
   const formatCurrency = (amount) => {
@@ -265,8 +280,8 @@ const [formLoading, setFormLoading] = useState(false);
         ['Total Pemasukan', summaryData?.totalPemasukan || 0, '', '', '', ''],
         ['Total Pengeluaran', summaryData?.totalPengeluaran || 0, '', '', '', ''],
         ['Saldo Akhir', summaryData?.saldoAkhir || 0, '', '', '', ''],
-        ['Total Donasi', summaryData?.totalDonasi || 0, '', '', '', ''],
-        ['Total Syahriah', summaryData?.totalSyahriah || 0, '', '', '', ''],
+        ['Saldo Donasi', summaryData?.saldoDonasi || 0, '', '', '', ''],
+        ['Saldo Syahriah', summaryData?.saldoSyahriah || 0, '', '', '', ''],
         ['', '', '', '', '', ''],
         ['RINCIAN PER KATEGORI', '', '', '', '', '']
       ];
@@ -436,8 +451,8 @@ const exportToCSV = async () => {
       `Total Pemasukan,${summaryData?.totalPemasukan || 0}`,
       `Total Pengeluaran,${summaryData?.totalPengeluaran || 0}`,
       `Saldo Akhir,${summaryData?.saldoAkhir || 0}`,
-      `Total Donasi,${summaryData?.totalDonasi || 0}`,
-      `Total Syahriah,${summaryData?.totalSyahriah || 0}`,
+      `Saldo Donasi,${summaryData?.saldoDonasi || 0}`,
+      `Saldo Syahriah,${summaryData?.saldoSyahriah || 0}`,
       ''
     ];
 
@@ -730,12 +745,12 @@ if (syahriahData.length > 0) {
                   <div class="summary-value currency">${formatCurrency(summaryData?.saldoAkhir || 0)}</div>
                 </div>
                 <div class="summary-item">
-                  <div class="summary-label">Total Donasi:</div>
-                  <div class="summary-value currency positive">${formatCurrency(summaryData?.totalDonasi || 0)}</div>
+                  <div class="summary-label">Saldo Donasi:</div>
+                  <div class="summary-value currency positive">${formatCurrency(summaryData?.saldoDonasi || 0)}</div>
                 </div>
                 <div class="summary-item">
-                  <div class="summary-label">Total Syahriah:</div>
-                  <div class="summary-value currency positive">${formatCurrency(summaryData?.totalSyahriah || 0)}</div>
+                  <div class="summary-label">Saldo Syahriah:</div>
+                  <div class="summary-value currency positive">${formatCurrency(summaryData?.saldoSyahriah || 0)}</div>
                 </div>
               </div>
             </div>
@@ -1366,7 +1381,7 @@ if (syahriahData.length > 0) {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Saldo Donasi</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pemasukan Total</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pengeluaran Total</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Saldo Total</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Saldo Akhir</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Update Terakhir</th>
                   </tr>
                 </thead>
@@ -1560,111 +1575,109 @@ if (syahriahData.length > 0) {
           </div>
         );
 
-      // ========== BAGIAN TAB SYAHRIAH YANG DIPERBAIKI ==========
-case 'syahriah':
-  return (
-    <div className="overflow-x-auto">
-      {filteredSyahriah.length === 0 ? (
-        <div className="text-center py-8">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Pemasukan Syahriah</h3>
-          <p className="text-green-600">Data pemasukan syahriah akan muncul setelah ada pembayaran syahriah</p>
-        </div>
-      ) : (
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Santri</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Wali</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bulan</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jumlah</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal Bayar</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dicatat Oleh</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {filteredSyahriah.map((item, index) => (
-              <tr key={index} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {item.santri?.nama_lengkap || 'N/A'}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {item.santri?.wali?.nama_lengkap || '-'}
-                  {item.santri?.wali?.email && (
-                    <div className="text-xs text-gray-400 mt-1">
-                      {item.santri.wali.email}
-                    </div>
-                  )}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {formatPeriod(item.bulan)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-                  {formatCurrency(item.nominal)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {item.status === 'lunas' ? formatDateTime(item.waktu_catat) : '-'}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                    item.status === 'lunas' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {item.status === 'lunas' ? 'Lunas' : 'Belum Bayar'}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {item.admin?.nama_lengkap || 'Admin'}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
-  );   
-      default:
-        return null;
-    }
-  };
+        case 'syahriah':
+          return (
+            <div className="overflow-x-auto">
+              {filteredSyahriah.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Pemasukan Syahriah</h3>
+                  <p className="text-green-600">Data pemasukan syahriah akan muncul setelah ada pembayaran syahriah</p>
+                </div>
+              ) : (
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Santri</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Wali</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bulan</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jumlah</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal Bayar</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dicatat Oleh</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredSyahriah.map((item, index) => (
+                      <tr key={index} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {item.santri?.nama_lengkap || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {item.santri?.wali?.nama_lengkap || '-'}
+                          {item.santri?.wali?.email && (
+                            <div className="text-xs text-gray-400 mt-1">
+                              {item.santri.wali.email}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formatPeriod(item.bulan)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                          {formatCurrency(item.nominal)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {item.status === 'lunas' ? formatDateTime(item.waktu_catat) : '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            item.status === 'lunas' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {item.status === 'lunas' ? 'Lunas' : 'Belum Bayar'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {item.admin?.nama_lengkap || 'Admin'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          );   
+              default:
+                return null;
+            }
+          };
 
   return (
     <AuthDashboardLayout title="Data Keuangan - Admin">
-      {/* Statistics dengan format singkatan untuk nominal besar (hanya di atas miliar) */}
+      {/* Statistics dengan data dari rekap saldo */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
-
-        {/* Total Donasi */}
-        <div className="bg-white border border-purple-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center">
-            <div className="bg-purple-500 w-12 h-12 rounded-xl flex items-center justify-center">
-              <span className="text-white">{icons.money}</span>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-purple-600">Total Donasi</p>
-              <p className="text-2xl font-bold text-purple-900">
-                {formatCurrencyShort(summaryData?.totalDonasi || 0, 1000000000)}
-              </p>
-              <p className="text-xs text-purple-500 mt-1">{getCurrentPeriodText()}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Total Syahriah */}
+        {/* Saldo Syahriah */}
         <div className="bg-white border border-orange-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center">
             <div className="bg-orange-500 w-12 h-12 rounded-xl flex items-center justify-center">
               <span className="text-white">{icons.money}</span>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-orange-600">Total Syahriah</p>
+              <p className="text-sm font-medium text-orange-600">Saldo Syahriah</p>
               <p className="text-2xl font-bold text-orange-900">
-                {formatCurrencyShort(summaryData?.totalSyahriah || 0, 1000000000)}
+                {formatCurrencyShort(summaryData?.saldoSyahriah || 0, 1000000000)}
               </p>
               <p className="text-xs text-orange-500 mt-1">{getCurrentPeriodText()}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Saldo Donasi */}
+        <div className="bg-white border border-purple-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center">
+            <div className="bg-purple-500 w-12 h-12 rounded-xl flex items-center justify-center">
+              <span className="text-white">{icons.money}</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-purple-600">Saldo Donasi</p>
+              <p className="text-2xl font-bold text-purple-900">
+                {formatCurrencyShort(summaryData?.saldoDonasi || 0, 1000000000)}
+              </p>
+              <p className="text-xs text-purple-500 mt-1">{getCurrentPeriodText()}</p>
             </div>
           </div>
         </div>
@@ -1676,7 +1689,7 @@ case 'syahriah':
               <span className="text-white">{icons.money}</span>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-green-600">Total Pemasukan (Donasi + Syahriah)</p>
+              <p className="text-sm font-medium text-green-600">Total Pemasukan</p>
               <p className="text-2xl font-bold text-green-900">
                 {formatCurrencyShort(summaryData?.totalPemasukan || 0, 1000000000)}
               </p>
@@ -1708,7 +1721,7 @@ case 'syahriah':
               <span className="text-white">{icons.money}</span>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-blue-600">Saldo Saat ini <span className='size'>(Pemasukan - Pengeluaran)</span></p>
+              <p className="text-sm font-medium text-blue-600">Saldo Akhir</p>
               <p className="text-2xl font-bold text-blue-900">
                 {formatCurrencyShort(summaryData?.saldoAkhir || 0, 1000000000)}
               </p>

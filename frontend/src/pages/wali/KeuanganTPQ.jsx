@@ -321,7 +321,7 @@ const KeuanganTPQ = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Saldo Donasi</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Pemasukan Total</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Pengeluaran Total</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Saldo Total</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Saldo Akhir</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Update Terakhir</th>
                   </tr>
                 </thead>
@@ -491,82 +491,76 @@ const KeuanganTPQ = () => {
           </div>
         );
 
-      case 'syahriah':
-        return (
-          <div className="overflow-x-auto">
-            {filteredSyahriah.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+        case 'syahriah':
+          return (
+            <div className="overflow-x-auto">
+              {filteredSyahriah.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Pemasukan Syahriah</h3>
+                  <p className="text-green-600">Data pemasukan syahriah akan muncul setelah ada pembayaran syahriah</p>
                 </div>
-                <h3 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Pemasukan Syahriah</h3>
-                <p className="text-green-600">Data pemasukan syahriah akan muncul setelah ada pembayaran syahriah</p>
-              </div>
-            ) : (
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-green-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Tanggal Bayar</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Wali</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Email</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">No. Telp</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Bulan</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Jumlah</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Dicatat Oleh</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-green-100">
-                  {filteredSyahriah.map((item, index) => (
-                    <tr key={index} className="hover:bg-green-50 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDateTime(item.waktu_catat)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        <div className="flex items-center">
-                          {item.wali?.nama_lengkap || '-'}
-                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            Anda
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {item.wali?.email || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {item.wali?.no_telp || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatPeriod(item.bulan)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-                        {formatCurrency(item.nominal)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          item.status === 'lunas' ? 'bg-green-100 text-green-800' :
-                          'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {item.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {item.admin?.nama_lengkap || 'Admin'}
-                      </td>
+              ) : (
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Santri</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Wali</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bulan</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jumlah</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal Bayar</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dicatat Oleh</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        );        
-        
-      default:
-        return null;
-    }
-  };
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredSyahriah.map((item, index) => (
+                      <tr key={index} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {item.santri?.nama_lengkap || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {item.santri?.wali?.nama_lengkap || '-'}
+                          {item.santri?.wali?.email && (
+                            <div className="text-xs text-gray-400 mt-1">
+                              {item.santri.wali.email}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formatPeriod(item.bulan)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                          {formatCurrency(item.nominal)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {item.status === 'lunas' ? formatDateTime(item.waktu_catat) : '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            item.status === 'lunas' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {item.status === 'lunas' ? 'Lunas' : 'Belum Bayar'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {item.admin?.nama_lengkap || 'Admin'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          );   
+              default:
+                return null;
+            }
+          };
 
   // Loading state
   if (loading) {
@@ -738,7 +732,7 @@ const KeuanganTPQ = () => {
               </svg>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-blue-600">Saldo Akhir</p>
+              <p className="text-sm font-medium text-blue-600">Saldo TPQ saat ini</p>
               <p className="text-xl font-bold text-blue-900">
                 {formatCurrencyShort(summaryData?.saldoAkhir || 0)}
               </p>
