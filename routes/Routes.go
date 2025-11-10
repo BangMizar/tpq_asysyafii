@@ -24,6 +24,13 @@ func SetupRoutes(r *gin.Engine) {
 		api.GET("/pengeluaran-public/stats", pemakaianController.GetPemakaianStatsPublic)
 		api.GET("/pengeluaran-public/:id", pemakaianController.GetPemakaianByIDPublic)
 
+		rekapController := controllers.NewRekapController(config.DB)
+		api.GET("/rekap-public", rekapController.GetRekapPublic)
+		api.GET("/rekap-public/latest", rekapController.GetLatestRekapPublic)
+		api.GET("/rekap-public/summary", rekapController.GetRekapSummaryPublic)
+		api.GET("/rekap-public/period", rekapController.GetRekapByPeriodePublic)
+		api.GET("/rekap-public/periods", rekapController.GetRekapPeriodsPublic)
+
 		beritaController := controllers.NewBeritaController(config.DB)
 		api.GET("/berita", beritaController.GetBeritaPublic)
 		api.GET("/berita/:slug", beritaController.GetBeritaBySlug)

@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 const DonasiPage = () => {
   const [donasi, setDonasi] = useState([])
   const [pengeluaran, setPengeluaran] = useState([])
+  const [rekapData, setRekapData] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [totalDonasi, setTotalDonasi] = useState(0)
@@ -25,7 +26,10 @@ const DonasiPage = () => {
     
     // Format ke YYYY-MM-DD untuk input date
     const formatDate = (date) => {
-      return date.toISOString().split('T')[0]
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
     }
     
     return {
@@ -40,6 +44,26 @@ const DonasiPage = () => {
     setStartDate(currentMonth.start)
     setEndDate(currentMonth.end)
   }, [])
+
+  // PERBAIKAN: Ambil data rekap saldo untuk mendapatkan saldo donasi terbaru
+  const fetchRekapData = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/rekap-public?limit=1&sort_by=periode&sort_order=desc`)
+      if (!response.ok) throw new Error('Gagal memuat data rekap')
+      
+      const result = await response.json()
+      setRekapData(result.data || [])
+      
+      // Ambil saldo donasi terbaru dari rekap
+      if (result.data && result.data.length > 0) {
+        const latestRekap = result.data[0]
+        setSaldoAkhir(latestRekap.saldo_akhir_donasi || 0)
+      }
+    } catch (err) {
+      console.error('Error fetching rekap data:', err)
+      // Fallback: tetap gunakan perhitungan manual jika gagal
+    }
+  }
 
   // Fetch data donasi dan pengeluaran dari API public
   useEffect(() => {
@@ -101,7 +125,7 @@ const DonasiPage = () => {
         
         setTotalPages(donasiData.meta?.total_page || 1)
         
-        // Hitung saldo secara manual - hanya gunakan dana donasi
+        // Hitung total donasi dan pengeluaran untuk periode yang dipilih
         const totalDonasi = donasiSummaryData.data?.total_nominal || donasiSummaryData.total_nominal || 0
         
         // Untuk pengeluaran, gunakan total_donasi dari summary jika ada, jika tidak hitung manual
@@ -112,12 +136,12 @@ const DonasiPage = () => {
           // Hitung manual dari data yang sudah difilter
           totalPengeluaranDonasi = filteredPengeluaran.reduce((sum, item) => sum + (item.nominal_donasi || 0), 0)
         }
-        
-        const saldoAkhir = totalDonasi - totalPengeluaranDonasi
 
         setTotalDonasi(totalDonasi)
         setTotalPengeluaran(totalPengeluaranDonasi)
-        setSaldoAkhir(saldoAkhir)
+
+        // PERBAIKAN: Ambil data rekap untuk saldo donasi terbaru
+        await fetchRekapData()
 
       } catch (err) {
         setError(`Gagal memuat data: ${err.message}`)
@@ -637,8 +661,9 @@ const DonasiPage = () => {
               <div className="bg-gradient-to-r from-emerald-600 to-green-600 rounded-xl p-4 text-white shadow-lg">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-white text-xs font-medium mb-1">Total Donasi</p>
+                    <p className="text-white text-xs font-medium mb-1">Total Donasi Masuk</p>
                     <p className="text-lg font-bold text-white">{formatCurrencyShort(totalDonasi)}</p>
+                    <p className="text-emerald-200 text-xs mt-1">Periode Terfilter</p>
                   </div>
                   <div className="text-emerald-200">
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -664,13 +689,13 @@ const DonasiPage = () => {
                 </div>
               </div>
 
-              {/* Saldo Akhir Card */}
+              {/* PERBAIKAN: Saldo Akhir Card - Mengambil dari saldo donasi terbaru */}
               <div className="bg-gradient-to-r from-blue-500 to-cyan-600 rounded-xl p-4 text-white shadow-lg">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-white text-xs font-medium mb-1">Saldo Akhir</p>
                     <p className="text-lg font-bold text-white">{formatCurrencyShort(saldoAkhir)}</p>
-                    <p className="text-cyan-200 text-xs mt-1">Dana Donasi Tersedia</p>
+                    <p className="text-cyan-200 text-xs mt-1">Saldo Donasi Saat Ini</p>
                   </div>
                   <div className="text-cyan-200">
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -930,11 +955,13 @@ const DonasiPage = () => {
                   <p className="text-sm text-blue-800">
                     <strong>Informasi Transparansi:</strong> 
                     <br />
-                    • Total Donasi: {formatCurrency(totalDonasi)}
+                    • Total Donasi (Periode Terfilter): {formatCurrency(totalDonasi)}
                     <br />
-                    • Total Pengeluaran dari Dana Donasi: {formatCurrency(totalPengeluaran)}
+                    • Total Pengeluaran dari Dana Donasi (Periode Terfilter): {formatCurrency(totalPengeluaran)}
                     <br />
-                    • Saldo Akhir Dana Donasi: {formatCurrency(saldoAkhir)}
+                    • <strong>Saldo Akhir Dana Donasi Saat Ini: {formatCurrency(saldoAkhir)}</strong>
+                    <br />
+                    • Saldo akhir diambil dari saldo donasi terbaru di sistem
                     <br />
                     • Pengeluaran hanya menggunakan dana donasi yang telah terkumpul
                     <br />

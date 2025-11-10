@@ -25,8 +25,8 @@ func NewPemakaianSaldoController(db *gorm.DB) *PemakaianSaldoController {
 type CreatePemakaianRequest struct {
 	JudulPemakaian   string                `json:"judul_pemakaian" binding:"required"`
 	Deskripsi        string                `json:"deskripsi" binding:"required"`
-	NominalSyahriah  float64               `json:"nominal_syahriah" binding:"required,min=0"`
-	NominalDonasi    float64               `json:"nominal_donasi" binding:"required,min=0"`
+	NominalSyahriah  float64               `json:"nominal_syahriah"`
+	NominalDonasi    float64               `json:"nominal_donasi"`
 	TipePemakaian    models.TipePemakaian  `json:"tipe_pemakaian" binding:"required"`
 	TanggalPemakaian *string               `json:"tanggal_pemakaian"`
 	Keterangan       *string               `json:"keterangan"`
